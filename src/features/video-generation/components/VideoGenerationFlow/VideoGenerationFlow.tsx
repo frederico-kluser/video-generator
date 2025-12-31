@@ -141,9 +141,6 @@ export function VideoGenerationFlow() {
             aspectRatio={aspectRatio}
             onUpdateSlide={actions.updateSlide}
             onFinish={actions.openPreview}
-            isDebugMode={isDebugMode}
-            onExportSnapshot={actions.exportSnapshot}
-            onImportSnapshot={actions.importSnapshot}
           />
         </ErrorBoundary>
       )}

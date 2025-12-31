@@ -1,4 +1,4 @@
-import { type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -20,9 +20,6 @@ type RecordingStepProps = {
   aspectRatio: AspectRatio;
   onUpdateSlide: (id: string, updates: Partial<Slide>) => void;
   onFinish: () => void;
-  isDebugMode: boolean;
-  onExportSnapshot: () => Promise<string>;
-  onImportSnapshot: (fileContent: string) => Promise<void>;
 };
 
 export function RecordingStep({
@@ -30,18 +27,13 @@ export function RecordingStep({
   aspectRatio,
   onUpdateSlide,
   onFinish,
-  isDebugMode,
-  onExportSnapshot,
-  onImportSnapshot,
 }: RecordingStepProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isSnapshotBusy, setIsSnapshotBusy] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentSlide = slides[currentIndex];
   const recordedCount = slides.filter((s) => s.audioBlob).length;
@@ -128,56 +120,6 @@ export function RecordingStep({
     }
   };
 
-  const handleExportSnapshot = async () => {
-    try {
-      setIsSnapshotBusy(true);
-      const snapshot = await onExportSnapshot();
-      const blob = new Blob([snapshot], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `video-generator-snapshot-${Date.now()}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      appLogger.error('💥 Falha ao exportar snapshot.', { error });
-      window.alert('Não foi possível exportar o snapshot. Tente novamente.');
-    } finally {
-      setIsSnapshotBusy(false);
-    }
-  };
-
-  const handleImportClick = () => {
-    if (isSnapshotBusy) {
-      return;
-    }
-    fileInputRef.current?.click();
-  };
-
-  const handleSnapshotFileChange = async (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    try {
-      setIsSnapshotBusy(true);
-      const payload = await file.text();
-      await onImportSnapshot(payload);
-      window.alert('Snapshot importado com sucesso.');
-    } catch (error) {
-      appLogger.error('💥 Falha ao importar arquivo de snapshot.', { error });
-      window.alert(
-        'Não foi possível importar o snapshot. Verifique o arquivo e tente novamente.',
-      );
-    } finally {
-      event.target.value = '';
-      setIsSnapshotBusy(false);
-    }
-  };
-
   const progress = Math.round(((currentIndex + 1) / slides.length) * 100);
 
   const arClass =
@@ -211,41 +153,6 @@ export function RecordingStep({
           <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
       </div>
-
-      {isDebugMode && (
-        <div className="mx-4 mb-4 rounded-xl border border-dashed border-amber-400/40 bg-amber-500/5 px-4 py-3 text-sm text-white/80">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-semibold text-amber-300">
-              Debug snapshots
-            </span>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleExportSnapshot}
-                disabled={isSnapshotBusy}
-                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Exportar JSON
-              </button>
-              <button
-                type="button"
-                onClick={handleImportClick}
-                disabled={isSnapshotBusy}
-                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Importar JSON
-              </button>
-            </div>
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json"
-            className="hidden"
-            onChange={handleSnapshotFileChange}
-          />
-        </div>
-      )}
 
       {/* Main content */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 pb-4 lg:flex-row lg:items-start lg:justify-center">

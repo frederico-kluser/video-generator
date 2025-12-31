@@ -16,10 +16,6 @@ export type Slide = {
   isRegeneratingImage: boolean;
 };
 
-export type SlideSnapshot = Omit<Slide, 'audioBlob'> & {
-  audioDataUrl?: string;
-};
-
 export type ProjectData = {
   topic: string;
   materials: string;
@@ -47,13 +43,4 @@ export type VideoGenerationPayload = {
   aspectRatio: AspectRatio;
   targetAudience: string;
   promptId: PromptBlueprintId;
-};
-
-export type VideoGenerationSnapshot = {
-  version: 1;
-  timestamp: string;
-  projectData: Partial<ProjectData>;
-  slides: SlideSnapshot[];
-  progress: GenerationProgress;
-  step: VideoGenerationStep;
 };
