@@ -1,7 +1,4 @@
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ChatOpenAI } from '@langchain/openai';
 import OpenAI from 'openai';
-import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 
 import {
@@ -158,6 +155,22 @@ const scriptJsonSchema = {
   additionalProperties: false,
 } as const;
 
+const refinedContentJsonSchema = {
+  type: 'object',
+  properties: {
+    originalText: { type: 'string' },
+    refinedText: { type: 'string' },
+    improvements: { type: 'array', items: { type: 'string' } },
+    readabilityScore: {
+      type: 'number',
+      minimum: 0,
+      maximum: 100,
+    },
+  },
+  required: ['originalText', 'refinedText', 'improvements', 'readabilityScore'],
+  additionalProperties: false,
+} as const;
+
 const slideRefinementJsonSchema = {
   type: 'object',
   properties: {
@@ -173,13 +186,6 @@ const openai = new OpenAI({
   timeout: 60_000,
   maxRetries: 3,
   dangerouslyAllowBrowser: true,
-});
-
-const langchainModel = new ChatOpenAI({
-  model: 'gpt-4o',
-  temperature: 0.7,
-  maxRetries: 2,
-  apiKey,
 });
 
 // =====================================================
@@ -228,7 +234,6 @@ export async function generateScriptFromMaterials(
     appLogger.info('🧠 Script estruturado gerado com sucesso.', {
       slides: script.slides.length,
       model: 'gpt-5.1-codex-max',
-      temperature: 0,
     });
 
     return script;
@@ -284,7 +289,6 @@ Gere um script completo com:
   try {
     const response = await openai.responses.create({
       model: 'gpt-5.1-codex-max',
-      temperature: 0,
       instructions: systemPrompt,
       input: [
         {
@@ -504,22 +508,37 @@ ${goals}
 Retorne o texto refinado com lista de melhorias aplicadas.`;
 
   try {
-    const structuredModel = langchainModel.withStructuredOutput(
-      RefinedContentSchema,
-      {
-        strict: true,
-        name: 'refined_content',
+    const response = await openai.responses.create({
+      model: 'gpt-5.1-codex-max',
+      instructions: systemPrompt,
+      input: [
+        {
+          role: 'user',
+          content: userPrompt,
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'refined_content',
+          strict: true,
+          schema: refinedContentJsonSchema,
+        },
       },
-    );
+    });
 
-    const prompt = ChatPromptTemplate.fromMessages([
-      ['system', systemPrompt],
-      ['user', userPrompt],
-    ]);
+    const outputText = response.output_text?.trim();
 
-    const result = await prompt.pipe(structuredModel).invoke({});
+    if (!outputText) {
+      throw new OpenAIServiceError(
+        'Resposta vazia do Responses API',
+        'EMPTY_RESPONSE',
+      );
+    }
+
+    const parsed = RefinedContentSchema.parse(JSON.parse(outputText));
     appLogger.info('🪄 Conteúdo refinado com sucesso.');
-    return result;
+    return parsed;
   } catch (error) {
     handleOpenAIError(error, 'refineContent');
   }
@@ -529,39 +548,11 @@ export async function refineContentDirect(
   content: string,
   targetAudience: Script['targetAudience'],
 ): Promise<RefinedContent> {
-  try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'Você é um editor especializado em conteúdo educacional.',
-        },
-        {
-          role: 'user',
-          content: `Refine este texto para ${targetAudience}:\n\n${content}`,
-        },
-      ],
-      response_format: zodResponseFormat(
-        RefinedContentSchema,
-        'refined_content',
-      ),
-    });
-
-    const result = completion.choices[0].message.parsed;
-
-    if (!result) {
-      throw new OpenAIServiceError(
-        'Falha ao parsear resposta estruturada',
-        'PARSE_ERROR',
-      );
-    }
-
-    appLogger.info('✨ Conteúdo refinado via SDK direto.');
-    return result;
-  } catch (error) {
-    handleOpenAIError(error, 'refineContentDirect');
-  }
+  return refineContent(content, {
+    targetAudience,
+    refinementGoals: ['clarity', 'engagement'],
+    preserveKeyPoints: true,
+  });
 }
 
 // =====================================================
