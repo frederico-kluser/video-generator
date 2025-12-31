@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
 import { AppErrorFallback } from '@/shared/components/error-boundary/AppErrorFallback';
+import { ThemeProvider } from '@/shared/theme/ThemeProvider';
 
 type AppProvidersProps = {
   children: ReactNode;
@@ -10,7 +11,7 @@ type AppProvidersProps = {
 export function AppProviders({ children }: AppProvidersProps) {
   return (
     <ErrorBoundary FallbackComponent={AppErrorFallback} resetKeys={[]}>
-      {children}
+      <ThemeProvider>{children}</ThemeProvider>
     </ErrorBoundary>
   );
 }

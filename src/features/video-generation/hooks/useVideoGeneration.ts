@@ -118,6 +118,7 @@ export function useVideoGeneration() {
           payload.topic,
           payload.materials,
           payload.targetAudience ?? VIDEO_CONFIG.DEFAULT_AUDIENCE,
+          payload.promptId,
         );
 
         const preparedSlides: Slide[] = rawSlides.map((slide, index) => ({

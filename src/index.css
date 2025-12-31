@@ -2,6 +2,107 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: dark;
+  --color-success-400: 74 222 128;
+  --color-success-500: 34 197 94;
+  --color-success-600: 22 163 74;
+  --color-danger-400: 248 113 113;
+  --color-danger-500: 239 68 68;
+  --color-danger-600: 220 38 38;
+}
+
+:root,
+:root[data-theme='midnight'] {
+  --color-dark-950: 10 10 15;
+  --color-dark-900: 15 15 26;
+  --color-dark-850: 18 18 31;
+  --color-dark-800: 26 26 46;
+  --color-dark-700: 37 37 64;
+  --color-dark-600: 45 45 74;
+  --color-dark-500: 61 61 92;
+  --color-primary-50: 245 243 255;
+  --color-primary-100: 237 233 254;
+  --color-primary-200: 221 214 254;
+  --color-primary-300: 196 181 253;
+  --color-primary-400: 167 139 250;
+  --color-primary-500: 139 92 246;
+  --color-primary-600: 124 58 237;
+  --color-primary-700: 109 40 217;
+  --color-primary-800: 91 33 182;
+  --color-primary-900: 76 29 149;
+  --color-accent-50: 236 254 255;
+  --color-accent-100: 207 250 254;
+  --color-accent-200: 165 243 252;
+  --color-accent-300: 103 232 249;
+  --color-accent-400: 34 211 238;
+  --color-accent-500: 6 182 212;
+  --color-accent-600: 8 145 178;
+  --color-accent-700: 14 116 144;
+  --color-accent-800: 21 94 117;
+  --color-accent-900: 22 78 99;
+}
+
+:root[data-theme='aurora'] {
+  --color-dark-950: 5 11 17;
+  --color-dark-900: 7 17 28;
+  --color-dark-850: 11 22 36;
+  --color-dark-800: 15 29 48;
+  --color-dark-700: 19 37 61;
+  --color-dark-600: 25 48 77;
+  --color-dark-500: 31 58 92;
+  --color-primary-50: 240 253 250;
+  --color-primary-100: 204 251 241;
+  --color-primary-200: 153 246 228;
+  --color-primary-300: 94 234 212;
+  --color-primary-400: 45 212 191;
+  --color-primary-500: 20 184 166;
+  --color-primary-600: 13 148 136;
+  --color-primary-700: 15 118 110;
+  --color-primary-800: 17 94 89;
+  --color-primary-900: 19 78 74;
+  --color-accent-50: 253 244 255;
+  --color-accent-100: 250 232 255;
+  --color-accent-200: 245 208 254;
+  --color-accent-300: 240 171 252;
+  --color-accent-400: 232 121 249;
+  --color-accent-500: 217 70 239;
+  --color-accent-600: 192 38 211;
+  --color-accent-700: 162 28 175;
+  --color-accent-800: 134 25 143;
+  --color-accent-900: 112 26 117;
+}
+
+:root[data-theme='solstice'] {
+  --color-dark-950: 18 10 4;
+  --color-dark-900: 27 16 7;
+  --color-dark-850: 35 20 10;
+  --color-dark-800: 46 24 14;
+  --color-dark-700: 59 33 22;
+  --color-dark-600: 71 39 26;
+  --color-dark-500: 92 50 31;
+  --color-primary-50: 255 247 237;
+  --color-primary-100: 255 237 213;
+  --color-primary-200: 254 215 170;
+  --color-primary-300: 253 186 116;
+  --color-primary-400: 251 146 60;
+  --color-primary-500: 249 115 22;
+  --color-primary-600: 234 88 12;
+  --color-primary-700: 194 65 12;
+  --color-primary-800: 154 52 18;
+  --color-primary-900: 124 45 18;
+  --color-accent-50: 255 241 242;
+  --color-accent-100: 255 228 230;
+  --color-accent-200: 254 205 211;
+  --color-accent-300: 253 164 175;
+  --color-accent-400: 251 113 133;
+  --color-accent-500: 244 63 94;
+  --color-accent-600: 225 29 72;
+  --color-accent-700: 190 18 60;
+  --color-accent-800: 159 18 57;
+  --color-accent-900: 136 19 55;
+}
+
 @layer base {
   * {
     @apply border-dark-700;
@@ -16,12 +117,12 @@
     background-image:
       radial-gradient(
         ellipse 80% 50% at 50% -20%,
-        rgba(120, 119, 198, 0.15),
+        rgb(var(--color-primary-500) / 0.15),
         transparent
       ),
       radial-gradient(
         ellipse 60% 40% at 100% 100%,
-        rgba(6, 182, 212, 0.08),
+        rgb(var(--color-accent-500) / 0.08),
         transparent
       );
   }

@@ -2,6 +2,7 @@ import type {
   AspectRatio,
   VideoGenerationStep,
 } from '@/config/constants/video';
+import type { PromptBlueprintId } from '@/content/prompts';
 
 export type Slide = {
   id: string;
@@ -19,6 +20,7 @@ export type ProjectData = {
   materials: string;
   aspectRatio: AspectRatio;
   targetAudience: string;
+  promptId: PromptBlueprintId;
 };
 
 export type GenerationProgress = {
@@ -39,4 +41,5 @@ export type VideoGenerationPayload = {
   materials: string;
   aspectRatio: AspectRatio;
   targetAudience: string;
+  promptId: PromptBlueprintId;
 };

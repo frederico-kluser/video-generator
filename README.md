@@ -25,6 +25,7 @@ Video generator otimizado para 2025 com arquitetura feature-based, React 19 e in
 - Componentes de etapa (Input, Loading, Editor, Recording, Preview) recebem animações utilitárias (`animate-slide-up`, `animate-shimmer`) definidas no Tailwind config.
 - Scrollbar customizada e tipografia Inter já inclusas para manter o novo branding dentro e fora do app shell.
 - Cada componente crítico está protegido por `ErrorBoundary`, permitindo que efeitos visuais não comprometam a resiliência.
+- O seletor de temas flutuante (Midnight, Aurora, Solstice) controla tokens de cor em tempo real via CSS variables e pode ser ajustado em qualquer etapa do fluxo.
 
 ## Estrutura de pastas
 
@@ -98,6 +99,13 @@ const script = await withRetry(() =>
   }),
 );
 ```
+
+## Catálogo de prompts & pesquisas
+
+- Os blueprints de prompts derivados de `docs/prompts` agora vivem tipados em [src/content/prompts](src/content/prompts).
+- Cada blueprint carrega metadados (categoria, range de slides, duração, tom) e expõe helpers (`getPromptBlueprintById`, `loadPromptMarkdown`).
+- O `InputStep` usa esses dados para permitir que o usuário escolha a finalidade do vídeo antes da geração e o fluxo inteiro respeita a duração/estilo escolhidos.
+- Para carregar o markdown bruto dos estudos de deep research, use `loadBlueprintMarkdown(promptId)` — o Vite importa o `.md` como string via `import.meta.glob`.
 
 ## Scripts principais
 

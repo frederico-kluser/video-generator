@@ -97,6 +97,8 @@ graph TD
 | Review → Comparativo com concorrentes    | Slides 4-5, estrutura lado a lado, tempo curto                       | Prompts pedem tabelas verbais, prós/contras objetivos; imagens usam gráficos simples e produtos juntos.       |
 
 > Cada linha será originada automaticamente ao cruzarmos o tipo de vídeo e o subobjetivo. A partir daí derivamos parâmetros (contagem de slides, duração-alvo, vocabulário, instruções visuais) e aplicamos filtros adicionais (público, idioma, plataforma).
+>
+> Implementação atual: o catálogo programático vive em [src/content/prompts](../src/content/prompts) e o `InputStep` usa esses blueprints para alimentar o fluxo principal.
 
 ## Indagações derivadas do guia de Design Instrucional
 

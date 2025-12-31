@@ -1,5 +1,10 @@
 import { IMAGE_SIZE_BY_ASPECT_RATIO } from '@/config/constants/imageGeneration';
 import type { AspectRatio } from '@/config/constants/video';
+import {
+  DEFAULT_PROMPT_BLUEPRINT_ID,
+  getPromptBlueprintById,
+  type PromptBlueprintId,
+} from '@/content/prompts';
 import type { Slide } from '@/features/video-generation/model/types';
 import {
   generateScriptFromMaterials as generateStructuredScript,
@@ -88,21 +93,34 @@ export async function generateScriptFromMaterials(
   topic: string,
   materials: string,
   audience: string,
+  promptId: PromptBlueprintId = DEFAULT_PROMPT_BLUEPRINT_ID,
 ): Promise<RawSlide[]> {
   const targetAudience = normalizeAudience(audience);
-  const desiredDuration = estimateDurationFromMaterials(materials);
+  const blueprint = getPromptBlueprintById(promptId);
+  const estimatedDuration = estimateDurationFromMaterials(materials);
+  const blueprintDuration = Math.round(
+    (blueprint.durationMinutes.min + blueprint.durationMinutes.max) / 2,
+  );
+  const blendedDuration = Math.round(
+    (estimatedDuration + blueprintDuration) / 2,
+  );
+  const desiredDuration = Math.min(
+    blueprint.durationMinutes.max,
+    Math.max(blueprint.durationMinutes.min, blendedDuration),
+  );
 
   appLogger.info('🧠 Iniciando geração de roteiro pedagógico com OpenAI.', {
     topic,
     targetAudience,
     desiredDuration,
+    promptId: blueprint.id,
   });
 
   const script = await generateStructuredScript(materials, {
     topic,
     targetAudience,
     desiredDuration,
-    style: 'engaging',
+    style: blueprint.defaultStyle,
   });
 
   const slides: RawSlide[] = script.slides.map((slide) => ({

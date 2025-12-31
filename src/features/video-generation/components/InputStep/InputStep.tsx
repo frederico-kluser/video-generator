@@ -1,4 +1,4 @@
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useMemo, useState } from 'react';
 import {
   BookOpen,
   ChevronDown,
@@ -17,6 +17,17 @@ import {
   VIDEO_ASPECT_RATIOS,
   VIDEO_CONFIG,
 } from '@/config/constants/video';
+import {
+  DEFAULT_PROMPT_BLUEPRINT_ID,
+  PROMPT_CATEGORIES,
+  PROMPT_CATEGORY_METADATA,
+  getBlueprintsByCategory,
+  getPromptBlueprintById,
+  isPromptBlueprintId,
+  type PromptBlueprint,
+  type PromptBlueprintId,
+  type PromptCategory,
+} from '@/content/prompts';
 import type { VideoGenerationPayload } from '@/features/video-generation/model/types';
 
 const AUDIENCE_OPTIONS = [
@@ -27,9 +38,24 @@ const AUDIENCE_OPTIONS = [
 ];
 
 const FORMAT_OPTIONS = [
-  { id: '9:16' as AspectRatio, label: 'Shorts', sublabel: 'TikTok, Reels', icon: Smartphone },
-  { id: '16:9' as AspectRatio, label: 'YouTube', sublabel: 'Widescreen', icon: Monitor },
-  { id: '1:1' as AspectRatio, label: 'Quadrado', sublabel: 'Feed, Posts', icon: Square },
+  {
+    id: '9:16' as AspectRatio,
+    label: 'Shorts',
+    sublabel: 'TikTok, Reels',
+    icon: Smartphone,
+  },
+  {
+    id: '16:9' as AspectRatio,
+    label: 'YouTube',
+    sublabel: 'Widescreen',
+    icon: Monitor,
+  },
+  {
+    id: '1:1' as AspectRatio,
+    label: 'Quadrado',
+    sublabel: 'Feed, Posts',
+    icon: Square,
+  },
 ];
 
 const isAspectRatio = (value: string): value is AspectRatio =>
@@ -51,6 +77,31 @@ export function InputStep({ onStart }: InputStepProps) {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(
     VIDEO_CONFIG.DEFAULT_ASPECT_RATIO,
   );
+  const [selectedCategory, setSelectedCategory] = useState<PromptCategory>(
+    getPromptBlueprintById(DEFAULT_PROMPT_BLUEPRINT_ID).category,
+  );
+  const [selectedPromptId, setSelectedPromptId] = useState<PromptBlueprintId>(
+    DEFAULT_PROMPT_BLUEPRINT_ID,
+  );
+
+  const visibleBlueprints = useMemo(() => {
+    return getBlueprintsByCategory(selectedCategory);
+  }, [selectedCategory]);
+
+  const selectedBlueprint = useMemo(() => {
+    return getPromptBlueprintById(selectedPromptId);
+  }, [selectedPromptId]);
+
+  useEffect(() => {
+    if (
+      !visibleBlueprints.some((blueprint) => blueprint.id === selectedPromptId)
+    ) {
+      const fallback = visibleBlueprints[0];
+      if (fallback) {
+        setSelectedPromptId(fallback.id);
+      }
+    }
+  }, [selectedPromptId, visibleBlueprints]);
 
   const [actionError, startAction, isPending] = useActionState(
     async (_: string | null, formData: FormData) => {
@@ -65,6 +116,11 @@ export function InputStep({ onStart }: InputStepProps) {
         typeof aspectRatioEntry === 'string' && isAspectRatio(aspectRatioEntry)
           ? aspectRatioEntry
           : VIDEO_CONFIG.DEFAULT_ASPECT_RATIO;
+      const promptIdEntry = formData.get('promptId');
+      const safePromptId =
+        typeof promptIdEntry === 'string' && isPromptBlueprintId(promptIdEntry)
+          ? promptIdEntry
+          : DEFAULT_PROMPT_BLUEPRINT_ID;
 
       if (!topicValue || !materialsValue) {
         return 'Informe um tópico e materiais de referência para continuar.';
@@ -75,6 +131,7 @@ export function InputStep({ onStart }: InputStepProps) {
         materials: materialsValue,
         targetAudience: targetAudienceValue,
         aspectRatio: safeAspectRatio,
+        promptId: safePromptId,
       };
 
       try {
@@ -165,6 +222,49 @@ export function InputStep({ onStart }: InputStepProps) {
               </div>
             </div>
 
+            {/* Prompt Blueprint Selection */}
+            <div className="space-y-3">
+              <label className="label">
+                <Sparkles size={16} className="text-primary-400" />
+                Finalidade e blueprint do prompt
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {PROMPT_CATEGORIES.map((category) => {
+                  const metadata = PROMPT_CATEGORY_METADATA[category];
+                  const isActive = category === selectedCategory;
+                  return (
+                    <button
+                      key={category}
+                      type="button"
+                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                        isActive
+                          ? 'border-primary-500 bg-primary-500/15 text-primary-200 shadow-glow-sm'
+                          : 'border-dark-600 bg-dark-800/50 text-white/70 hover:border-dark-500 hover:text-white'
+                      }`}
+                      onClick={() => setSelectedCategory(category)}
+                    >
+                      <span className="mr-2">{metadata.icon}</span>
+                      {metadata.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="space-y-3">
+                {visibleBlueprints.map((blueprint) => {
+                  const isSelected = blueprint.id === selectedPromptId;
+                  return (
+                    <PromptBlueprintCard
+                      key={blueprint.id}
+                      blueprint={blueprint}
+                      isSelected={isSelected}
+                      onSelect={() => setSelectedPromptId(blueprint.id)}
+                    />
+                  );
+                })}
+              </div>
+              <input type="hidden" name="promptId" value={selectedPromptId} />
+            </div>
+
             {/* Materials Textarea */}
             <div className="space-y-2">
               <label className="label" htmlFor="materials">
@@ -223,7 +323,9 @@ export function InputStep({ onStart }: InputStepProps) {
                         >
                           {option.label}
                         </div>
-                        <div className="text-xs text-white/40">{option.sublabel}</div>
+                        <div className="text-xs text-white/40">
+                          {option.sublabel}
+                        </div>
                       </div>
                       <span
                         className={`rounded-md px-2 py-0.5 font-mono text-xs ${
@@ -264,9 +366,79 @@ export function InputStep({ onStart }: InputStepProps) {
 
         {/* Footer hint */}
         <p className="mt-6 text-center text-sm text-white/40">
-          A IA irá criar um roteiro pedagógico otimizado e gerar imagens para cada slide
+          A IA irá criar um roteiro pedagógico otimizado e gerar imagens para
+          cada slide
         </p>
+        {selectedBlueprint && (
+          <div className="mt-4 rounded-2xl border border-white/5 bg-white/5 p-4 text-sm text-white/70">
+            <div className="mb-2 font-semibold text-white">
+              {selectedBlueprint.icon} {selectedBlueprint.title}
+            </div>
+            <p className="text-white/70">{selectedBlueprint.summary}</p>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+type PromptBlueprintCardProps = {
+  blueprint: PromptBlueprint;
+  isSelected: boolean;
+  onSelect: () => void;
+};
+
+function PromptBlueprintCard({
+  blueprint,
+  isSelected,
+  onSelect,
+}: PromptBlueprintCardProps) {
+  const formatRange = (range: { min: number; max: number }): string =>
+    range.min === range.max ? `${range.min}` : `${range.min}–${range.max}`;
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`w-full rounded-2xl border p-4 text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
+        isSelected
+          ? 'border-primary-500 bg-primary-500/10 shadow-glow-sm'
+          : 'border-dark-600 bg-dark-800/40 hover:border-dark-500 hover:bg-dark-700/40'
+      }`}
+      aria-pressed={isSelected}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-2xl" aria-hidden>
+          {blueprint.icon}
+        </span>
+        {isSelected && (
+          <span className="rounded-full bg-primary-500/20 px-3 py-1 text-xs font-semibold text-primary-200">
+            Selecionado
+          </span>
+        )}
+      </div>
+      <div className="mt-3 text-lg font-semibold text-white">
+        {blueprint.title}
+      </div>
+      <p className="mt-1 text-sm text-white/70">{blueprint.summary}</p>
+      <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
+        <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
+          Slides: {formatRange(blueprint.slidesRange)}
+        </span>
+        <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
+          Duração: {formatRange(blueprint.durationMinutes)} min
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/60">
+        {blueprint.tags.map((tag) => (
+          <span
+            key={tag}
+            className="rounded-full bg-dark-700/70 px-2 py-0.5 font-medium"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+    </button>
   );
 }

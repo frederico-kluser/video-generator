@@ -1,6 +1,11 @@
 import { ErrorBoundary } from 'react-error-boundary';
 import { Sparkles } from 'lucide-react';
-import { VIDEO_CONFIG, VIDEO_GENERATION_STEP, type VideoGenerationStep } from '@/config/constants/video';
+import {
+  VIDEO_CONFIG,
+  VIDEO_GENERATION_STEP,
+  type VideoGenerationStep,
+} from '@/config/constants/video';
+import { getPromptBlueprintById } from '@/content/prompts';
 import { InputStep } from '@/features/video-generation/components/InputStep/InputStep';
 import { LoadingStep } from '@/features/video-generation/components/LoadingStep/LoadingStep';
 import { EditorStep } from '@/features/video-generation/components/EditorStep/EditorStep';
@@ -29,7 +34,11 @@ const STEP_ORDER = [
 
 export function VideoGenerationFlow() {
   const { step, slides, projectData, progress, actions } = useVideoGeneration();
-  const aspectRatio = projectData.aspectRatio ?? VIDEO_CONFIG.DEFAULT_ASPECT_RATIO;
+  const aspectRatio =
+    projectData.aspectRatio ?? VIDEO_CONFIG.DEFAULT_ASPECT_RATIO;
+  const blueprint = projectData.promptId
+    ? getPromptBlueprintById(projectData.promptId)
+    : null;
 
   const currentStepIndex = STEP_ORDER.indexOf(step);
 
@@ -38,44 +47,70 @@ export function VideoGenerationFlow() {
       {/* Step indicator */}
       {step !== VIDEO_GENERATION_STEP.INPUT && (
         <div className="pointer-events-none absolute left-0 right-0 top-0 z-50 p-4">
-          <div className="mx-auto flex max-w-4xl items-center justify-between">
-            {/* Current step badge */}
-            <div className="badge-primary animate-slide-down">
-              <Sparkles size={12} className="animate-pulse" />
-              <span>{STEP_LABELS[step] ?? 'Fluxo'}</span>
+          <div className="mx-auto flex max-w-5xl flex-col gap-2">
+            <div className="flex items-center justify-between">
+              {/* Current step badge */}
+              <div className="badge-primary animate-slide-down">
+                <Sparkles size={12} className="animate-pulse" />
+                <span>{STEP_LABELS[step] ?? 'Fluxo'}</span>
+              </div>
+
+              {/* Step progress dots */}
+              <div className="flex items-center gap-2">
+                {STEP_ORDER.slice(1).map((s, index) => {
+                  const isActive = index <= currentStepIndex - 1;
+                  const isCurrent = s === step;
+                  return (
+                    <div
+                      key={s}
+                      className={`h-2 rounded-full transition-all duration-500 ${
+                        isCurrent
+                          ? 'w-8 bg-gradient-to-r from-primary-500 to-accent-400'
+                          : isActive
+                            ? 'w-2 bg-primary-500'
+                            : 'w-2 bg-dark-600'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Step progress dots */}
-            <div className="flex items-center gap-2">
-              {STEP_ORDER.slice(1).map((s, index) => {
-                const isActive = index <= currentStepIndex - 1;
-                const isCurrent = s === step;
-                return (
-                  <div
-                    key={s}
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      isCurrent
-                        ? 'w-8 bg-gradient-to-r from-primary-500 to-accent-400'
-                        : isActive
-                          ? 'w-2 bg-primary-500'
-                          : 'w-2 bg-dark-600'
-                    }`}
-                  />
-                );
-              })}
-            </div>
+            {blueprint && (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-dark-900/70 px-4 py-2 text-xs text-white/70 shadow-glow-sm">
+                <span className="font-semibold text-white">
+                  {blueprint.icon} {blueprint.title}
+                </span>
+                <span>
+                  Slides {blueprint.slidesRange.min}
+                  {blueprint.slidesRange.max !== blueprint.slidesRange.min
+                    ? `–${blueprint.slidesRange.max}`
+                    : ''}
+                </span>
+                <span>
+                  Duração {blueprint.durationMinutes.min}–
+                  {blueprint.durationMinutes.max} min
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {step === VIDEO_GENERATION_STEP.INPUT && <InputStep onStart={actions.startGeneration} />}
+      {step === VIDEO_GENERATION_STEP.INPUT && (
+        <InputStep onStart={actions.startGeneration} />
+      )}
 
-      {(step === VIDEO_GENERATION_STEP.GENERATING_SCRIPT || step === VIDEO_GENERATION_STEP.GENERATING_VISUALS) && (
+      {(step === VIDEO_GENERATION_STEP.GENERATING_SCRIPT ||
+        step === VIDEO_GENERATION_STEP.GENERATING_VISUALS) && (
         <LoadingStep progress={progress} />
       )}
 
       {step === VIDEO_GENERATION_STEP.EDITOR && (
-        <ErrorBoundary FallbackComponent={SectionErrorFallback} resetKeys={[slides.length]}>
+        <ErrorBoundary
+          FallbackComponent={SectionErrorFallback}
+          resetKeys={[slides.length]}
+        >
           <EditorStep
             slides={slides}
             aspectRatio={aspectRatio}
@@ -86,7 +121,10 @@ export function VideoGenerationFlow() {
       )}
 
       {step === VIDEO_GENERATION_STEP.RECORDING && (
-        <ErrorBoundary FallbackComponent={SectionErrorFallback} resetKeys={[slides.length]}>
+        <ErrorBoundary
+          FallbackComponent={SectionErrorFallback}
+          resetKeys={[slides.length]}
+        >
           <RecordingStep
             slides={slides}
             aspectRatio={aspectRatio}
@@ -97,8 +135,15 @@ export function VideoGenerationFlow() {
       )}
 
       {step === VIDEO_GENERATION_STEP.PREVIEW && (
-        <ErrorBoundary FallbackComponent={SectionErrorFallback} resetKeys={[slides.length]}>
-          <PreviewStep slides={slides} aspectRatio={aspectRatio} onReset={actions.resetFlow} />
+        <ErrorBoundary
+          FallbackComponent={SectionErrorFallback}
+          resetKeys={[slides.length]}
+        >
+          <PreviewStep
+            slides={slides}
+            aspectRatio={aspectRatio}
+            onReset={actions.resetFlow}
+          />
         </ErrorBoundary>
       )}
     </div>
