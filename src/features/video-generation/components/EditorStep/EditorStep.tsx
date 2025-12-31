@@ -208,10 +208,13 @@ export function EditorStep({
                 type="button"
                 onClick={handleFeedbackSubmit}
                 disabled={!feedback || isProcessingFeedback}
-                className="mt-3 w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:bg-gray-700"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:bg-gray-700"
               >
                 {isProcessingFeedback ? (
-                  <RefreshCw className="animate-spin" size={16} />
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Processando...
+                  </>
                 ) : (
                   'Aplicar feedback'
                 )}

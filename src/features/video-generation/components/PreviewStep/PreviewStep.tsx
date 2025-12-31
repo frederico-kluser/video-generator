@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, Pause, Play, RotateCcw } from 'lucide-react';
+import { Download, Loader2, Pause, Play, RotateCcw } from 'lucide-react';
 
 import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
 import type { Slide } from '@/features/video-generation/model/types';
@@ -140,6 +140,11 @@ export function PreviewStep({
   };
 
   const handleDownloadVideo = async () => {
+    appLogger.info('🎬 Iniciando exportação de vídeo.', {
+      slides: slides.length,
+      aspectRatio,
+    });
+    const startedAt = performance.now();
     setIsRendering(true);
     setRenderProgress(0);
 
@@ -152,6 +157,7 @@ export function PreviewStep({
       }
 
       if (surface.kind !== 'dom') {
+        appLogger.warn('🚫 Exportação indisponível: canvas DOM não suportado.');
         window.alert(
           'Seu navegador não suporta captura de tela para exportar vídeo. Tente no Chrome ou Edge.',
         );
@@ -199,7 +205,7 @@ export function PreviewStep({
 
       for (let index = 0; index < slides.length; index += 1) {
         const slide = slides[index];
-        setRenderProgress(Math.round((index / slides.length) * 100));
+        setRenderProgress(Math.round(((index + 1) / slides.length) * 100));
 
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, width, height);
@@ -224,6 +230,8 @@ export function PreviewStep({
         }
       }
 
+      setRenderProgress(100);
+
       recorder.stop();
       await new Promise((resolve) => {
         recorder.onstop = resolve;
@@ -239,6 +247,11 @@ export function PreviewStep({
       document.body?.removeChild(anchor);
       URL.revokeObjectURL(url);
       audioCtx.close();
+
+      appLogger.info('✅ Vídeo exportado com sucesso.', {
+        mimeType,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
     } catch (error) {
       appLogger.error('Falha ao renderizar o vídeo final.', { error });
       window.alert(
@@ -322,10 +335,19 @@ export function PreviewStep({
           type="button"
           onClick={handleDownloadVideo}
           disabled={isRendering}
-          className="flex items-center gap-2 rounded-full bg-blue-600 px-6 py-4 font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-4 font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
         >
-          <Download size={20} />
-          Exportar vídeo
+          {isRendering ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Renderizando...
+            </>
+          ) : (
+            <>
+              <Download size={20} />
+              Exportar vídeo
+            </>
+          )}
         </button>
       </div>
     </div>

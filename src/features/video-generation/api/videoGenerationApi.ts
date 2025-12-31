@@ -47,6 +47,11 @@ const buildScriptText = (
   blocks: ContentBlock[],
   speakerNotes?: string | null,
 ): string => {
+  const narration = speakerNotes?.trim();
+  if (narration) {
+    return narration;
+  }
+
   const parts: string[] = [];
 
   blocks.forEach((block) => {
@@ -62,11 +67,7 @@ const buildScriptText = (
     }
   });
 
-  if (speakerNotes) {
-    parts.push(`Notas do apresentador: ${speakerNotes}`);
-  }
-
-  return parts.join('\n');
+  return parts.join('\n').trim();
 };
 
 const buildVisualPrompt = (
