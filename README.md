@@ -17,6 +17,15 @@ Video generator otimizado para 2025 com arquitetura feature-based, React 19 e in
 - `react-error-boundary` + logger estruturado com emojis para debugar rapidamente
 - OpenAI SDK 4 + LangChain para outputs estruturados via Zod (`schemas/eduScriptSchemas.ts`) e serviço dedicado em `services/openaiService.ts`
 
+## Experiência visual 2025
+
+- Paleta roxo/violeta com degradês animados, glow e glassmorphism aplicada globalmente em [src/index.css](src/index.css).
+- Cards, botões e badges reutilizam utilitários (`glass-card`, `btn-primary`, `badge-primary`) para manter consistência em toda a feature.
+- Partículas e discos de luz são renderizados no topo da árvore em [src/app/App.tsx](src/app/App.tsx) para dar profundidade sem acoplar os componentes.
+- Componentes de etapa (Input, Loading, Editor, Recording, Preview) recebem animações utilitárias (`animate-slide-up`, `animate-shimmer`) definidas no Tailwind config.
+- Scrollbar customizada e tipografia Inter já inclusas para manter o novo branding dentro e fora do app shell.
+- Cada componente crítico está protegido por `ErrorBoundary`, permitindo que efeitos visuais não comprometam a resiliência.
+
 ## Estrutura de pastas
 
 ```
