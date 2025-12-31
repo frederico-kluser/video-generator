@@ -5,13 +5,15 @@ export type AspectRatio = (typeof VIDEO_ASPECT_RATIOS)[number];
 export const VIDEO_GENERATION_STEP = {
   INPUT: 'INPUT',
   GENERATING_SCRIPT: 'GENERATING_SCRIPT',
+  SCRIPT_REVIEW: 'SCRIPT_REVIEW',
   GENERATING_VISUALS: 'GENERATING_VISUALS',
   EDITOR: 'EDITOR',
   RECORDING: 'RECORDING',
   PREVIEW: 'PREVIEW',
 } as const;
 
-export type VideoGenerationStep = (typeof VIDEO_GENERATION_STEP)[keyof typeof VIDEO_GENERATION_STEP];
+export type VideoGenerationStep =
+  (typeof VIDEO_GENERATION_STEP)[keyof typeof VIDEO_GENERATION_STEP];
 
 export const VIDEO_CONFIG = {
   MAX_DURATION_SECONDS: 300,

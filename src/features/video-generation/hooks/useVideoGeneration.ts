@@ -37,6 +37,21 @@ const STEP_VALUES = Object.values(VIDEO_GENERATION_STEP) as readonly [
   ...VideoGenerationStep[],
 ];
 
+const createBlankSlide = (order: number): Slide => ({
+  id: uuidv4(),
+  order,
+  scriptText: '',
+  narrationText: '',
+  visualPrompt: '',
+  imageUrl: undefined,
+  userNotes: undefined,
+  audioBlob: undefined,
+  isRegeneratingImage: false,
+});
+
+const normalizeSlideOrder = (slideList: Slide[]): Slide[] =>
+  slideList.map((slide, index) => ({ ...slide, order: index }));
+
 const slideSnapshotSchema = z.object({
   id: z.string(),
   order: z.number(),
@@ -84,6 +99,61 @@ export function useVideoGeneration() {
     setSlides((prev) =>
       prev.map((slide) => (slide.id === id ? { ...slide, ...updates } : slide)),
     );
+  }, []);
+
+  const addSlide = useCallback(() => {
+    setSlides((prev) => {
+      const next = [...prev, createBlankSlide(prev.length)];
+      appLogger.info('➕ Slide em branco adicionado na revisão.', {
+        total: next.length,
+      });
+      return normalizeSlideOrder(next);
+    });
+  }, []);
+
+  const insertSlideAfter = useCallback((index: number) => {
+    setSlides((prev) => {
+      const next = [...prev];
+      const insertIndex = Math.min(Math.max(index + 1, 0), next.length);
+      next.splice(insertIndex, 0, createBlankSlide(insertIndex));
+      appLogger.info('➕ Slide inserido no roteiro.', {
+        position: insertIndex + 1,
+        total: next.length,
+      });
+      return normalizeSlideOrder(next);
+    });
+  }, []);
+
+  const removeSlide = useCallback((id: string) => {
+    setSlides((prev) => {
+      const next = prev.filter((slide) => slide.id !== id);
+      appLogger.warn('🗑️ Slide removido durante a revisão.', {
+        remaining: next.length,
+      });
+      return normalizeSlideOrder(next);
+    });
+  }, []);
+
+  const moveSlide = useCallback((id: string, direction: 'up' | 'down') => {
+    setSlides((prev) => {
+      const currentIndex = prev.findIndex((slide) => slide.id === id);
+      if (currentIndex === -1) {
+        return prev;
+      }
+      const targetIndex =
+        direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) {
+        return prev;
+      }
+      const next = [...prev];
+      const [slide] = next.splice(currentIndex, 1);
+      next.splice(targetIndex, 0, slide);
+      appLogger.info('🔀 Slides reordenados.', {
+        from: currentIndex + 1,
+        to: targetIndex + 1,
+      });
+      return normalizeSlideOrder(next);
+    });
   }, []);
 
   const generateVisuals = useCallback(
@@ -211,16 +281,25 @@ export function useVideoGeneration() {
           payload.promptId,
         );
 
-        const preparedSlides: Slide[] = rawSlides.map((slide, index) => ({
-          ...slide,
-          id: uuidv4(),
-          order: index,
-          isRegeneratingImage: true,
-        }));
+        const preparedSlides = normalizeSlideOrder(
+          rawSlides.map((slide, index) => ({
+            ...slide,
+            id: uuidv4(),
+            order: index,
+            isRegeneratingImage: false,
+          })),
+        );
 
         setSlides(preparedSlides);
-        await generateVisuals(preparedSlides, payload.aspectRatio);
-        setStep(VIDEO_GENERATION_STEP.EDITOR);
+        setProgress({
+          total: preparedSlides.length,
+          completed: preparedSlides.length,
+          currentAction: 'Roteiro pronto para revisão.',
+        });
+        appLogger.info('📋 Roteiro pronto para revisão manual.', {
+          slides: preparedSlides.length,
+        });
+        setStep(VIDEO_GENERATION_STEP.SCRIPT_REVIEW);
       } catch (error) {
         appLogger.error('💥 Fluxo de geração interrompido.', { error });
         setStep(VIDEO_GENERATION_STEP.INPUT);
@@ -228,12 +307,97 @@ export function useVideoGeneration() {
         throw error;
       }
     },
-    [generateVisuals],
+    [],
+  );
+
+  const regenerateScript = useCallback(
+    async (instructions: string) => {
+      if (
+        !projectData.topic ||
+        !projectData.materials ||
+        !projectData.promptId
+      ) {
+        const message = 'Projeto incompleto para refinamento do roteiro.';
+        appLogger.error(message, { projectData });
+        throw new Error(message);
+      }
+
+      try {
+        setStep(VIDEO_GENERATION_STEP.GENERATING_SCRIPT);
+        setProgress({
+          total: 1,
+          completed: 0,
+          currentAction: 'Ajustando roteiro com suas instruções...',
+        });
+
+        const rawSlides = await generateScriptFromMaterials(
+          projectData.topic,
+          projectData.materials,
+          projectData.targetAudience ?? VIDEO_CONFIG.DEFAULT_AUDIENCE,
+          projectData.promptId,
+          instructions,
+        );
+
+        const preparedSlides = normalizeSlideOrder(
+          rawSlides.map((slide, index) => ({
+            ...slide,
+            id: uuidv4(),
+            order: index,
+            isRegeneratingImage: false,
+          })),
+        );
+
+        setSlides(preparedSlides);
+        setProgress({
+          total: preparedSlides.length,
+          completed: preparedSlides.length,
+          currentAction: 'Roteiro atualizado com sucesso.',
+        });
+        appLogger.info('📝 Roteiro regenerado com instruções personalizadas.', {
+          slides: preparedSlides.length,
+        });
+        setStep(VIDEO_GENERATION_STEP.SCRIPT_REVIEW);
+      } catch (error) {
+        appLogger.error('💥 Falha ao refinar o roteiro.', { error });
+        setStep(VIDEO_GENERATION_STEP.SCRIPT_REVIEW);
+        throw error;
+      }
+    },
+    [projectData],
   );
 
   const startRecording = useCallback(() => {
     setStep(VIDEO_GENERATION_STEP.RECORDING);
   }, []);
+
+  const proceedToVisualEditing = useCallback(async () => {
+    if (!projectData.aspectRatio) {
+      const message = 'Aspect ratio ausente para gerar visuais.';
+      appLogger.error(message, { projectData });
+      throw new Error(message);
+    }
+
+    const slidesReady = normalizeSlideOrder(
+      slides.map((slide, index) => ({
+        ...slide,
+        order: index,
+        isRegeneratingImage: true,
+      })),
+    );
+
+    try {
+      setSlides(slidesReady);
+      appLogger.info('🎨 Iniciando geração de visuais após revisão.', {
+        slides: slidesReady.length,
+      });
+      await generateVisuals(slidesReady, projectData.aspectRatio);
+      setStep(VIDEO_GENERATION_STEP.EDITOR);
+    } catch (error) {
+      appLogger.error('💥 Falha ao gerar visuais após revisão.', { error });
+      setStep(VIDEO_GENERATION_STEP.SCRIPT_REVIEW);
+      throw error;
+    }
+  }, [generateVisuals, projectData, slides]);
 
   const openPreview = useCallback(() => {
     setStep(VIDEO_GENERATION_STEP.PREVIEW);
@@ -256,19 +420,31 @@ export function useVideoGeneration() {
         exportSnapshot,
         importSnapshot,
         startGeneration,
+        regenerateScript,
+        proceedToVisualEditing,
         startRecording,
         openPreview,
         resetFlow,
         updateSlide,
+        addSlide,
+        insertSlideAfter,
+        removeSlide,
+        moveSlide,
       },
     }),
     [
+      addSlide,
       exportSnapshot,
+      insertSlideAfter,
       importSnapshot,
+      moveSlide,
       openPreview,
+      proceedToVisualEditing,
       progress,
       projectData,
+      regenerateScript,
       resetFlow,
+      removeSlide,
       slides,
       startGeneration,
       startRecording,

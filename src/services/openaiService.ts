@@ -215,6 +215,7 @@ export async function generateScriptFromMaterials(
     targetAudience: Script['targetAudience'];
     desiredDuration: number;
     style?: 'formal' | 'casual' | 'engaging';
+    revisionInstructions?: string;
   },
 ): Promise<Script> {
   const slideCountMin = Math.ceil(options.desiredDuration * 1.5);
@@ -257,6 +258,7 @@ export async function generateScriptWithResponsesAPI(
     style?: 'formal' | 'casual' | 'engaging';
     slideCountMin?: number;
     slideCountMax?: number;
+    revisionInstructions?: string;
   },
 ): Promise<Script> {
   const slideCountMin =
@@ -271,12 +273,17 @@ Inclua notas do apresentador detalhadas para cada slide.
   Forneça para cada slide o campo narrationText contendo o texto literal que será lido, sem instruções meta.
 Garanta progressão lógica do conteúdo.`;
 
+  const revisionBlock = options.revisionInstructions
+    ? `\nINSTRUÇÕES ADICIONAIS DO USUÁRIO:\n${options.revisionInstructions.trim()}\n`
+    : '';
+
   const userPrompt = `Crie um script de vídeo educacional com as seguintes especificações:
 
 TÓPICO: ${options.topic}
 PÚBLICO-ALVO: ${options.targetAudience}
 DURAÇÃO DESEJADA: ${options.desiredDuration} minutos
 ESTILO: ${options.style ?? 'engaging'}
+${revisionBlock}
 
 MATERIAIS DE REFERÊNCIA:
 ${materials}

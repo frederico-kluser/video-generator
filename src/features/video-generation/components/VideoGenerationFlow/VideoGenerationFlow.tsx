@@ -13,12 +13,14 @@ import { InputStep } from '@/features/video-generation/components/InputStep/Inpu
 import { LoadingStep } from '@/features/video-generation/components/LoadingStep/LoadingStep';
 import { PreviewStep } from '@/features/video-generation/components/PreviewStep/PreviewStep';
 import { RecordingStep } from '@/features/video-generation/components/RecordingStep/RecordingStep';
+import { ScriptReviewStep } from '@/features/video-generation/components/ScriptReviewStep/ScriptReviewStep';
 import { useVideoGeneration } from '@/features/video-generation/hooks/useVideoGeneration';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
 
 const STEP_LABELS: Record<VideoGenerationStep, string> = {
   [VIDEO_GENERATION_STEP.INPUT]: 'Briefing',
   [VIDEO_GENERATION_STEP.GENERATING_SCRIPT]: 'Roteiro',
+  [VIDEO_GENERATION_STEP.SCRIPT_REVIEW]: 'Revisão',
   [VIDEO_GENERATION_STEP.GENERATING_VISUALS]: 'Visuais',
   [VIDEO_GENERATION_STEP.EDITOR]: 'Edição',
   [VIDEO_GENERATION_STEP.RECORDING]: 'Gravação',
@@ -28,6 +30,7 @@ const STEP_LABELS: Record<VideoGenerationStep, string> = {
 const STEP_ORDER = [
   VIDEO_GENERATION_STEP.INPUT,
   VIDEO_GENERATION_STEP.GENERATING_SCRIPT,
+  VIDEO_GENERATION_STEP.SCRIPT_REVIEW,
   VIDEO_GENERATION_STEP.GENERATING_VISUALS,
   VIDEO_GENERATION_STEP.EDITOR,
   VIDEO_GENERATION_STEP.RECORDING,
@@ -100,6 +103,20 @@ export function VideoGenerationFlow() {
       {(step === VIDEO_GENERATION_STEP.GENERATING_SCRIPT ||
         step === VIDEO_GENERATION_STEP.GENERATING_VISUALS) && (
         <LoadingStep progress={progress} />
+      )}
+
+      {step === VIDEO_GENERATION_STEP.SCRIPT_REVIEW && (
+        <ScriptReviewStep
+          slides={slides}
+          projectData={projectData}
+          onSlideChange={actions.updateSlide}
+          onInsertSlideAfter={actions.insertSlideAfter}
+          onRemoveSlide={actions.removeSlide}
+          onMoveSlide={actions.moveSlide}
+          onAddSlide={actions.addSlide}
+          onApplyInstructions={actions.regenerateScript}
+          onContinue={actions.proceedToVisualEditing}
+        />
       )}
 
       {step === VIDEO_GENERATION_STEP.EDITOR && (

@@ -112,6 +112,7 @@ export async function generateScriptFromMaterials(
   materials: string,
   audience: string,
   promptId: PromptBlueprintId = DEFAULT_PROMPT_BLUEPRINT_ID,
+  revisionInstructions?: string,
 ): Promise<RawSlide[]> {
   const targetAudience = normalizeAudience(audience);
   const blueprint = getPromptBlueprintById(promptId);
@@ -139,6 +140,7 @@ export async function generateScriptFromMaterials(
     targetAudience,
     desiredDuration,
     style: blueprint.defaultStyle,
+    revisionInstructions,
   });
 
   const slides: RawSlide[] = script.slides.map((slide) => {
@@ -154,7 +156,7 @@ export async function generateScriptFromMaterials(
       imageUrl: undefined,
       userNotes: undefined,
       audioBlob: undefined,
-      isRegeneratingImage: true,
+      isRegeneratingImage: false,
     };
   });
 
