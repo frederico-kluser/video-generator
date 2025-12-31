@@ -20,19 +20,112 @@ Este documento descreve todas as instruções que entregamos aos modelos OpenAI 
 - **User prompt**: injeta tópico, público, duração desejada e materiais. Também exige contagem mínima/máxima de slides e marcação de locais com imagens ([src/services/openaiService.ts#L156-L172](src/services/openaiService.ts#L156-L172)).
 - **Structured output**: usamos `withStructuredOutput(ScriptSchema)` com modo estrito para garantir aderência ao contrato ([src/services/openaiService.ts#L174-L193](src/services/openaiService.ts#L174-L193) e [src/schemas/eduScriptSchemas.ts#L47-L92](src/schemas/eduScriptSchemas.ts#L47-L92)).
 
+#### Texto enviado ao modelo
+
+**System prompt**
+
+```text
+Você é um especialista em criação de conteúdo educacional.
+Crie scripts de vídeo envolventes, didáticos e bem estruturados.
+Adapte a linguagem ao público-alvo especificado.
+Inclua notas do apresentador detalhadas para cada slide.
+Garanta progressão lógica do conteúdo.
+```
+
+**User prompt** (placeholders `{{topic}}`, `{{audience}}`, `{{duration}}`, `{{style}}`, `{{materials}}`)
+
+```text
+Crie um script de vídeo educacional com as seguintes especificações:
+
+TÓPICO: {{topic}}
+PÚBLICO-ALVO: {{audience}}
+DURAÇÃO DESEJADA: {{duration}} minutos
+ESTILO: {{style}}
+
+MATERIAIS DE REFERÊNCIA:
+{{materials}}
+
+Gere um script completo com:
+- Título atrativo
+- Descrição concisa
+- {{slideCountMin}} a {{slideCountMax}} slides
+- Conteúdo progressivo e didático
+- Notas do apresentador para cada slide
+- Indicações de onde inserir imagens
+```
+
 ### 2. Fallback Responses API
 
 - Mesmo objetivo do item anterior, porém via `openai.responses` usando o modelo `gpt-5.1-codex-max` e o JSON schema manual `scriptJsonSchema` ([src/services/openaiService.ts#L199-L235](src/services/openaiService.ts#L199-L235)).
 - Útil para auditoria comparar ambos os caminhos e alinhar texto/instruções.
+
+#### Texto enviado ao modelo
+
+**Instructions (system)**
+
+```text
+Você é um especialista em criação de conteúdo educacional. Crie scripts envolventes e didáticos.
+```
+
+**Mensagem de usuário**
+
+```text
+Crie um script educacional sobre "{{topic}}" para {{audience}}, com duração de {{duration}} minutos.
+Materiais: {{materials}}
+```
 
 ### 3. Instrução Pedagógica Base
 
 - Constante `PEDAGOGICAL_SYSTEM_INSTRUCTION` resume princípios de Mayer, estrutura de narrativa e formato esperado (`scriptText` + `visualPrompt`) ([src/config/constants/pedagogy.ts#L1-L25](src/config/constants/pedagogy.ts#L1-L25)).
 - Ainda não foi injetada diretamente no fluxo principal; avaliar se incorporamos para garantir consistência.
 
+#### Texto integral
+
+```text
+You are an expert educational video director and scriptwriter.
+Your goal is to take raw educational material and transform it into a highly engaging, pedagogically sound video script divided into visual slides.
+
+Reference Framework:
+- Mayer's Principles: Multimedia (words+graphics), Signaling (highlighting essentials), Segmenting (chunking), Personalization (conversational tone).
+- Structure: Hook (0-15s) -> Promise -> Concrete Intuition -> Abstract Formalization -> Worked Examples -> Practice.
+- Cognitive Load: Avoid redundancy (don't read text on screen verbatim).
+
+Task:
+1. Analyze the provided user input (topic/materials).
+2. Create a script divided into distinct "Slides".
+3. For each slide, provide:
+    - "scriptText": The exact spoken narration (conversational, engaging).
+    - "visualPrompt": A detailed description for an AI image generator to create a simple, clear, educational visual (chart, metaphor, simple illustration). Avoid complex text in images.
+
+Output JSON Format:
+[
+   {
+      "scriptText": "string",
+      "visualPrompt": "string"
+   }
+]
+```
+
 ### 4. Prompt de Geração de Imagem
 
 - Descreve título, descrição textual, estilo visual mapeado e contexto do público. Inclui requisitos negativos (nada de texto pesado na imagem) para evitar ruído ([src/services/openaiService.ts#L254-L305](src/services/openaiService.ts#L254-L305)).
+
+#### Texto enviado ao modelo
+
+```text
+Crie uma imagem educacional para um slide:
+
+TÍTULO DO SLIDE: {{slideTitle}}
+DESCRIÇÃO: {{description}}
+ESTILO VISUAL: {{styleGuides[style]}}
+PÚBLICO-ALVO: {{audienceStyle[audience]}}
+
+Requisitos:
+- Imagem clara e legível em apresentações
+- Contraste adequado para projeção
+- Sem texto complexo (o texto será adicionado separadamente)
+- Composição equilibrada com espaço para overlays de texto
+```
 
 ### 5. Refinamento de Conteúdo (texto inteiro)
 
@@ -40,14 +133,73 @@ Este documento descreve todas as instruções que entregamos aos modelos OpenAI 
 - Suporta objetivos configuráveis (`clarity`, `engagement`, `brevity`, `formality`).
 - Saída validada pelo `RefinedContentSchema` para registrar texto original, refinado, melhorias e score ([src/schemas/eduScriptSchemas.ts#L94-L108](src/schemas/eduScriptSchemas.ts#L94-L108)).
 
+#### Texto enviado ao modelo
+
+**System prompt**
+
+```text
+Você é um editor especializado em conteúdo educacional.
+Refine textos mantendo precisão técnica enquanto otimiza para o público-alvo.
+{{preserveNote}}
+```
+
+**User prompt**
+
+```text
+Refine o seguinte conteúdo educacional:
+
+TEXTO ORIGINAL:
+{{content}}
+
+PÚBLICO-ALVO: {{targetAudience}}
+
+OBJETIVOS DE REFINAMENTO:
+{{goalsList}}
+
+Retorne o texto refinado com lista de melhorias aplicadas.
+```
+
 ### 6. Refinamento Direto (beta SDK)
 
 - Alternativa simplificada que usa `chat.completions.parse` com instruções semelhantes e o mesmo schema ([src/services/openaiService.ts#L411-L447](src/services/openaiService.ts#L411-L447)).
+
+#### Texto enviado ao modelo
+
+```text
+System: Você é um editor especializado em conteúdo educacional.
+User: Refine este texto para {{targetAudience}}:
+
+{{content}}
+```
 
 ### 7. Feedback de Slide (texto + prompt visual)
 
 - Prompt no Responses API que recebe script atual, prompt visual e feedback textual para ajustar ambos de forma coordenada ([src/services/openaiService.ts#L453-L489](src/services/openaiService.ts#L453-L489)).
 - Produz `scriptText` + `visualPrompt` alinhados ao público.
+
+#### Texto enviado ao modelo
+
+**Instructions**
+
+```text
+Você é um roteirista educacional. Ajuste a narração e o prompt visual considerando o feedback do usuário.
+```
+
+**Mensagem de usuário**
+
+```text
+Slide atual:
+SCRIPT:
+{{scriptText}}
+
+PROMPT VISUAL:
+{{visualPrompt}}
+
+FEEDBACK:
+{{feedback}}
+
+PÚBLICO-ALVO: {{targetAudience}}
+```
 
 ## Heurísticas e Pré-processamentos
 
