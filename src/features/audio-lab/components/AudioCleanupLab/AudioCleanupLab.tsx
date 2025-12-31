@@ -13,8 +13,8 @@ import {
 
 import {
   createRecorderBundle,
+  getAudioConstraints,
   getPreferredMimeType,
-  getVoiceMediaConstraints,
   safeStopRecorder,
   useObjectUrl,
 } from '@/features/audio-lab/lib/mediaUtils';

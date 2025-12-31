@@ -28,6 +28,17 @@ export const getVoiceMediaConstraints = (): MediaTrackConstraints => ({
   autoGainControl: true,
 });
 
+export const getAudioConstraints = (
+  overrides?: MediaTrackConstraints,
+): MediaTrackConstraints => ({
+  channelCount: 1,
+  sampleRate: 48_000,
+  noiseSuppression: true,
+  echoCancellation: true,
+  autoGainControl: true,
+  ...overrides,
+});
+
 export type RecorderBundle = {
   recorder: MediaRecorder;
   completion: Promise<Blob>;
