@@ -25,7 +25,7 @@ Video generator otimizado para 2025 com arquitetura feature-based, React 19 e in
 - Componentes de etapa (Input, Loading, Editor, Recording, Preview) recebem animações utilitárias (`animate-slide-up`, `animate-shimmer`) definidas no Tailwind config.
 - Scrollbar customizada e tipografia Inter já inclusas para manter o novo branding dentro e fora do app shell.
 - Cada componente crítico está protegido por `ErrorBoundary`, permitindo que efeitos visuais não comprometam a resiliência.
-- O seletor de temas flutuante (Midnight, Aurora, Solstice) controla tokens de cor em tempo real via CSS variables e pode ser ajustado em qualquer etapa do fluxo.
+- O tema "Aurora Lab" fica aplicado por padrão em todo o app, definindo os tokens de cor via CSS variables para manter a identidade visual.
 
 ## Estrutura de pastas
 

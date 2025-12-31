@@ -28,7 +28,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
 ];
 
-export const DEFAULT_THEME_ID: ThemeId = 'midnight';
+export const DEFAULT_THEME_ID: ThemeId = 'aurora';
 
 const themeMap = new Map(THEME_DEFINITIONS.map((theme) => [theme.id, theme]));
 
