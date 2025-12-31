@@ -75,24 +75,6 @@ export function VideoGenerationFlow() {
                 })}
               </div>
             </div>
-
-            {blueprint && (
-              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-dark-900/70 px-4 py-2 text-xs text-white/70 shadow-glow-sm">
-                <span className="font-semibold text-white">
-                  {blueprint.icon} {blueprint.title}
-                </span>
-                <span>
-                  Slides {blueprint.slidesRange.min}
-                  {blueprint.slidesRange.max !== blueprint.slidesRange.min
-                    ? `–${blueprint.slidesRange.max}`
-                    : ''}
-                </span>
-                <span>
-                  Duração {blueprint.durationMinutes.min}–
-                  {blueprint.durationMinutes.max} min
-                </span>
-              </div>
-            )}
           </div>
         </div>
       )}
