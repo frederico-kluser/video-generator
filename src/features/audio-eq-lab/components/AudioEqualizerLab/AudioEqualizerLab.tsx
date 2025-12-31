@@ -3,8 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
-  Equalizer,
   Mic,
+  SlidersHorizontal,
   Sparkles,
   Square,
   Trash2,
@@ -264,7 +264,7 @@ export function AudioEqualizerLab() {
     <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-16">
       <div className="glass-card flex flex-col gap-4 rounded-3xl border border-primary-500/40 bg-dark-900/70 p-6 text-white">
         <div className="flex items-center gap-3 text-primary-200">
-          <Equalizer size={20} />
+          <SlidersHorizontal size={20} />
           <span className="text-sm font-semibold uppercase tracking-[0.2em]">
             Audio Equalizer Lab
           </span>

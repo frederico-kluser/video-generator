@@ -16,6 +16,7 @@ import { RecordingStep } from '@/features/video-generation/components/RecordingS
 import { ScriptReviewStep } from '@/features/video-generation/components/ScriptReviewStep/ScriptReviewStep';
 import { useVideoGeneration } from '@/features/video-generation/hooks/useVideoGeneration';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
+import { AudioLabsCta } from '@/shared/components/AudioLabsCta/AudioLabsCta';
 import { useDebugMode } from '@/shared/hooks/useDebugMode';
 
 const STEP_LABELS: Record<VideoGenerationStep, string> = {
@@ -95,7 +96,12 @@ export function VideoGenerationFlow() {
       )}
 
       {step === VIDEO_GENERATION_STEP.INPUT && (
-        <InputStep onStart={actions.startGeneration} />
+        <>
+          <InputStep onStart={actions.startGeneration} />
+          <div className="px-4 pb-16">
+            <AudioLabsCta />
+          </div>
+        </>
       )}
 
       {(step === VIDEO_GENERATION_STEP.GENERATING_SCRIPT ||

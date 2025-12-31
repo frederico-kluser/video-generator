@@ -7,7 +7,8 @@ import {
 const promptModules = import.meta.glob<() => Promise<string>>(
   '../../../docs/prompts/*.md',
   {
-    as: 'raw',
+    query: '?raw',
+    import: 'default',
   },
 );
 
