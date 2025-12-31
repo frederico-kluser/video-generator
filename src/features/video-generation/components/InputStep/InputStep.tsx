@@ -1,5 +1,16 @@
 import { useActionState, useState } from 'react';
-import { BookOpen, LayoutTemplate, Video } from 'lucide-react';
+import {
+  BookOpen,
+  ChevronDown,
+  LayoutTemplate,
+  Monitor,
+  Smartphone,
+  Sparkles,
+  Square,
+  Users,
+  Video,
+  Wand2,
+} from 'lucide-react';
 
 import {
   type AspectRatio,
@@ -9,10 +20,16 @@ import {
 import type { VideoGenerationPayload } from '@/features/video-generation/model/types';
 
 const AUDIENCE_OPTIONS = [
-  'Elementary School (K-5)',
-  'High School (6-12)',
-  'University / Adult',
-  'General Public',
+  { value: 'Elementary School (K-5)', label: 'Ensino Fundamental', icon: '🎒' },
+  { value: 'High School (6-12)', label: 'Ensino Médio', icon: '📚' },
+  { value: 'University / Adult', label: 'Universidade / Adulto', icon: '🎓' },
+  { value: 'General Public', label: 'Público Geral', icon: '🌍' },
+];
+
+const FORMAT_OPTIONS = [
+  { id: '9:16' as AspectRatio, label: 'Shorts', sublabel: 'TikTok, Reels', icon: Smartphone },
+  { id: '16:9' as AspectRatio, label: 'YouTube', sublabel: 'Widescreen', icon: Monitor },
+  { id: '1:1' as AspectRatio, label: 'Quadrado', sublabel: 'Feed, Posts', icon: Square },
 ];
 
 const isAspectRatio = (value: string): value is AspectRatio =>
@@ -74,118 +91,181 @@ export function InputStep({ onStart }: InputStepProps) {
   );
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center p-6">
-      <div className="w-full max-w-3xl space-y-6 rounded-2xl border border-gray-800 bg-gray-900/60 p-8 shadow-2xl">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-white">EduScript AI</h1>
-          <p className="text-gray-400">
-            Transforme suas anotações em videoaulas memoráveis.
+    <div className="flex min-h-screen w-full flex-col items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-2xl animate-slide-up">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary-500/10 px-4 py-2 text-sm font-medium text-primary-300">
+            <Sparkles size={16} className="animate-pulse" />
+            Powered by AI
+          </div>
+          <h1 className="mb-3 text-4xl font-extrabold tracking-tight md:text-5xl">
+            <span className="text-gradient">EduScript</span>
+            <span className="text-white"> AI</span>
+          </h1>
+          <p className="text-lg text-white/60">
+            Transforme suas anotações em videoaulas memoráveis
           </p>
         </div>
 
-        {actionError && (
-          <div className="rounded-lg border border-red-700/40 bg-red-900/20 p-3 text-sm text-red-200">
-            {actionError}
-          </div>
-        )}
-
-        <form action={startAction} className="space-y-6">
-          <div>
-            <label
-              className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-300"
-              htmlFor="topic"
-            >
-              <BookOpen size={16} /> Qual é o tópico principal?
-            </label>
-            <input
-              id="topic"
-              name="topic"
-              type="text"
-              className="w-full rounded-lg border border-gray-700 bg-gray-950 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ex.: Teorema de Pitágoras"
-              value={topic}
-              onChange={(event) => setTopic(event.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label
-              className="mb-2 text-sm font-medium text-gray-300"
-              htmlFor="audience"
-            >
-              Público-alvo
-            </label>
-            <select
-              id="audience"
-              name="audience"
-              className="w-full rounded-lg border border-gray-700 bg-gray-950 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={audience}
-              onChange={(event) => setAudience(event.target.value)}
-            >
-              {AUDIENCE_OPTIONS.map((option) => (
-                <option key={option}>{option}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label
-              className="mb-2 text-sm font-medium text-gray-300"
-              htmlFor="materials"
-            >
-              Materiais ou notas de referência
-            </label>
-            <textarea
-              id="materials"
-              name="materials"
-              className="h-32 w-full resize-none rounded-lg border border-gray-700 bg-gray-950 p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Cole textos, tópicos ou transcrições..."
-              value={materials}
-              onChange={(event) => setMaterials(event.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="mb-3 flex items-center gap-2 text-sm font-medium text-gray-300">
-              <LayoutTemplate size={16} /> Formato do vídeo
-            </label>
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { id: '9:16' as AspectRatio, label: 'Shorts/TikTok' },
-                { id: '16:9' as AspectRatio, label: 'YouTube' },
-                { id: '1:1' as AspectRatio, label: 'Post quadrado' },
-              ].map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-sm transition-all ${
-                    aspectRatio === option.id
-                      ? 'border-blue-500 bg-blue-500/20 text-blue-100'
-                      : 'border-gray-800 bg-gray-950 text-gray-400 hover:border-gray-600'
-                  }`}
-                  onClick={() => setAspectRatio(option.id)}
-                >
-                  <span className="rounded bg-gray-800 px-2 py-1 font-mono text-xs font-bold">
-                    {option.id}
-                  </span>
-                  {option.label}
-                </button>
-              ))}
+        {/* Main Card */}
+        <div className="glass-card p-6 md:p-8">
+          {actionError && (
+            <div className="mb-6 flex items-center gap-3 rounded-xl border border-danger-500/30 bg-danger-500/10 p-4 text-danger-400 animate-slide-down">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger-500/20">
+                !
+              </div>
+              <p className="text-sm">{actionError}</p>
             </div>
-            <input type="hidden" name="aspectRatio" value={aspectRatio} />
-          </div>
+          )}
 
-          <button
-            type="submit"
-            disabled={isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-4 font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
-          >
-            <Video className={isPending ? 'animate-pulse' : ''} />
-            {isPending ? 'Gerando...' : 'Gerar roteiro e slides'}
-          </button>
-        </form>
+          <form action={startAction} className="space-y-6">
+            {/* Topic Input */}
+            <div className="space-y-2">
+              <label className="label" htmlFor="topic">
+                <BookOpen size={16} className="text-primary-400" />
+                Qual é o tópico principal?
+              </label>
+              <input
+                id="topic"
+                name="topic"
+                type="text"
+                className="input"
+                placeholder="Ex.: Teorema de Pitágoras, Fotossíntese, Segunda Guerra Mundial..."
+                value={topic}
+                onChange={(event) => setTopic(event.target.value)}
+                required
+              />
+            </div>
+
+            {/* Audience Select */}
+            <div className="space-y-2">
+              <label className="label" htmlFor="audience">
+                <Users size={16} className="text-primary-400" />
+                Público-alvo
+              </label>
+              <div className="relative">
+                <select
+                  id="audience"
+                  name="audience"
+                  className="input appearance-none pr-10"
+                  value={audience}
+                  onChange={(event) => setAudience(event.target.value)}
+                >
+                  {AUDIENCE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.icon} {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={18}
+                  className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white/40"
+                />
+              </div>
+            </div>
+
+            {/* Materials Textarea */}
+            <div className="space-y-2">
+              <label className="label" htmlFor="materials">
+                <Wand2 size={16} className="text-primary-400" />
+                Materiais ou notas de referência
+              </label>
+              <textarea
+                id="materials"
+                name="materials"
+                className="input min-h-[140px] resize-none"
+                placeholder="Cole textos, tópicos, transcrições ou qualquer material que sirva de base para o roteiro..."
+                value={materials}
+                onChange={(event) => setMaterials(event.target.value)}
+                required
+              />
+            </div>
+
+            {/* Format Selection */}
+            <div className="space-y-3">
+              <label className="label">
+                <LayoutTemplate size={16} className="text-primary-400" />
+                Formato do vídeo
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {FORMAT_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = aspectRatio === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={`group relative flex flex-col items-center gap-2 rounded-xl border p-4 transition-all duration-300 ${
+                        isSelected
+                          ? 'border-primary-500 bg-primary-500/15 shadow-glow-sm'
+                          : 'border-dark-600 bg-dark-800/50 hover:border-dark-500 hover:bg-dark-700/50'
+                      }`}
+                      onClick={() => setAspectRatio(option.id)}
+                    >
+                      {isSelected && (
+                        <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 text-[10px] text-white">
+                          ✓
+                        </div>
+                      )}
+                      <div
+                        className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
+                          isSelected
+                            ? 'bg-primary-500/20 text-primary-400'
+                            : 'bg-dark-700 text-white/50 group-hover:text-white/70'
+                        }`}
+                      >
+                        <Icon size={20} />
+                      </div>
+                      <div className="text-center">
+                        <div
+                          className={`text-sm font-semibold ${isSelected ? 'text-primary-300' : 'text-white/80'}`}
+                        >
+                          {option.label}
+                        </div>
+                        <div className="text-xs text-white/40">{option.sublabel}</div>
+                      </div>
+                      <span
+                        className={`rounded-md px-2 py-0.5 font-mono text-xs ${
+                          isSelected
+                            ? 'bg-primary-500/20 text-primary-300'
+                            : 'bg-dark-700 text-white/50'
+                        }`}
+                      >
+                        {option.id}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <input type="hidden" name="aspectRatio" value={aspectRatio} />
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isPending}
+              className="btn-primary w-full py-4 text-lg"
+            >
+              {isPending ? (
+                <>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Gerando roteiro...
+                </>
+              ) : (
+                <>
+                  <Video size={20} />
+                  Gerar roteiro e slides
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Footer hint */}
+        <p className="mt-6 text-center text-sm text-white/40">
+          A IA irá criar um roteiro pedagógico otimizado e gerar imagens para cada slide
+        </p>
       </div>
     </div>
   );

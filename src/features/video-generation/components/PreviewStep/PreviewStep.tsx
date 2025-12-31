@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, Loader2, Pause, Play, RotateCcw } from 'lucide-react';
+import {
+  Check,
+  Download,
+  Film,
+  ImageIcon,
+  Loader2,
+  Pause,
+  Play,
+  RotateCcw,
+} from 'lucide-react';
 
 import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
 import type { Slide } from '@/features/video-generation/model/types';
@@ -318,30 +327,57 @@ export function PreviewStep({
 
   const arClass =
     aspectRatio === '9:16'
-      ? 'aspect-[9/16] h-[70vh]'
+      ? 'aspect-[9/16] max-h-[65vh]'
       : aspectRatio === '16:9'
-        ? 'aspect-[16/9] w-[80vw]'
-        : 'aspect-square h-[70vh]';
+        ? 'aspect-[16/9] max-w-[70vw]'
+        : 'aspect-square max-h-[65vh]';
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-gray-950 p-6">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 pt-14">
+      {/* Rendering overlay */}
       {isRendering && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80">
-          <span className="text-4xl text-blue-400">⏳</span>
-          <p className="text-xl font-semibold text-white">
-            Renderizando vídeo...
-          </p>
-          <div className="h-2 w-64 rounded-full bg-gray-800">
-            <div
-              className="h-full rounded-full bg-blue-500"
-              style={{ width: `${renderProgress}%` }}
-            />
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-dark-950/95 backdrop-blur-sm">
+          <div className="relative">
+            <div className="absolute inset-0 animate-ping rounded-full bg-primary-500/30" />
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-primary-500/20">
+              <Film size={36} className="animate-pulse text-primary-400" />
+            </div>
+          </div>
+          <div className="text-center">
+            <p className="mb-2 text-xl font-semibold text-white">
+              Renderizando vídeo...
+            </p>
+            <p className="text-sm text-white/50">
+              Processando {slides.length} slides
+            </p>
+          </div>
+          <div className="w-80">
+            <div className="progress-bar h-3">
+              <div className="progress-fill" style={{ width: `${renderProgress}%` }} />
+            </div>
+            <p className="mt-2 text-center font-mono text-sm text-primary-400">
+              {renderProgress}%
+            </p>
           </div>
         </div>
       )}
 
+      {/* Header info */}
+      <div className="glass-card flex items-center gap-4 rounded-xl px-5 py-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success-500/20">
+          <Check size={20} className="text-success-400" />
+        </div>
+        <div>
+          <p className="font-semibold text-white">Projeto finalizado!</p>
+          <p className="text-sm text-white/50">
+            {slides.length} slides prontos para exportação
+          </p>
+        </div>
+      </div>
+
+      {/* Video preview */}
       <div
-        className={`relative overflow-hidden rounded-2xl border border-gray-800 bg-black shadow-2xl ${arClass}`}
+        className={`relative overflow-hidden rounded-2xl border border-dark-700 bg-dark-900 shadow-2xl ${arClass}`}
       >
         {currentSlide.imageUrl ? (
           <img
@@ -350,44 +386,90 @@ export function PreviewStep({
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-gray-500">
-            Sem imagem
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/40">
+            <ImageIcon size={40} />
+            <span className="text-sm">Sem imagem</span>
           </div>
         )}
-        <div className="absolute bottom-8 left-0 right-0 px-8 text-center">
-          <span className="rounded bg-black/60 px-3 py-2 text-lg text-white">
+
+        {/* Subtitle */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
+          <p className="text-center text-lg leading-relaxed text-white drop-shadow-lg">
             {currentSlide.scriptText}
-          </span>
+          </p>
         </div>
+
+        {/* Slide indicator */}
+        <div className="absolute left-4 top-4 rounded-full bg-dark-900/80 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur-sm">
+          {currentSlideIndex + 1} / {slides.length}
+        </div>
+
+        {/* Playing indicator */}
+        {isPlaying && (
+          <div className="absolute right-4 top-4 flex items-center gap-2 rounded-full bg-primary-500/90 px-3 py-1 text-xs font-medium text-white">
+            <div className="h-2 w-2 animate-pulse rounded-full bg-white" />
+            Reproduzindo
+          </div>
+        )}
       </div>
 
-      <div className="flex gap-4">
+      {/* Slide thumbnails */}
+      <div className="flex items-center gap-2 overflow-x-auto rounded-xl bg-dark-800/50 p-2">
+        {slides.map((slide, index) => (
+          <button
+            key={slide.id}
+            type="button"
+            onClick={() => setCurrentSlideIndex(index)}
+            className={`relative flex-shrink-0 overflow-hidden rounded-lg transition-all duration-200 ${
+              index === currentSlideIndex
+                ? 'ring-2 ring-primary-500 ring-offset-2 ring-offset-dark-900'
+                : 'opacity-60 hover:opacity-100'
+            }`}
+          >
+            <div className="h-10 w-14 bg-dark-800">
+              {slide.imageUrl && (
+                <img
+                  src={slide.imageUrl}
+                  alt={`Slide ${index + 1}`}
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onReset}
           disabled={isRendering}
-          className="rounded-full bg-gray-800 p-4 text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
+          className="btn-icon"
+          title="Reiniciar projeto"
         >
-          <RotateCcw />
+          <RotateCcw size={20} />
         </button>
+
         <button
           type="button"
           onClick={togglePlay}
           disabled={isRendering}
-          className="rounded-full bg-white p-4 text-black transition hover:bg-gray-200 disabled:opacity-50"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-dark-900 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl disabled:opacity-50"
         >
-          {isPlaying ? <Pause /> : <Play />}
+          {isPlaying ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
         </button>
+
         <button
           type="button"
           onClick={handleDownloadVideo}
           disabled={isRendering}
-          className="flex items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-4 font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+          className="btn-primary px-6"
         >
           {isRendering ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              Renderizando...
+              Exportando...
             </>
           ) : (
             <>

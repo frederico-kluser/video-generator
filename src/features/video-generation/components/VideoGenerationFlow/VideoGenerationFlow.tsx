@@ -1,4 +1,5 @@
 import { ErrorBoundary } from 'react-error-boundary';
+import { Sparkles } from 'lucide-react';
 import { VIDEO_CONFIG, VIDEO_GENERATION_STEP, type VideoGenerationStep } from '@/config/constants/video';
 import { InputStep } from '@/features/video-generation/components/InputStep/InputStep';
 import { LoadingStep } from '@/features/video-generation/components/LoadingStep/LoadingStep';
@@ -17,18 +18,52 @@ const STEP_LABELS: Record<VideoGenerationStep, string> = {
   [VIDEO_GENERATION_STEP.PREVIEW]: 'Preview',
 };
 
+const STEP_ORDER = [
+  VIDEO_GENERATION_STEP.INPUT,
+  VIDEO_GENERATION_STEP.GENERATING_SCRIPT,
+  VIDEO_GENERATION_STEP.GENERATING_VISUALS,
+  VIDEO_GENERATION_STEP.EDITOR,
+  VIDEO_GENERATION_STEP.RECORDING,
+  VIDEO_GENERATION_STEP.PREVIEW,
+];
+
 export function VideoGenerationFlow() {
   const { step, slides, projectData, progress, actions } = useVideoGeneration();
   const aspectRatio = projectData.aspectRatio ?? VIDEO_CONFIG.DEFAULT_ASPECT_RATIO;
 
+  const currentStepIndex = STEP_ORDER.indexOf(step);
+
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen animate-fade-in">
+      {/* Step indicator */}
       {step !== VIDEO_GENERATION_STEP.INPUT && (
-        <div className="pointer-events-none absolute left-0 top-0 z-50 p-4">
-          <div className="flex items-center gap-2 rounded-full border border-blue-900/50 bg-black/50 px-3 py-1 text-blue-400">
-            <span className="text-xs font-bold uppercase tracking-widest">
-              {STEP_LABELS[step] ?? 'Fluxo'}
-            </span>
+        <div className="pointer-events-none absolute left-0 right-0 top-0 z-50 p-4">
+          <div className="mx-auto flex max-w-4xl items-center justify-between">
+            {/* Current step badge */}
+            <div className="badge-primary animate-slide-down">
+              <Sparkles size={12} className="animate-pulse" />
+              <span>{STEP_LABELS[step] ?? 'Fluxo'}</span>
+            </div>
+
+            {/* Step progress dots */}
+            <div className="flex items-center gap-2">
+              {STEP_ORDER.slice(1).map((s, index) => {
+                const isActive = index <= currentStepIndex - 1;
+                const isCurrent = s === step;
+                return (
+                  <div
+                    key={s}
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      isCurrent
+                        ? 'w-8 bg-gradient-to-r from-primary-500 to-accent-400'
+                        : isActive
+                          ? 'w-2 bg-primary-500'
+                          : 'w-2 bg-dark-600'
+                    }`}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

@@ -2,9 +2,13 @@ import { useEffect, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
+  Edit3,
+  ImageIcon,
+  Loader2,
   MessageSquare,
   Mic,
-  RefreshCw,
+  Send,
+  Sparkles,
 } from 'lucide-react';
 
 import { type AspectRatio } from '@/config/constants/video';
@@ -88,14 +92,14 @@ export function EditorStep({
           isRegeneratingImage: false,
         });
       } catch (imageError) {
-        appLogger.error('⚠️ Falha ao regerar imagem com feedback.', {
+        appLogger.error('Falha ao regerar imagem com feedback.', {
           error: imageError,
           slideId: currentSlide.id,
         });
         onUpdateSlide(currentSlide.id, { isRegeneratingImage: false });
       }
     } catch (error) {
-      appLogger.error('⚠️ Não foi possível aplicar o feedback.', { error });
+      appLogger.error('Não foi possível aplicar o feedback.', { error });
       window.alert('Falha ao processar feedback. Tente novamente.');
     } finally {
       setIsProcessingFeedback(false);
@@ -103,30 +107,48 @@ export function EditorStep({
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-950">
-      <div className="flex items-center justify-between border-b border-gray-800 bg-gray-900/70 p-4">
-        <p className="text-sm text-gray-400">
-          Slide {currentIndex + 1} de {slides.length}
-        </p>
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
-          onClick={onFinish}
-        >
-          <Mic size={16} /> Ir para gravação
+    <div className="flex min-h-screen flex-col pt-14">
+      {/* Header */}
+      <div className="glass-card mx-4 mb-4 flex items-center justify-between rounded-xl border-dark-700 px-4 py-3">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {slides.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => setCurrentIndex(index)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  index === currentIndex
+                    ? 'w-6 bg-primary-500'
+                    : index < currentIndex
+                      ? 'w-2 bg-primary-500/50'
+                      : 'w-2 bg-dark-600 hover:bg-dark-500'
+                }`}
+              />
+            ))}
+          </div>
+          <span className="text-sm text-white/50">
+            {currentIndex + 1} / {slides.length}
+          </span>
+        </div>
+        <button type="button" className="btn-accent" onClick={onFinish}>
+          <Mic size={18} />
+          Ir para gravação
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col md:flex-row">
-        <div className="relative flex flex-1 items-center justify-center bg-gray-900 p-4">
+      <div className="flex flex-1 flex-col gap-4 px-4 pb-4 lg:flex-row">
+        {/* Slide Preview */}
+        <div className="relative flex flex-1 items-center justify-center">
+          {/* Navigation buttons */}
           <button
             type="button"
             aria-label="Slide anterior"
             disabled={currentIndex === 0}
             onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-            className="absolute left-4 z-10 rounded-full bg-black/50 p-2 text-white transition hover:bg-white/20 disabled:opacity-30"
+            className="btn-icon absolute left-2 z-10 disabled:opacity-30"
           >
-            <ChevronLeft />
+            <ChevronLeft size={20} />
           </button>
           <button
             type="button"
@@ -135,55 +157,68 @@ export function EditorStep({
             onClick={() =>
               setCurrentIndex((prev) => Math.min(slides.length - 1, prev + 1))
             }
-            className="absolute right-4 z-10 rounded-full bg-black/50 p-2 text-white transition hover:bg-white/20 disabled:opacity-30"
+            className="btn-icon absolute right-2 z-10 disabled:opacity-30"
           >
-            <ChevronRight />
+            <ChevronRight size={20} />
           </button>
 
+          {/* Slide container */}
           <div
-            className={`relative w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-800 shadow-2xl ${arClass}`}
+            className={`relative w-full max-w-3xl overflow-hidden rounded-2xl border border-dark-700 bg-dark-900 shadow-2xl ${arClass}`}
           >
             {currentSlide.imageUrl ? (
               <img
                 src={currentSlide.imageUrl}
                 alt="Preview do slide"
-                className={`h-full w-full object-cover transition ${currentSlide.isRegeneratingImage ? 'opacity-50 blur-sm' : 'opacity-100'}`}
+                className={`h-full w-full object-cover transition-all duration-500 ${
+                  currentSlide.isRegeneratingImage ? 'scale-105 opacity-50 blur-md' : 'scale-100 opacity-100'
+                }`}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gray-800 text-gray-500">
-                Gerando visual...
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-dark-800 text-white/40">
+                <ImageIcon size={48} className="animate-pulse" />
+                <span>Gerando visual...</span>
               </div>
             )}
 
+            {/* Regenerating overlay */}
             {currentSlide.isRegeneratingImage && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <RefreshCw className="animate-spin text-white" size={44} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-dark-950/60 backdrop-blur-sm">
+                <div className="relative">
+                  <div className="absolute inset-0 animate-ping rounded-full bg-primary-500/30" />
+                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary-500/20">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
+                  </div>
+                </div>
+                <span className="text-sm font-medium text-white/70">Regenerando imagem...</span>
               </div>
             )}
 
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-6">
-              <p className="text-lg leading-relaxed text-white">
+            {/* Script overlay */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
+              <p className="text-lg leading-relaxed text-white drop-shadow-lg">
                 {currentSlide.scriptText}
               </p>
             </div>
           </div>
         </div>
 
-        <aside className="w-full border-l border-gray-800 bg-gray-950 p-4 md:w-96">
-          <h3 className="mb-4 text-sm font-semibold text-gray-200">
-            Editor & Feedback
-          </h3>
-          <div className="space-y-6">
-            <div>
-              <label
-                className="mb-2 block text-xs font-semibold text-gray-500"
-                htmlFor="scriptText"
-              >
-                Narração
+        {/* Sidebar */}
+        <aside className="w-full lg:w-[380px]">
+          <div className="glass-card h-full space-y-5 p-5">
+            <div className="flex items-center gap-2 text-lg font-semibold text-white">
+              <Edit3 size={18} className="text-primary-400" />
+              Editor
+            </div>
+
+            {/* Script editor */}
+            <div className="space-y-2">
+              <label className="label" htmlFor="scriptText">
+                Texto da narração
               </label>
               <textarea
                 id="scriptText"
-                className="h-32 w-full resize-none rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input min-h-[120px] resize-none text-sm"
                 value={currentSlide.scriptText}
                 onChange={(event) =>
                   onUpdateSlide(currentSlide.id, {
@@ -193,13 +228,15 @@ export function EditorStep({
               />
             </div>
 
-            <div className="rounded-2xl border border-blue-900/30 bg-blue-900/10 p-4">
-              <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-300">
-                <MessageSquare size={14} /> Revisão com IA
+            {/* AI Feedback */}
+            <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-4">
+              <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary-300">
+                <Sparkles size={16} className="animate-pulse" />
+                Revisão com IA
               </label>
               <textarea
-                className="h-28 w-full resize-none rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                placeholder="Ex.: deixe a imagem mais colorida ou resuma o texto"
+                className="input min-h-[100px] resize-none border-primary-500/20 bg-dark-800/50 text-sm focus:border-primary-500/40"
+                placeholder="Ex.: deixe a imagem mais colorida, resuma o texto, mude o estilo visual..."
                 value={feedback}
                 onChange={(event) => setFeedback(event.target.value)}
                 disabled={isProcessingFeedback}
@@ -208,22 +245,31 @@ export function EditorStep({
                 type="button"
                 onClick={handleFeedbackSubmit}
                 disabled={!feedback || isProcessingFeedback}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:bg-gray-700"
+                className="btn-primary mt-3 w-full"
               >
                 {isProcessingFeedback ? (
                   <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Processando...
                   </>
                 ) : (
-                  'Aplicar feedback'
+                  <>
+                    <Send size={16} />
+                    Aplicar feedback
+                  </>
                 )}
               </button>
             </div>
 
-            <div className="text-xs text-gray-500">
-              <p className="font-semibold">Prompt visual atual:</p>
-              <p className="truncate italic">{currentSlide.visualPrompt}</p>
+            {/* Visual prompt info */}
+            <div className="rounded-lg bg-dark-800/50 p-3">
+              <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-white/50">
+                <MessageSquare size={12} />
+                Prompt visual
+              </div>
+              <p className="line-clamp-2 text-xs italic text-white/40">
+                {currentSlide.visualPrompt}
+              </p>
             </div>
           </div>
         </aside>

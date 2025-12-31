@@ -1,3 +1,4 @@
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import type { FallbackProps } from 'react-error-boundary';
 
 export function SectionErrorFallback({
@@ -5,16 +6,24 @@ export function SectionErrorFallback({
   resetErrorBoundary,
 }: FallbackProps) {
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 rounded-2xl border border-red-900/40 bg-red-950/30 p-6 text-center">
-      <p className="text-xl font-semibold text-red-200">
-        ⚠️ Algo falhou nesta seção.
-      </p>
-      <p className="text-sm text-red-300">{error.message}</p>
+    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 rounded-2xl border border-danger-500/20 bg-danger-500/5 p-8 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-danger-500/20">
+        <AlertCircle size={28} className="text-danger-400" />
+      </div>
+
+      <div>
+        <p className="mb-1 text-lg font-semibold text-white">
+          Algo falhou nesta seção
+        </p>
+        <p className="max-w-sm text-sm text-white/50">{error.message}</p>
+      </div>
+
       <button
         type="button"
         onClick={resetErrorBoundary}
-        className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-500"
+        className="btn-danger"
       >
+        <RefreshCw size={16} />
         Tentar novamente
       </button>
     </div>
