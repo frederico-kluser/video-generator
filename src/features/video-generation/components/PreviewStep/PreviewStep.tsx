@@ -11,7 +11,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
-import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
+import { type AspectRatio } from '@/config/constants/video';
 import type { Slide } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 import { dataUrlToBlob } from '@/shared/utils/blob';
