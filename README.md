@@ -8,27 +8,18 @@ Video generator otimizado para 2025 com arquitetura feature-based, React 19 e in
 
 ## Stack & ferramentas
 
-- React 19 em modo estrito com novos hooks (`useActionState` e cia.)
-- Vite 6 com `vite-tsconfig-paths` e build otimizado (chunks vendor/AI)
-- TypeScript 5.8 em modo estrito e aliases `@/`
-- ESLint 9 (flat config) + `typescript-eslint`, `eslint-plugin-react`, `eslint-plugin-jsx-a11y`, `eslint-plugin-simple-import-sort`
-- Prettier 3 (execução separada, apenas `eslint-config-prettier` no lint)
-- `react-error-boundary` para isolarmos falhas por sessão da UI
-- `react-error-boundary` + logger estruturado com emojis para debugar rapidamente
-- OpenAI SDK 4 + LangChain para outputs estruturados via Zod (`schemas/eduScriptSchemas.ts`) e serviço dedicado em `services/openaiService.ts`
-- JSZip 3 para gerar bundles `.zip` com todo o conteúdo do projeto em modo debug
+- Pipeline RNNoise WASM + filtros nativos exposto no `/audio-lab` para pré-checar ruído (execute `yarn install` após atualizar para baixar `@timephy/rnnoise-wasm`)
 
 ## Experiência visual 2025
 
-- Paleta roxo/violeta com degradês animados, glow e glassmorphism aplicada globalmente em [src/index.css](src/index.css).
-- Cards, botões e badges reutilizam utilitários (`glass-card`, `btn-primary`, `badge-primary`) para manter consistência em toda a feature.
-- Partículas e discos de luz são renderizados no topo da árvore em [src/app/App.tsx](src/app/App.tsx) para dar profundidade sem acoplar os componentes.
-- Componentes de etapa (Input, Loading, Editor, Recording, Preview) recebem animações utilitárias (`animate-slide-up`, `animate-shimmer`) definidas no Tailwind config.
-- Scrollbar customizada e tipografia Inter já inclusas para manter o novo branding dentro e fora do app shell.
-- Cada componente crítico está protegido por `ErrorBoundary`, permitindo que efeitos visuais não comprometam a resiliência.
 - O tema "Aurora Lab" fica aplicado por padrão em todo o app, definindo os tokens de cor via CSS variables para manter a identidade visual.
 
 ## Estrutura de pastas
+
+Acesse `/audio-lab` para abrir o laboratório de limpeza. A página roda em cima do `@timephy/rnnoise-wasm` (baixado via `yarn install`) e de uma cadeia Web Audio (high-pass → compressor → limiter) antes de gravar com `MediaRecorder`.
+Clique em **Gravar amostra** para capturar simultaneamente o áudio bruto e o áudio tratado; em seguida, use os dois players (Original x Tratado) para comparar ruído de fundo, respirações e nível geral.
+O badge “Pipeline” indica se o RNNoise carregou. Caso o navegador não suporte `AudioWorklet`, o app mostra “Fallback nativo” e ainda aplica os filtros que não dependem de WASM.
+Utilize o laboratório antes de entrar no passo **Gravação** do fluxo principal para ajustar ganho do microfone, escolher ambientes silenciosos e validar que a limpeza atenderá ao padrão do vídeo final.
 
 ```
 src/

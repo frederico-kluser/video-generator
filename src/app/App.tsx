@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
 import { getEnv } from '@/config/env';
+import { AudioCleanupLab } from '@/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab';
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
 import { RenderTestPage } from '@/features/render-test/components/RenderTestPage/RenderTestPage';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
@@ -12,9 +13,18 @@ export function App() {
     document.title = appTitle;
   }, []);
 
-  const isRenderTestRoute =
-    typeof window !== 'undefined' &&
-    window.location.pathname.replace(/\/$/, '') === '/render-test';
+  const normalizedPath =
+    typeof window !== 'undefined'
+      ? window.location.pathname.replace(/\/$/, '') || '/'
+      : '/';
+
+  let page: JSX.Element = <VideoGenerationFlow />;
+
+  if (normalizedPath === '/render-test') {
+    page = <RenderTestPage />;
+  } else if (normalizedPath === '/audio-lab') {
+    page = <AudioCleanupLab />;
+  }
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden">
@@ -27,7 +37,7 @@ export function App() {
 
       {/* Main content */}
       <ErrorBoundary FallbackComponent={SectionErrorFallback} resetKeys={[]}>
-        {isRenderTestRoute ? <RenderTestPage /> : <VideoGenerationFlow />}
+        {page}
       </ErrorBoundary>
     </div>
   );
