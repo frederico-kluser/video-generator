@@ -75,6 +75,7 @@ export function AudioCleanupLab() {
     setCleanAudio(null);
     setPipelineMode(null);
     setPhase('preparing');
+    appLogger.info('🔧 Preparando pipeline do Audio Cleanup Lab.');
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -191,6 +192,22 @@ export function AudioCleanupLab() {
   const isBusy = phase === 'preparing' || phase === 'processing';
   const recorderCta =
     phase === 'recording' ? 'Parar e analisar' : 'Gravar amostra';
+  const recorderStatusMessage =
+    phase === 'recording'
+      ? 'Gravando… descreva um trecho curto.'
+      : phase === 'preparing'
+        ? 'Preparando pipeline de limpeza...'
+        : phase === 'processing'
+          ? 'Finalizando buffers…'
+          : 'Pressione para iniciar uma nova amostra.';
+  const pipelineStatus =
+    phase === 'preparing'
+      ? 'Carregando pipeline'
+      : pipelineMode === 'rnnoise'
+        ? 'RNNoise ativo'
+        : pipelineMode === 'native'
+          ? 'Pipeline nativo'
+          : 'Pipeline inativo';
 
   return (
     <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-16">
@@ -260,11 +277,7 @@ export function AudioCleanupLab() {
               Controle
             </p>
             <p className="text-lg font-semibold text-white">
-              {phase === 'recording'
-                ? 'Gravando… descreva um trecho curto.'
-                : isBusy
-                  ? 'Finalizando buffers…'
-                  : 'Pressione para iniciar uma nova amostra.'}
+              {recorderStatusMessage}
             </p>
           </div>
 
@@ -287,9 +300,7 @@ export function AudioCleanupLab() {
           <StatusBadge
             icon={<Waves size={16} />}
             label="Pipeline"
-            value={
-              pipelineMode === 'rnnoise' ? 'RNNoise ativo' : 'Fallback nativo'
-            }
+            value={pipelineStatus}
           />
           <StatusBadge
             icon={<Sparkles size={16} />}
@@ -299,7 +310,9 @@ export function AudioCleanupLab() {
                 ? 'Gravando'
                 : phase === 'processing'
                   ? 'Processando'
-                  : 'Pronto'
+                  : phase === 'preparing'
+                    ? 'Preparando'
+                    : 'Pronto'
             }
           />
           <StatusBadge
