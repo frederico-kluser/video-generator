@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+
+import { getEnv } from '@/config/env';
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
-import { getEnv } from '@/config/env';
 
 export function App() {
   useEffect(() => {

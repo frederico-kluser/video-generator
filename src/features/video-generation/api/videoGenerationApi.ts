@@ -1,6 +1,7 @@
 import { Type } from '@google/genai';
-import { AspectRatio } from '@/config/constants/video';
+
 import { PEDAGOGICAL_SYSTEM_INSTRUCTION } from '@/config/constants/pedagogy';
+import { AspectRatio } from '@/config/constants/video';
 import { Slide } from '@/features/video-generation/model/types';
 import { ApiError } from '@/shared/errors/ApiError';
 import { getGenAiClient } from '@/shared/lib/genAiClient';
@@ -8,6 +9,11 @@ import { appLogger } from '@/shared/logging/logger';
 
 const SCRIPT_MODEL = 'gemini-3-flash-preview';
 const IMAGE_MODEL = 'gemini-2.5-flash-image';
+
+type RawSlide = {
+  scriptText: string;
+  visualPrompt: string;
+};
 
 export async function generateScriptFromMaterials(
   topic: string,
@@ -52,9 +58,17 @@ export async function generateScriptFromMaterials(
     throw new ApiError(message, 502);
   }
 
-  const parsed = JSON.parse(text);
-  appLogger.info('Roteiro gerado com sucesso.', { slides: parsed.length });
-  return parsed;
+  const parsed = JSON.parse(text) as unknown;
+
+  if (!Array.isArray(parsed)) {
+    const message = 'O formato retornado pelo modelo é inválido.';
+    appLogger.error(message);
+    throw new ApiError(message, 502);
+  }
+
+  const slides = parsed as RawSlide[];
+  appLogger.info('Roteiro gerado com sucesso.', { slides: slides.length });
+  return slides;
 }
 
 export async function generateSlideImage(visualPrompt: string, aspectRatio: AspectRatio): Promise<string> {

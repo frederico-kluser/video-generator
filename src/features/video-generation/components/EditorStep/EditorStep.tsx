@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, MessageSquare, Mic, RefreshCw } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  MessageSquare,
+  Mic,
+  RefreshCw,
+} from 'lucide-react';
+
 import { AspectRatio } from '@/config/constants/video';
-import { refineSlideContent, generateSlideImage } from '@/features/video-generation/api/videoGenerationApi';
+import {
+  generateSlideImage,
+  refineSlideContent,
+} from '@/features/video-generation/api/videoGenerationApi';
 import { Slide } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 
@@ -12,7 +22,12 @@ type EditorStepProps = {
   onFinish: () => void;
 };
 
-export function EditorStep({ slides, aspectRatio, onUpdateSlide, onFinish }: EditorStepProps) {
+export function EditorStep({
+  slides,
+  aspectRatio,
+  onUpdateSlide,
+  onFinish,
+}: EditorStepProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [isProcessingFeedback, setIsProcessingFeedback] = useState(false);
@@ -37,7 +52,12 @@ export function EditorStep({ slides, aspectRatio, onUpdateSlide, onFinish }: Edi
     return null;
   }
 
-  const arClass = aspectRatio === '9:16' ? 'aspect-[9/16]' : aspectRatio === '16:9' ? 'aspect-[16/9]' : 'aspect-square';
+  const arClass =
+    aspectRatio === '9:16'
+      ? 'aspect-[9/16]'
+      : aspectRatio === '16:9'
+        ? 'aspect-[16/9]'
+        : 'aspect-square';
 
   const handleFeedbackSubmit = async () => {
     if (!feedback.trim()) {
@@ -57,16 +77,25 @@ export function EditorStep({ slides, aspectRatio, onUpdateSlide, onFinish }: Edi
       });
 
       setFeedback('');
-      generateSlideImage(refinements.visualPrompt, aspectRatio)
-        .then((imageUrl) => {
-          onUpdateSlide(currentSlide.id, { imageUrl, isRegeneratingImage: false });
-        })
-        .catch((error) => {
-          appLogger.error('Falha ao regerar imagem com feedback.', { error, slideId: currentSlide.id });
-          onUpdateSlide(currentSlide.id, { isRegeneratingImage: false });
+
+      try {
+        const imageUrl = await generateSlideImage(
+          refinements.visualPrompt,
+          aspectRatio,
+        );
+        onUpdateSlide(currentSlide.id, {
+          imageUrl,
+          isRegeneratingImage: false,
         });
+      } catch (imageError) {
+        appLogger.error('⚠️ Falha ao regerar imagem com feedback.', {
+          error: imageError,
+          slideId: currentSlide.id,
+        });
+        onUpdateSlide(currentSlide.id, { isRegeneratingImage: false });
+      }
     } catch (error) {
-      appLogger.error('Não foi possível aplicar o feedback.', { error });
+      appLogger.error('⚠️ Não foi possível aplicar o feedback.', { error });
       window.alert('Falha ao processar feedback. Tente novamente.');
     } finally {
       setIsProcessingFeedback(false);
@@ -92,6 +121,7 @@ export function EditorStep({ slides, aspectRatio, onUpdateSlide, onFinish }: Edi
         <div className="relative flex flex-1 items-center justify-center bg-gray-900 p-4">
           <button
             type="button"
+            aria-label="Slide anterior"
             disabled={currentIndex === 0}
             onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
             className="absolute left-4 z-10 rounded-full bg-black/50 p-2 text-white transition hover:bg-white/20 disabled:opacity-30"
@@ -100,14 +130,19 @@ export function EditorStep({ slides, aspectRatio, onUpdateSlide, onFinish }: Edi
           </button>
           <button
             type="button"
+            aria-label="Próximo slide"
             disabled={currentIndex === slides.length - 1}
-            onClick={() => setCurrentIndex((prev) => Math.min(slides.length - 1, prev + 1))}
+            onClick={() =>
+              setCurrentIndex((prev) => Math.min(slides.length - 1, prev + 1))
+            }
             className="absolute right-4 z-10 rounded-full bg-black/50 p-2 text-white transition hover:bg-white/20 disabled:opacity-30"
           >
             <ChevronRight />
           </button>
 
-          <div className={`relative w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-800 shadow-2xl ${arClass}`}>
+          <div
+            className={`relative w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-800 shadow-2xl ${arClass}`}
+          >
             {currentSlide.imageUrl ? (
               <img
                 src={currentSlide.imageUrl}
@@ -127,23 +162,34 @@ export function EditorStep({ slides, aspectRatio, onUpdateSlide, onFinish }: Edi
             )}
 
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-6">
-              <p className="text-lg leading-relaxed text-white">{currentSlide.scriptText}</p>
+              <p className="text-lg leading-relaxed text-white">
+                {currentSlide.scriptText}
+              </p>
             </div>
           </div>
         </div>
 
         <aside className="w-full border-l border-gray-800 bg-gray-950 p-4 md:w-96">
-          <h3 className="mb-4 text-sm font-semibold text-gray-200">Editor & Feedback</h3>
+          <h3 className="mb-4 text-sm font-semibold text-gray-200">
+            Editor & Feedback
+          </h3>
           <div className="space-y-6">
             <div>
-              <label className="mb-2 block text-xs font-semibold text-gray-500" htmlFor="scriptText">
+              <label
+                className="mb-2 block text-xs font-semibold text-gray-500"
+                htmlFor="scriptText"
+              >
                 Narração
               </label>
               <textarea
                 id="scriptText"
                 className="h-32 w-full resize-none rounded-lg border border-gray-700 bg-gray-900 p-3 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 value={currentSlide.scriptText}
-                onChange={(event) => onUpdateSlide(currentSlide.id, { scriptText: event.target.value })}
+                onChange={(event) =>
+                  onUpdateSlide(currentSlide.id, {
+                    scriptText: event.target.value,
+                  })
+                }
               />
             </div>
 
@@ -164,7 +210,11 @@ export function EditorStep({ slides, aspectRatio, onUpdateSlide, onFinish }: Edi
                 disabled={!feedback || isProcessingFeedback}
                 className="mt-3 w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:bg-gray-700"
               >
-                {isProcessingFeedback ? <RefreshCw className="animate-spin" size={16} /> : 'Aplicar feedback' }
+                {isProcessingFeedback ? (
+                  <RefreshCw className="animate-spin" size={16} />
+                ) : (
+                  'Aplicar feedback'
+                )}
               </button>
             </div>
 

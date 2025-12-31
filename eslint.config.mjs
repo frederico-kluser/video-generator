@@ -4,7 +4,7 @@ import reactPlugin from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
-import eslintConfigPrettier from 'eslint-config-prettier/flat';
+import eslintConfigPrettier from 'eslint-config-prettier';
 import globals from 'globals';
 
 const files = ['**/*.ts', '**/*.tsx'];
@@ -12,7 +12,18 @@ const files = ['**/*.ts', '**/*.tsx'];
 export default [
   { ignores: ['dist', 'node_modules'] },
   eslint.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files,
+    languageOptions: {
+      ...(config.languageOptions ?? {}),
+      parserOptions: {
+        ...(config.languageOptions?.parserOptions ?? {}),
+        project: ['./tsconfig.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  })),
   {
     files,
     plugins: {
@@ -46,7 +57,7 @@ export default [
       'simple-import-sort/imports': [
         'error',
         {
-          groups: [['^react'], ['^@?\\w'], ['^@/'], ['^\.'], ['^.+\\.css$']],
+          groups: [['^react'], ['^@?\\w'], ['^@/'], ['^\\.'], ['^.+\\.css$']],
         },
       ],
       'simple-import-sort/exports': 'error',

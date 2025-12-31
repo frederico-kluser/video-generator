@@ -1,6 +1,11 @@
 import { useActionState, useState } from 'react';
 import { BookOpen, LayoutTemplate, Video } from 'lucide-react';
-import { AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
+
+import {
+  AspectRatio,
+  VIDEO_ASPECT_RATIOS,
+  VIDEO_CONFIG,
+} from '@/config/constants/video';
 import { VideoGenerationPayload } from '@/features/video-generation/model/types';
 
 const AUDIENCE_OPTIONS = [
@@ -10,6 +15,14 @@ const AUDIENCE_OPTIONS = [
   'General Public',
 ];
 
+const isAspectRatio = (value: string): value is AspectRatio =>
+  (VIDEO_ASPECT_RATIOS as readonly string[]).some((ratio) => ratio === value);
+
+const getStringValue = (
+  entry: FormDataEntryValue | null,
+  fallback = '',
+): string => (typeof entry === 'string' ? entry : fallback);
+
 type InputStepProps = {
   onStart: (data: VideoGenerationPayload) => Promise<void>;
 };
@@ -18,37 +31,56 @@ export function InputStep({ onStart }: InputStepProps) {
   const [topic, setTopic] = useState('');
   const [materials, setMaterials] = useState('');
   const [audience, setAudience] = useState(VIDEO_CONFIG.DEFAULT_AUDIENCE);
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(VIDEO_CONFIG.DEFAULT_ASPECT_RATIO);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>(
+    VIDEO_CONFIG.DEFAULT_ASPECT_RATIO,
+  );
 
-  const [actionError, startAction, isPending] = useActionState(async (_: string | null, formData: FormData) => {
-    const payload: VideoGenerationPayload = {
-      topic: String(formData.get('topic') ?? '').trim(),
-      materials: String(formData.get('materials') ?? '').trim(),
-      targetAudience: String(formData.get('audience') ?? VIDEO_CONFIG.DEFAULT_AUDIENCE),
-      aspectRatio: formData.get('aspectRatio') as AspectRatio,
-    };
+  const [actionError, startAction, isPending] = useActionState(
+    async (_: string | null, formData: FormData) => {
+      const topicValue = getStringValue(formData.get('topic')).trim();
+      const materialsValue = getStringValue(formData.get('materials')).trim();
+      const targetAudienceValue = getStringValue(
+        formData.get('audience'),
+        VIDEO_CONFIG.DEFAULT_AUDIENCE,
+      );
+      const aspectRatioEntry = formData.get('aspectRatio');
+      const safeAspectRatio =
+        typeof aspectRatioEntry === 'string' && isAspectRatio(aspectRatioEntry)
+          ? aspectRatioEntry
+          : VIDEO_CONFIG.DEFAULT_ASPECT_RATIO;
 
-    if (!payload.topic || !payload.materials) {
-      return 'Informe um tópico e materiais de referência para continuar.';
-    }
-
-    try {
-      await onStart(payload);
-      return null;
-    } catch (error) {
-      if (error instanceof Error) {
-        return error.message;
+      if (!topicValue || !materialsValue) {
+        return 'Informe um tópico e materiais de referência para continuar.';
       }
-      return 'Não foi possível iniciar a geração. Tente novamente.';
-    }
-  }, null);
+
+      const payload: VideoGenerationPayload = {
+        topic: topicValue,
+        materials: materialsValue,
+        targetAudience: targetAudienceValue,
+        aspectRatio: safeAspectRatio,
+      };
+
+      try {
+        await onStart(payload);
+        return null;
+      } catch (error) {
+        if (error instanceof Error) {
+          return error.message;
+        }
+        return 'Não foi possível iniciar a geração. Tente novamente.';
+      }
+    },
+    null,
+  );
 
   return (
     <div className="flex h-full w-full flex-col items-center justify-center p-6">
       <div className="w-full max-w-3xl space-y-6 rounded-2xl border border-gray-800 bg-gray-900/60 p-8 shadow-2xl">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-white">EduScript AI</h1>
-          <p className="text-gray-400">Transforme suas anotações em videoaulas memoráveis.</p>
+          <p className="text-gray-400">
+            Transforme suas anotações em videoaulas memoráveis.
+          </p>
         </div>
 
         {actionError && (
@@ -59,7 +91,10 @@ export function InputStep({ onStart }: InputStepProps) {
 
         <form action={startAction} className="space-y-6">
           <div>
-            <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-300" htmlFor="topic">
+            <label
+              className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-300"
+              htmlFor="topic"
+            >
               <BookOpen size={16} /> Qual é o tópico principal?
             </label>
             <input
@@ -75,7 +110,10 @@ export function InputStep({ onStart }: InputStepProps) {
           </div>
 
           <div>
-            <label className="mb-2 text-sm font-medium text-gray-300" htmlFor="audience">
+            <label
+              className="mb-2 text-sm font-medium text-gray-300"
+              htmlFor="audience"
+            >
               Público-alvo
             </label>
             <select
@@ -92,7 +130,10 @@ export function InputStep({ onStart }: InputStepProps) {
           </div>
 
           <div>
-            <label className="mb-2 text-sm font-medium text-gray-300" htmlFor="materials">
+            <label
+              className="mb-2 text-sm font-medium text-gray-300"
+              htmlFor="materials"
+            >
               Materiais ou notas de referência
             </label>
             <textarea
@@ -126,7 +167,9 @@ export function InputStep({ onStart }: InputStepProps) {
                   }`}
                   onClick={() => setAspectRatio(option.id)}
                 >
-                  <span className="rounded bg-gray-800 px-2 py-1 font-mono text-xs font-bold">{option.id}</span>
+                  <span className="rounded bg-gray-800 px-2 py-1 font-mono text-xs font-bold">
+                    {option.id}
+                  </span>
                   {option.label}
                 </button>
               ))}
