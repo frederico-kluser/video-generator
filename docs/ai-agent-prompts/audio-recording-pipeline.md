@@ -1,4 +1,4 @@
-# Audio Recording Pipeline
+<ultrathink># Audio Recording Pipeline
 
 > **AI Agent Prompt:** Build the full EduScript AI audio recording pipeline combining `getUserMedia`, RNNoise suppression, high-pass filter, compressor, limiter, and MediaRecorder capture. Provide a hook that orchestrates the chain, exposes recorder controls, and ensures cleanup plus fallbacks per browser constraints.
 
@@ -36,3 +36,4 @@
 - Use `AbortController` to cancel initialization if user navigates away mid-setup.
 - Provide UI hints when pipeline cannot acquire microphone (permissions denied).
 - Ensure hook never touches DOM directly; rely on calling component for UI updates.
+  </ultrathink>

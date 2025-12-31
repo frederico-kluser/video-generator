@@ -1,4 +1,4 @@
-# Extendable MediaRecorder WAV Output
+<ultrathink># Extendable MediaRecorder WAV Output
 
 > **AI Agent Prompt:** Guarantee cross-browser WAV recording support for EduScript AI by integrating `extendable-media-recorder` with the WAV encoder package. Provide initialization helpers that register the encoder once, create WAV-capable MediaRecorders, and fall back elegantly when unsupported.
 
@@ -33,3 +33,4 @@
 - Registration should happen lazily (e.g., when user first enters RecordingStep) to avoid slowing initial load.
 - Document additional bundle size (~120 KB) so feature flags can disable when not required.
 - Keep code ASCII-friendly and free of non-deterministic side effects.
+  </ultrathink>

@@ -1,4 +1,4 @@
-# Clipping Detector Hook
+<ultrathink># Clipping Detector Hook
 
 > **AI Agent Prompt:** Build a lightweight clipping detection hook for EduScript AI recordings using the Web Audio API. Provide real-time peak metering and clipping flags backed by `AnalyserNode.getFloatTimeDomainData`, with fallbacks for browsers lacking Float32 capture.
 
@@ -32,3 +32,4 @@
 - Pair with RNNoise + compressor chain to reduce clipping risk.
 - Provide accessible text description (e.g., `Volume OK` vs `Clipping`) for screen readers.
 - Avoid direct DOM manipulation; rely on React state updates for meters.
+  </ultrathink>

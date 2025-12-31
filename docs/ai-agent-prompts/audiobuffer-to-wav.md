@@ -1,4 +1,4 @@
-# AudioBuffer to WAV Export
+<ultrathink># AudioBuffer to WAV Export
 
 > **AI Agent Prompt:** Add reliable WAV export support for EduScript AI using `audiobuffer-to-wav`. Build utilities that convert processed `AudioBuffer` objects (post normalization) to Blob outputs for download, preview, or FFmpeg ingestion.
 
@@ -33,3 +33,4 @@
 - When exporting long tracks, inform user about potential memory cost; consider streaming alternatives.
 - Provide integration doc referencing this helper from EditorStep and export workflow.
 - Keep conversions synchronous but wrap in `useWorker` if CPU spikes.
+  </ultrathink>

@@ -1,4 +1,4 @@
-# LameJS MP3 Encoding
+<ultrathink># LameJS MP3 Encoding
 
 > **AI Agent Prompt:** Provide optional MP3 export for EduScript AI by integrating the maintained `@breezystack/lamejs` fork. Implement a worker-driven encoder that converts normalized WAV data into MP3 while keeping the main thread responsive.
 
@@ -32,3 +32,4 @@
 - LameJS increases bundle size; lazy-load worker when user requests MP3.
 - Document licensing (LGPL) implications inside README.
 - Provide tests verifying MP3 blob size roughly equals `durationSeconds * bitrateKbps * 125` bytes.
+  </ultrathink>

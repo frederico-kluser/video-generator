@@ -1,4 +1,4 @@
-# Tone.js Audio Dynamics
+<ultrathink># Tone.js Audio Dynamics
 
 > **AI Agent Prompt:** Implement real-time voice dynamics processing for EduScript AI using Tone.js. Enable a reusable React hook that initializes compressor and limiter nodes, integrates with MediaRecorder-based capture, and exposes structured logging with emojis. Follow TypeScript strict mode, reuse existing logging utilities, and provide fallbacks when Tone.js cannot start.
 
@@ -40,3 +40,4 @@
 - Avoid global Tone.js state; keep everything scoped to the hook instance.
 - Use `requestIdleCallback` or `queueMicrotask` to defer heavy Tone imports if initialization occurs during render.
 - Document the hook inside `docs/README` future section if needed.
+  </ultrathink>

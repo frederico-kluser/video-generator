@@ -1,4 +1,4 @@
-# WebCodecs Encoder Pipeline
+<ultrathink># WebCodecs Encoder Pipeline
 
 > **AI Agent Prompt:** Replace ad-hoc MediaRecorder exports with a WebCodecs-based encoder that renders EduScript AI slide canvases into H.264 MP4 using `mp4-muxer`. Provide a hook that initializes `VideoEncoder`, feeds frames from `canvas.captureStream()` or headless rendering, and finalizes to Blob output with precise timestamps.
 
@@ -37,3 +37,4 @@
 - Use `OffscreenCanvas` where supported to render slides without blocking UI.
 - Consider exposing `abort` method to cancel recording quickly.
 - Document compatibility matrix inside README or release notes.
+  </ultrathink>

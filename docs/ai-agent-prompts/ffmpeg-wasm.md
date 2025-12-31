@@ -1,4 +1,4 @@
-# FFmpeg.wasm Audio Toolkit
+<ultrathink># FFmpeg.wasm Audio Toolkit
 
 > **AI Agent Prompt:** Integrate `@ffmpeg/ffmpeg` and `@ffmpeg/util` to normalize, convert, and trim EduScript AI audio recordings in-browser. Provide a service module with helpers for loudness normalization (EBU R128 presets), WebM to WAV/MP3 conversion, and shared worker lifecycle management. Ensure COOP/COEP headers configured in `vite.config.ts` and ship fallback messaging for Safari.
 
@@ -35,3 +35,4 @@
 - Persist FFmpeg core in IndexedDB using `toBlobURL` as needed for faster reloads.
 - Document memory usage implications (30-40 MB) inside README or docs entry.
 - Guard functions so they never run on the server during SSR.
+  </ultrathink>

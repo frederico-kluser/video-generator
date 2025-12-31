@@ -1,4 +1,4 @@
-# Crunker Audio Concatenation
+<ultrathink># Crunker Audio Concatenation
 
 > **AI Agent Prompt:** Implement slide-audio concatenation for EduScript AI exports using `crunker`. Provide utilities that fetch individual slide WAV files, concatenate them at 48 kHz, and output a single narration track ready for muxing.
 
@@ -33,3 +33,4 @@
 - Consider caching slide buffers to avoid re-downloading when users tweak order.
 - When audio durations differ significantly, provide warning if silence > 2s detected between segments.
 - Keep function browser-only to avoid SSR pitfalls.
+  </ultrathink>

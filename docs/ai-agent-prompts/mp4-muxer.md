@@ -1,4 +1,4 @@
-# MP4 Muxer Assembly
+<ultrathink># MP4 Muxer Assembly
 
 > **AI Agent Prompt:** Build a reusable muxing utility for EduScript AI based on `mp4-muxer`. Accept video chunks from WebCodecs or other encoders plus optional audio tracks, then output a single MP4 blob with fast-start metadata.
 
@@ -33,3 +33,4 @@
 - Consider streaming target (WritableStreamTarget) when exporting long videos to avoid storing entire buffer in memory.
 - For VP9/AV1, update codec strings accordingly.
 - Keep API surface minimal yet composable with future audio track support.
+  </ultrathink>

@@ -1,4 +1,4 @@
-# RNNoise WASM Noise Suppression
+<ultrathink># RNNoise WASM Noise Suppression
 
 > **AI Agent Prompt:** Add RNNoise-based AI noise suppression to the EduScript AI recording pipeline using `@timephy/rnnoise-wasm`. Implement a hook that upgrades raw microphone streams to denoised `MediaStream` instances feeding MediaRecorder and WebCodecs flows. Provide graceful degradation when AudioWorklets or 48 kHz mono input are unavailable.
 
@@ -36,3 +36,4 @@
 - Keep hook synchronous until first awaited call; avoid creating contexts during SSR.
 - Provide unit tests mocking AudioContext to ensure fallback logic behaves.
 - Pair with VAD hook to avoid processing silence when not needed.
+  </ultrathink>

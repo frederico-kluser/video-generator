@@ -1,4 +1,4 @@
-# MediaRecorder Optimized Capture
+<ultrathink># MediaRecorder Optimized Capture
 
 > **AI Agent Prompt:** Provide a resilient MediaRecorder abstraction for EduScript AI that auto-selects the best MIME type, sets tuned bitrates, and exposes lifecycle callbacks with structured logging. Ensure compatibility across Chrome, Firefox, and Safari while offering fallbacks to `extendable-media-recorder` when WAV output is required.
 
@@ -33,3 +33,4 @@
 - For long sessions, consider streaming chunks to `WritableStream` instead of storing all in memory.
 - Provide ability to adjust bitrates per slide resolution (720p vs 1080p).
 - Keep DOM dependencies minimal; rely on MediaRecorder API calls.
+  </ultrathink>
