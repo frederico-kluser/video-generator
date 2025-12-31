@@ -11,6 +11,10 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       port: Number(env.VITE_PORT) || 5173,
+      headers: {
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin',
+      },
     },
     build: {
       target: 'esnext',

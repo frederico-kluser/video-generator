@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+
 import {
   Check,
   Download,
@@ -13,6 +14,7 @@ import {
 import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
 import type { Slide } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
+import { dataUrlToBlob } from '@/shared/utils/blob';
 
 type PreviewStepProps = {
   slides: Slide[];
@@ -32,8 +34,18 @@ type CanvasSurface =
       context: OffscreenCanvasRenderingContext2D | null;
     };
 
+type SlideImageSourceMap = Map<Slide['id'], CanvasImageSource | null>;
+
 const FALLBACK_DURATION_MS = 3_000;
 const EXPORT_FRAME_RATE = 30;
+const RECORDER_MIME_TYPES = [
+  'video/webm;codecs=vp9',
+  'video/webm;codecs=vp8',
+  'video/webm',
+  'video/mp4',
+] as const;
+
+type RecorderMimeType = (typeof RECORDER_MIME_TYPES)[number];
 
 function createCanvasSurface(
   width: number,
@@ -71,6 +83,21 @@ function createCanvasSurface(
   }
 
   return null;
+}
+function resolveRecorderMimeType(): RecorderMimeType {
+  if (typeof MediaRecorder === 'undefined') {
+    throw new Error('MediaRecorder não é suportado neste navegador.');
+  }
+
+  const supported = RECORDER_MIME_TYPES.find((candidate) =>
+    MediaRecorder.isTypeSupported(candidate),
+  );
+
+  if (!supported) {
+    throw new Error('Nenhum formato de vídeo suportado foi encontrado.');
+  }
+
+  return supported;
 }
 
 export function PreviewStep({
@@ -162,7 +189,13 @@ export function PreviewStep({
     setIsRendering(true);
     setRenderProgress(0);
 
+    let slideImageSources: SlideImageSourceMap | null = null;
+
     try {
+      slideImageSources = await preloadSlideImageSources(slides);
+      if (!slideImageSources) {
+        throw new Error('Não foi possível preparar as imagens dos slides.');
+      }
       const [width, height] = getResolution();
       const surface = createCanvasSurface(width, height);
 
@@ -190,6 +223,10 @@ export function PreviewStep({
       }
       const audioCtx = new AudioContextCtor();
       const dest = audioCtx.createMediaStreamDestination();
+
+      if (typeof canvas.captureStream !== 'function') {
+        throw new Error('Seu navegador não suporta captura de canvas.');
+      }
 
       const stream = canvas.captureStream(EXPORT_FRAME_RATE);
       const canvasTrack = stream.getVideoTracks()[0];
@@ -220,11 +257,7 @@ export function PreviewStep({
         stream.addTrack(audioTrack);
       }
 
-      const mimeType = MediaRecorder.isTypeSupported('video/mp4')
-        ? 'video/mp4'
-        : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-          ? 'video/webm;codecs=vp9'
-          : 'video/webm';
+      const mimeType = resolveRecorderMimeType();
 
       const recorder = new MediaRecorder(stream, {
         mimeType,
@@ -257,9 +290,12 @@ export function PreviewStep({
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, width, height);
 
-        if (slide.imageUrl) {
-          const imageElement = await createImageElement(slide.imageUrl);
-          drawImageCover(ctx, imageElement, width, height);
+        const slideImageSource = slideImageSources.get(slide.id) ?? null;
+
+        if (slideImageSource) {
+          drawImageCover(ctx, slideImageSource, width, height);
+        } else {
+          drawFallbackBackground(ctx, width, height);
         }
 
         drawSubtitle(ctx, slide.narrationText, width, height);
@@ -314,6 +350,7 @@ export function PreviewStep({
         'Não foi possível renderizar o vídeo. Verifique o console para mais detalhes.',
       );
     } finally {
+      cleanupSlideImageSources(slideImageSources);
       setIsRendering(false);
       setRenderProgress(0);
     }
@@ -490,26 +527,35 @@ export function PreviewStep({
   );
 }
 
-async function createImageElement(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = (event) => reject(event);
-    img.src = src;
-  });
-}
-
 function drawImageCover(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  source: CanvasImageSource,
   width: number,
   height: number,
 ) {
-  const scale = Math.max(width / img.width, height / img.height);
-  const x = width / 2 - (img.width / 2) * scale;
-  const y = height / 2 - (img.height / 2) * scale;
-  ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+  const { intrinsicWidth, intrinsicHeight } = getSourceDimensions(source, {
+    fallbackWidth: width,
+    fallbackHeight: height,
+  });
+  const scale = Math.max(width / intrinsicWidth, height / intrinsicHeight);
+  const x = width / 2 - (intrinsicWidth / 2) * scale;
+  const y = height / 2 - (intrinsicHeight / 2) * scale;
+  ctx.drawImage(source, x, y, intrinsicWidth * scale, intrinsicHeight * scale);
+}
+
+function drawFallbackBackground(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+) {
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, '#111827');
+  gradient.addColorStop(1, '#1f2937');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+  ctx.fillRect(0, 0, width, height);
 }
 
 function drawSubtitle(
@@ -524,16 +570,18 @@ function drawSubtitle(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
 
-  const lines = wrapText(ctx, text, width * 0.85);
-  const blockHeight = lines.length * fontSize * 1.2;
-  const startY = height - blockHeight - height * 0.05;
+  const lineHeight = fontSize * 1.2;
+  const maxLines = Math.max(1, Math.floor((height * 0.35) / lineHeight));
+  const lines = wrapText(ctx, text, width * 0.85, maxLines);
+  const blockHeight = Math.min(lines.length * lineHeight, height * 0.35);
+  const startY = Math.max(height * 0.45, height - blockHeight - height * 0.05);
 
   ctx.fillRect(0, startY - 20, width, blockHeight + 40);
   ctx.fillStyle = '#fff';
   lines.forEach((line, index) => {
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 4;
-    const yPosition = startY + index * fontSize * 1.2;
+    const yPosition = startY + index * lineHeight;
     ctx.strokeText(line, width / 2, yPosition);
     ctx.fillText(line, width / 2, yPosition);
   });
@@ -543,6 +591,7 @@ function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
+  maxLines = Infinity,
 ) {
   const words = text.split(' ');
   const lines: string[] = [];
@@ -552,14 +601,134 @@ function wrapText(
     const prospectiveLine = `${currentLine}${word} `;
     if (ctx.measureText(prospectiveLine).width > maxWidth && currentLine) {
       lines.push(currentLine.trim());
+      if (lines.length === maxLines) {
+        return lines;
+      }
       currentLine = `${word} `;
     } else {
       currentLine = prospectiveLine;
     }
   }
 
-  lines.push(currentLine.trim());
+  if (lines.length < maxLines) {
+    lines.push(currentLine.trim());
+    return lines;
+  }
+
+  const lastIndex = lines.length - 1;
+  lines[lastIndex] = `${lines[lastIndex]}…`;
   return lines;
+}
+
+function getSourceDimensions(
+  source: CanvasImageSource,
+  fallback: { fallbackWidth: number; fallbackHeight: number },
+) {
+  if (typeof ImageBitmap !== 'undefined' && source instanceof ImageBitmap) {
+    return { intrinsicWidth: source.width, intrinsicHeight: source.height };
+  }
+  if (source instanceof HTMLImageElement) {
+    return {
+      intrinsicWidth:
+        source.naturalWidth || source.width || fallback.fallbackWidth,
+      intrinsicHeight:
+        source.naturalHeight || source.height || fallback.fallbackHeight,
+    };
+  }
+  if (source instanceof HTMLCanvasElement) {
+    return { intrinsicWidth: source.width, intrinsicHeight: source.height };
+  }
+
+  return {
+    intrinsicWidth: fallback.fallbackWidth,
+    intrinsicHeight: fallback.fallbackHeight,
+  };
+}
+
+async function preloadSlideImageSources(
+  slides: Slide[],
+): Promise<SlideImageSourceMap> {
+  const entries = await Promise.all(
+    slides.map(async (slide) => {
+      if (!slide.imageUrl) {
+        return [slide.id, null] as const;
+      }
+
+      try {
+        const source = await loadCanvasImageSource(slide.imageUrl);
+        return [slide.id, source] as const;
+      } catch (error) {
+        appLogger.warn('⚠️ Falha ao preparar imagem para renderização.', {
+          slideId: slide.id,
+          error,
+        });
+        return [slide.id, null] as const;
+      }
+    }),
+  );
+
+  return new Map(entries);
+}
+
+function cleanupSlideImageSources(map: SlideImageSourceMap | null) {
+  if (!map || typeof ImageBitmap === 'undefined') {
+    return;
+  }
+
+  map.forEach((source) => {
+    if (source instanceof ImageBitmap) {
+      source.close();
+    }
+  });
+}
+
+async function loadCanvasImageSource(url: string): Promise<CanvasImageSource> {
+  const blob = await fetchImageBlob(url);
+
+  if (typeof createImageBitmap === 'function') {
+    return await createImageBitmap(blob);
+  }
+
+  return await blobToImageElement(blob);
+}
+
+async function fetchImageBlob(url: string): Promise<Blob> {
+  if (isDataUrl(url)) {
+    return dataUrlToBlob(url);
+  }
+
+  const response = await fetch(url, {
+    mode: 'cors',
+    credentials: 'omit',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Não foi possível carregar a imagem (${response.status}).`);
+  }
+
+  return await response.blob();
+}
+
+async function blobToImageElement(blob: Blob): Promise<HTMLImageElement> {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    return await loadImageFromUrl(objectUrl);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function loadImageFromUrl(url: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (event) => reject(event);
+    img.src = url;
+  });
+}
+
+function isDataUrl(value: string): boolean {
+  return value.startsWith('data:');
 }
 
 function wait(durationMs: number) {
