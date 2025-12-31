@@ -1,0 +1,7 @@
+{
+  "name": "Youtube Video",
+  "description": "An AI-powered workspace for creating educational video scripts and slides based on pedagogical principles.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
