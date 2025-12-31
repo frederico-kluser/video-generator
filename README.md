@@ -65,13 +65,14 @@ cp .env.example .env
 
 Valores disponíveis:
 
-| Variável              | Obrigatório      | Observação                                                 |
-| --------------------- | ---------------- | ---------------------------------------------------------- |
-| `VITE_OPENAI_API_KEY` | Desenvolvimento  | Exposta no bundle; use apenas para testes locais.          |
-| `OPENAI_API_KEY`      | Produção/backend | Injete via proxy/edge function para esconder a chave real. |
-| `VITE_APP_TITLE`      | Não              | Atualiza o título da aba.                                  |
-| `VITE_API_URL`        | Não              | Endpoint para futuros backends.                            |
-| `VITE_PORT`           | Não              | Porta do dev server.                                       |
+| Variável                | Obrigatório      | Observação                                                                   |
+| ----------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `VITE_OPENAI_API_KEY`   | Desenvolvimento  | Exposta no bundle; use apenas para testes locais.                            |
+| `OPENAI_API_KEY`        | Produção/backend | Injete via proxy/edge function para esconder a chave real.                   |
+| `VITE_APP_TITLE`        | Não              | Atualiza o título da aba.                                                    |
+| `VITE_API_URL`          | Não              | Base das requisições do app (ex.: `http://localhost:5173/api`).              |
+| `VITE_API_PROXY_TARGET` | Não              | Host do serviço Node (ex.: `http://localhost:3000`) usado pelo proxy `/api`. |
+| `VITE_PORT`             | Não              | Porta do dev server.                                                         |
 
 > ⚠️ Em produção, mantenha somente `OPENAI_API_KEY` no servidor e encaminhe chamadas via proxy para evitar vazamento da chave.
 

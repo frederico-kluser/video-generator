@@ -5,6 +5,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProd = mode === 'production';
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET?.trim();
 
   return {
     plugins: [react(), tsconfigPaths()],
@@ -15,6 +16,22 @@ export default defineConfig(({ mode }) => {
         'Cross-Origin-Embedder-Policy': 'require-corp',
         'Cross-Origin-Opener-Policy': 'same-origin',
       },
+      proxy: apiProxyTarget
+        ? {
+            '/api': {
+              target: apiProxyTarget,
+              changeOrigin: true,
+              secure: false,
+              rewrite: (path) => path.replace(/^\/api/, ''),
+              configure(proxyServer) {
+                proxyServer.on('error', (error) => {
+                  // Helps debugging backend connectivity during local dev.
+                  console.error('Audio cleanup proxy error:', error);
+                });
+              },
+            },
+          }
+        : undefined,
     },
     build: {
       target: 'esnext',
