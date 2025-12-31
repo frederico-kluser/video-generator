@@ -76,6 +76,24 @@ const buildScriptText = (
   return parts.join('\n').trim();
 };
 
+const buildNarrationText = (
+  narrationText?: string | null,
+  speakerNotes?: string | null,
+  fallback?: string,
+): string => {
+  const trimmedNarration = narrationText?.trim();
+  if (trimmedNarration) {
+    return trimmedNarration;
+  }
+
+  const trimmedNotes = speakerNotes?.trim();
+  if (trimmedNotes) {
+    return trimmedNotes;
+  }
+
+  return fallback?.trim() ?? '';
+};
+
 const buildVisualPrompt = (
   slideTitle: string,
   blocks: ContentBlock[],
@@ -123,14 +141,22 @@ export async function generateScriptFromMaterials(
     style: blueprint.defaultStyle,
   });
 
-  const slides: RawSlide[] = script.slides.map((slide) => ({
-    scriptText: buildScriptText(slide.content, slide.speakerNotes),
-    visualPrompt: buildVisualPrompt(slide.title, slide.content),
-    imageUrl: undefined,
-    userNotes: undefined,
-    audioBlob: undefined,
-    isRegeneratingImage: true,
-  }));
+  const slides: RawSlide[] = script.slides.map((slide) => {
+    const scriptText = buildScriptText(slide.content, slide.speakerNotes);
+    return {
+      scriptText,
+      narrationText: buildNarrationText(
+        slide.narrationText,
+        slide.speakerNotes,
+        scriptText,
+      ),
+      visualPrompt: buildVisualPrompt(slide.title, slide.content),
+      imageUrl: undefined,
+      userNotes: undefined,
+      audioBlob: undefined,
+      isRegeneratingImage: true,
+    };
+  });
 
   appLogger.info('📝 Roteiro convertido para o formato interno.', {
     slides: slides.length,
@@ -171,6 +197,7 @@ export async function refineSlideContent(
   const result = await refineSlideContentWithFeedback(
     {
       scriptText: currentSlide.scriptText,
+      narrationText: currentSlide.narrationText,
       visualPrompt: currentSlide.visualPrompt,
       userNotes: currentSlide.userNotes,
     },

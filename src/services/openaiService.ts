@@ -129,6 +129,7 @@ const scriptJsonSchema = {
             },
           },
           speakerNotes: { type: ['string', 'null'] },
+          narrationText: { type: 'string' },
           duration: { type: ['number', 'null'] },
         },
         required: [
@@ -137,6 +138,7 @@ const scriptJsonSchema = {
           'layout',
           'content',
           'speakerNotes',
+          'narrationText',
           'duration',
         ],
         additionalProperties: false,
@@ -175,9 +177,10 @@ const slideRefinementJsonSchema = {
   type: 'object',
   properties: {
     scriptText: { type: 'string' },
+    narrationText: { type: 'string' },
     visualPrompt: { type: 'string' },
   },
-  required: ['scriptText', 'visualPrompt'],
+  required: ['scriptText', 'narrationText', 'visualPrompt'],
   additionalProperties: false,
 } as const;
 
@@ -265,6 +268,7 @@ export async function generateScriptWithResponsesAPI(
 Crie scripts de vídeo envolventes, didáticos e bem estruturados.
 Adapte a linguagem ao público-alvo especificado.
 Inclua notas do apresentador detalhadas para cada slide.
+  Forneça para cada slide o campo narrationText contendo o texto literal que será lido, sem instruções meta.
 Garanta progressão lógica do conteúdo.`;
 
   const userPrompt = `Crie um script de vídeo educacional com as seguintes especificações:
@@ -283,6 +287,7 @@ Gere um script completo com:
 - ${slideCountMin} a ${slideCountMax} slides
 - Conteúdo progressivo e didático
 - Notas do apresentador para cada slide
+- Campo narrationText com o texto literal que o apresentador deve ler (sem instruções ou metalinguagem)
 - Indicações de onde inserir imagens
 - Palavras-chave para SEO educativo`;
 
@@ -560,14 +565,24 @@ export async function refineContentDirect(
 // =====================================================
 const SlideRefinementSchema = z.object({
   scriptText: z.string(),
+  narrationText: z.string(),
   visualPrompt: z.string(),
 });
 
 export async function refineSlideContentWithFeedback(
-  slide: { scriptText: string; visualPrompt: string; userNotes?: string },
+  slide: {
+    scriptText: string;
+    narrationText: string;
+    visualPrompt: string;
+    userNotes?: string;
+  },
   feedback: string,
   targetAudience: Script['targetAudience'],
-): Promise<{ scriptText: string; visualPrompt: string }> {
+): Promise<{
+  scriptText: string;
+  narrationText: string;
+  visualPrompt: string;
+}> {
   try {
     const response = await openai.responses.create({
       model: 'gpt-5.1-codex-max',
@@ -576,7 +591,7 @@ export async function refineSlideContentWithFeedback(
       input: [
         {
           role: 'user',
-          content: `Slide atual:\nSCRIPT:\n${slide.scriptText}\n\nPROMPT VISUAL:\n${slide.visualPrompt}\n\nFEEDBACK:\n${feedback}\n\nPÚBLICO-ALVO: ${targetAudience}`,
+          content: `Slide atual:\nSCRIPT:\n${slide.scriptText}\n\nTEXTO LITERAL:\n${slide.narrationText}\n\nPROMPT VISUAL:\n${slide.visualPrompt}\n\nFEEDBACK:\n${feedback}\n\nPÚBLICO-ALVO: ${targetAudience}`,
         },
       ],
       text: {

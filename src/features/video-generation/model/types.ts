@@ -8,6 +8,7 @@ export type Slide = {
   id: string;
   order: number;
   scriptText: string;
+  narrationText: string;
   visualPrompt: string;
   imageUrl?: string;
   userNotes?: string;

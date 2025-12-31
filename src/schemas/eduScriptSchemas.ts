@@ -60,6 +60,9 @@ export const SlideSchema = z
       .string()
       .nullable()
       .describe('Notas do apresentador para este slide'),
+    narrationText: z
+      .string()
+      .describe('Texto literal que o apresentador deve ler, sem instruções'),
     duration: z.number().nullable().describe('Duração estimada em segundos'),
   })
   .strict();

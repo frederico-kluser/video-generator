@@ -41,6 +41,7 @@ const slideSnapshotSchema = z.object({
   id: z.string(),
   order: z.number(),
   scriptText: z.string(),
+  narrationText: z.string(),
   visualPrompt: z.string(),
   imageUrl: z.string().optional(),
   userNotes: z.string().optional(),

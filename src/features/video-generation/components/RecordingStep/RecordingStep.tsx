@@ -290,17 +290,29 @@ export function RecordingStep({
         {/* Script and controls */}
         <div className="flex w-full max-w-lg flex-col gap-4 lg:max-h-[70vh]">
           {/* Script card */}
-          <div className="glass-card flex-1 overflow-hidden">
-            <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
-              <Volume2 size={16} className="text-primary-400" />
-              <span className="text-sm font-medium text-white/70">
-                Texto para narrar
-              </span>
+          <div className="glass-card flex-1 space-y-4 overflow-hidden p-4">
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <Volume2 size={16} className="text-primary-400" />
+                <span className="text-sm font-medium text-white/70">
+                  Briefing do slide
+                </span>
+              </div>
+              <div className="max-h-[20vh] overflow-y-auto rounded-lg bg-dark-900/60 p-3 lg:max-h-[28vh]">
+                <p className="text-base leading-relaxed text-white/80">
+                  {currentSlide.scriptText}
+                </p>
+              </div>
             </div>
-            <div className="max-h-[30vh] overflow-y-auto p-4 lg:max-h-[40vh]">
-              <p className="text-lg leading-relaxed text-white/90">
-                {currentSlide.scriptText}
+
+            <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-200">
+                Texto literal para narrar
               </p>
+              <div className="mt-2 max-h-[18vh] overflow-y-auto text-lg font-semibold leading-relaxed text-white">
+                {currentSlide.narrationText ||
+                  'Texto de narração não disponível. Ajuste no editor.'}
+              </div>
             </div>
           </div>
 

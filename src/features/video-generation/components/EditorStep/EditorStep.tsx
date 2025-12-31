@@ -75,6 +75,7 @@ export function EditorStep({
 
       onUpdateSlide(currentSlide.id, {
         scriptText: refinements.scriptText,
+        narrationText: refinements.narrationText,
         visualPrompt: refinements.visualPrompt,
         userNotes: feedback,
         isRegeneratingImage: true,
@@ -171,7 +172,9 @@ export function EditorStep({
                 src={currentSlide.imageUrl}
                 alt="Preview do slide"
                 className={`h-full w-full object-cover transition-all duration-500 ${
-                  currentSlide.isRegeneratingImage ? 'scale-105 opacity-50 blur-md' : 'scale-100 opacity-100'
+                  currentSlide.isRegeneratingImage
+                    ? 'scale-105 opacity-50 blur-md'
+                    : 'scale-100 opacity-100'
                 }`}
               />
             ) : (
@@ -190,15 +193,30 @@ export function EditorStep({
                     <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
                   </div>
                 </div>
-                <span className="text-sm font-medium text-white/70">Regenerando imagem...</span>
+                <span className="text-sm font-medium text-white/70">
+                  Regenerando imagem...
+                </span>
               </div>
             )}
 
             {/* Script overlay */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
-              <p className="text-lg leading-relaxed text-white drop-shadow-lg">
-                {currentSlide.scriptText}
-              </p>
+            <div className="absolute bottom-0 left-0 right-0 space-y-3 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-white/60">
+                  Briefing do slide
+                </p>
+                <p className="text-base leading-relaxed text-white drop-shadow-lg">
+                  {currentSlide.scriptText}
+                </p>
+              </div>
+              <div className="rounded-lg bg-dark-900/80 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-primary-300">
+                  Texto literal para narrar
+                </p>
+                <p className="text-lg font-semibold leading-relaxed text-white">
+                  {currentSlide.narrationText}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -212,20 +230,38 @@ export function EditorStep({
             </div>
 
             {/* Script editor */}
-            <div className="space-y-2">
-              <label className="label" htmlFor="scriptText">
-                Texto da narração
-              </label>
-              <textarea
-                id="scriptText"
-                className="input min-h-[120px] resize-none text-sm"
-                value={currentSlide.scriptText}
-                onChange={(event) =>
-                  onUpdateSlide(currentSlide.id, {
-                    scriptText: event.target.value,
-                  })
-                }
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="label" htmlFor="scriptText">
+                  Briefing / instruções do slide
+                </label>
+                <textarea
+                  id="scriptText"
+                  className="input min-h-[120px] resize-none text-sm"
+                  value={currentSlide.scriptText}
+                  onChange={(event) =>
+                    onUpdateSlide(currentSlide.id, {
+                      scriptText: event.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="label" htmlFor="narrationText">
+                  Texto literal para narrar
+                </label>
+                <textarea
+                  id="narrationText"
+                  className="input min-h-[100px] resize-none text-sm"
+                  value={currentSlide.narrationText}
+                  onChange={(event) =>
+                    onUpdateSlide(currentSlide.id, {
+                      narrationText: event.target.value,
+                    })
+                  }
+                />
+              </div>
             </div>
 
             {/* AI Feedback */}

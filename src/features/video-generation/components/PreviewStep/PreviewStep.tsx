@@ -262,7 +262,7 @@ export function PreviewStep({
           drawImageCover(ctx, imageElement, width, height);
         }
 
-        drawSubtitle(ctx, slide.scriptText, width, height);
+        drawSubtitle(ctx, slide.narrationText, width, height);
         requestCanvasFrame();
         await waitNextFrame();
 
@@ -353,7 +353,10 @@ export function PreviewStep({
           </div>
           <div className="w-80">
             <div className="progress-bar h-3">
-              <div className="progress-fill" style={{ width: `${renderProgress}%` }} />
+              <div
+                className="progress-fill"
+                style={{ width: `${renderProgress}%` }}
+              />
             </div>
             <p className="mt-2 text-center font-mono text-sm text-primary-400">
               {renderProgress}%
@@ -395,7 +398,7 @@ export function PreviewStep({
         {/* Subtitle */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
           <p className="text-center text-lg leading-relaxed text-white drop-shadow-lg">
-            {currentSlide.scriptText}
+            {currentSlide.narrationText}
           </p>
         </div>
 
@@ -457,7 +460,11 @@ export function PreviewStep({
           disabled={isRendering}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-dark-900 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl disabled:opacity-50"
         >
-          {isPlaying ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
+          {isPlaying ? (
+            <Pause size={24} />
+          ) : (
+            <Play size={24} className="ml-1" />
+          )}
         </button>
 
         <button
