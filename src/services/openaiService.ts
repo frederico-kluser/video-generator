@@ -67,10 +67,17 @@ const scriptJsonSchema = {
             enum: ['title', 'content', 'twoColumn', 'imageLeft', 'imageRight'],
           },
           content: { type: 'array', items: { type: 'object' } },
-          speakerNotes: { type: 'string' },
-          duration: { type: 'number' },
+          speakerNotes: { type: ['string', 'null'] },
+          duration: { type: ['number', 'null'] },
         },
-        required: ['id', 'title', 'layout', 'content'],
+        required: [
+          'id',
+          'title',
+          'layout',
+          'content',
+          'speakerNotes',
+          'duration',
+        ],
         additionalProperties: false,
       },
     },
@@ -165,29 +172,17 @@ Gere um script completo com:
 - Indicações de onde inserir imagens`;
 
   try {
-    const structuredModel = langchainModel.withStructuredOutput(
-      SlideSchema.array(),
-      {
-        strict: true,
-        name: 'slides_payload',
-      },
-    );
+    const structuredModel = langchainModel.withStructuredOutput(ScriptSchema, {
+      strict: true,
+      name: 'educational_script',
+    });
 
     const prompt = ChatPromptTemplate.fromMessages([
       ['system', systemPrompt],
       ['user', userPrompt],
     ]);
 
-    const slides = await prompt.pipe(structuredModel).invoke({});
-
-    const script = ScriptSchema.parse({
-      title: options.topic,
-      description: `${options.topic} - roteiro pedagógico gerado com OpenAI`,
-      targetAudience: options.targetAudience,
-      estimatedDuration: options.desiredDuration,
-      slides,
-      keywords: [options.topic, options.targetAudience],
-    });
+    const script = await prompt.pipe(structuredModel).invoke({});
 
     appLogger.info('🧠 Script estruturado gerado com sucesso.', {
       slides: script.slides.length,

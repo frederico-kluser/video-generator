@@ -45,7 +45,7 @@ const estimateDurationFromMaterials = (materials: string): number => {
 
 const buildScriptText = (
   blocks: ContentBlock[],
-  speakerNotes?: string,
+  speakerNotes?: string | null,
 ): string => {
   const parts: string[] = [];
 
