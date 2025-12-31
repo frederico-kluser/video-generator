@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import JSZip from 'jszip';
 import {
+  Archive,
   Check,
   Download,
   Film,
@@ -12,7 +14,11 @@ import {
 } from 'lucide-react';
 
 import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
-import type { Slide } from '@/features/video-generation/model/types';
+import type { RenderBundleManifest } from '@/features/render-test/model/renderBundle';
+import type {
+  ProjectData,
+  Slide,
+} from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 import { dataUrlToBlob } from '@/shared/utils/blob';
 
@@ -20,6 +26,8 @@ type PreviewStepProps = {
   slides: Slide[];
   aspectRatio: AspectRatio;
   onReset: () => void;
+  projectData: Partial<ProjectData>;
+  isDebugMode: boolean;
 };
 
 type CanvasSurface =
@@ -104,11 +112,14 @@ export function PreviewStep({
   slides,
   aspectRatio,
   onReset,
+  projectData,
+  isDebugMode,
 }: PreviewStepProps) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
+  const [isBundlingAssets, setIsBundlingAssets] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fallbackTimeoutRef = useRef<number | null>(null);
 
@@ -356,6 +367,83 @@ export function PreviewStep({
     }
   };
 
+  const handleDownloadDebugBundle = async () => {
+    if (isBundlingAssets) {
+      return;
+    }
+
+    setIsBundlingAssets(true);
+
+    try {
+      const zip = new JSZip();
+      const imagesDir = zip.folder('assets/images');
+      const audioDir = zip.folder('assets/audio');
+
+      const manifest: RenderBundleManifest = {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        aspectRatio,
+        project: {
+          topic: projectData.topic,
+          materials: projectData.materials,
+          targetAudience: projectData.targetAudience,
+          promptId: projectData.promptId,
+        },
+        slides: [],
+      };
+
+      for (let index = 0; index < slides.length; index += 1) {
+        const slide = slides[index];
+        let imageFileName: string | null = null;
+        let audioFileName: string | null = null;
+
+        if (slide.imageUrl) {
+          try {
+            const imageBlob = await fetchImageBlob(slide.imageUrl);
+            const extension = inferExtensionFromMime(imageBlob.type, 'png');
+            imageFileName = `slide-${formatSlideIndex(index)}.${extension}`;
+            imagesDir?.file(imageFileName, imageBlob, { binary: true });
+          } catch (error) {
+            appLogger.error('🖼️ Falha ao anexar imagem ao bundle.', {
+              error,
+              slideId: slide.id,
+            });
+          }
+        }
+
+        if (slide.audioBlob) {
+          audioFileName = `slide-${formatSlideIndex(index)}.${inferExtensionFromMime(slide.audioBlob.type, 'webm')}`;
+          audioDir?.file(audioFileName, slide.audioBlob, { binary: true });
+        }
+
+        manifest.slides.push({
+          id: slide.id,
+          order: slide.order,
+          scriptText: slide.scriptText,
+          narrationText: slide.narrationText,
+          visualPrompt: slide.visualPrompt,
+          imageFile: imageFileName,
+          audioFile: audioFileName,
+        });
+      }
+
+      zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+      const blob = await zip.generateAsync({ type: 'blob' });
+      downloadBlob(blob, `eduscript_bundle_${Date.now()}.zip`);
+
+      appLogger.info('📦 Bundle de depuração exportado.', {
+        slides: manifest.slides.length,
+      });
+    } catch (error) {
+      appLogger.error('Falha ao exportar bundle de depuração.', { error });
+      window.alert(
+        'Não foi possível gerar o bundle de depuração. Consulte o console para detalhes.',
+      );
+    } finally {
+      setIsBundlingAssets(false);
+    }
+  };
+
   const currentSlide = slides[currentSlideIndex];
 
   if (!currentSlide) {
@@ -522,6 +610,25 @@ export function PreviewStep({
             </>
           )}
         </button>
+
+        {isDebugMode && (
+          <button
+            type="button"
+            onClick={handleDownloadDebugBundle}
+            disabled={isRendering || isBundlingAssets}
+            className="btn-secondary px-6"
+          >
+            {isBundlingAssets ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" /> Preparando bundle
+              </>
+            ) : (
+              <>
+                <Archive size={20} /> Bundle debug
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -679,4 +786,32 @@ function waitNextFrame() {
   return new Promise((resolve) => {
     requestAnimationFrame(resolve);
   });
+}
+
+function inferExtensionFromMime(mime: string | undefined, fallback: string) {
+  if (!mime) {
+    return fallback;
+  }
+  const [, subtype] = mime.split('/');
+  if (!subtype) {
+    return fallback;
+  }
+  const cleanSubtype = subtype.split(';')[0]?.trim();
+  return cleanSubtype || fallback;
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body?.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function formatSlideIndex(index: number) {
+  return String(index + 1).padStart(2, '0');
 }

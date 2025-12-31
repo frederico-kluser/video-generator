@@ -3,6 +3,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 
 import { getEnv } from '@/config/env';
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
+import { RenderTestPage } from '@/features/render-test/components/RenderTestPage/RenderTestPage';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
 
 export function App() {
@@ -10,6 +11,10 @@ export function App() {
     const { appTitle } = getEnv();
     document.title = appTitle;
   }, []);
+
+  const isRenderTestRoute =
+    typeof window !== 'undefined' &&
+    window.location.pathname.replace(/\/$/, '') === '/render-test';
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden">
@@ -22,7 +27,7 @@ export function App() {
 
       {/* Main content */}
       <ErrorBoundary FallbackComponent={SectionErrorFallback} resetKeys={[]}>
-        <VideoGenerationFlow />
+        {isRenderTestRoute ? <RenderTestPage /> : <VideoGenerationFlow />}
       </ErrorBoundary>
     </div>
   );

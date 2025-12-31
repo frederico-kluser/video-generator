@@ -16,6 +16,7 @@ import { RecordingStep } from '@/features/video-generation/components/RecordingS
 import { ScriptReviewStep } from '@/features/video-generation/components/ScriptReviewStep/ScriptReviewStep';
 import { useVideoGeneration } from '@/features/video-generation/hooks/useVideoGeneration';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
+import { useDebugMode } from '@/shared/hooks/useDebugMode';
 
 const STEP_LABELS: Record<VideoGenerationStep, string> = {
   [VIDEO_GENERATION_STEP.INPUT]: 'Briefing',
@@ -39,15 +40,12 @@ const STEP_ORDER = [
 
 export function VideoGenerationFlow() {
   const { step, slides, projectData, progress, actions } = useVideoGeneration();
+  const isDebugMode = useDebugMode();
   const aspectRatio =
     projectData.aspectRatio ?? VIDEO_CONFIG.DEFAULT_ASPECT_RATIO;
   const blueprint = projectData.promptId
     ? getPromptBlueprintById(projectData.promptId)
     : null;
-  const isDebugMode =
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('debug') === 'true';
-
   const currentStepIndex = STEP_ORDER.indexOf(step);
 
   return (
@@ -159,6 +157,8 @@ export function VideoGenerationFlow() {
             slides={slides}
             aspectRatio={aspectRatio}
             onReset={actions.resetFlow}
+            projectData={projectData}
+            isDebugMode={isDebugMode}
           />
         </ErrorBoundary>
       )}
