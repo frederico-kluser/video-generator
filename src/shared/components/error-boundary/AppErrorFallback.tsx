@@ -1,4 +1,4 @@
-import { FallbackProps } from 'react-error-boundary';
+import type { FallbackProps } from 'react-error-boundary';
 
 export function AppErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
@@ -6,7 +6,9 @@ export function AppErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
       <span className="text-4xl" role="img" aria-label="boom">
         💥
       </span>
-      <p className="text-lg font-semibold text-white">Algo deu errado ao carregar o aplicativo.</p>
+      <p className="text-lg font-semibold text-white">
+        Algo deu errado ao carregar o aplicativo.
+      </p>
       <pre className="max-w-lg overflow-x-auto rounded-lg bg-gray-900 p-4 text-left text-xs text-red-300">
         {error.message}
       </pre>
