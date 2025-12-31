@@ -8,7 +8,7 @@ Video generator otimizado para 2025 com arquitetura feature-based, React 19 e in
 
 ## Stack & ferramentas
 
-- Pipeline RNNoise WASM + filtros nativos exposto no `/audio-lab` para pré-checar ruído (execute `yarn install` após atualizar para baixar `@timephy/rnnoise-wasm`)
+- Pipeline de limpeza server-side (sherpa-onnx GTCRN + FFmpeg arnndn + DeepFilterNet) exposto no `/audio-lab`, comparando áudio bruto vs tratado em tempo quase real
 - Laboratório `/audio-eq-lab` com equalizador 3 bandas via Web Audio API; grava três takes, soma tudo e entrega mix bruta e mix equalizada usando filtros `lowshelf`, `peaking` e `highshelf` (ver [src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx))
 
 ## Experiência visual 2025
@@ -17,10 +17,10 @@ Video generator otimizado para 2025 com arquitetura feature-based, React 19 e in
 
 ## Estrutura de pastas
 
-Acesse `/audio-lab` para abrir o laboratório de limpeza. A página roda em cima do `@timephy/rnnoise-wasm` (baixado via `yarn install`) e de uma cadeia Web Audio (high-pass → compressor → limiter) antes de gravar com `MediaRecorder`.
-Clique em **Gravar amostra** para capturar simultaneamente o áudio bruto e o áudio tratado; em seguida, use os dois players (Original x Tratado) para comparar ruído de fundo, respirações e nível geral.
-O badge “Pipeline” indica se o RNNoise carregou. Caso o navegador não suporte `AudioWorklet`, o app mostra “Fallback nativo” e ainda aplica os filtros que não dependem de WASM.
-Utilize o laboratório antes de entrar no passo **Gravação** do fluxo principal para ajustar ganho do microfone, escolher ambientes silenciosos e validar que a limpeza atenderá ao padrão do vídeo final.
+Acesse `/audio-lab` para abrir o laboratório de limpeza. Agora o front-end apenas captura o áudio bruto (48 kHz mono) e envia para o backend Node.js, que expõe três pipelines selecionáveis: **sherpa-onnx GTCRN** (tempo real), **FFmpeg arnndn lq.rnnn** (hiss constante) e **DeepFilterNet** (qualidade máxima).
+Clique em **Gravar amostra** para capturar o áudio bruto; assim que você para a gravação, o app faz upload automático para o preset escolhido e exibe players Original x Tratado, além dos diagnósticos retornados (tempo de processamento, ganho de SNR, backend utilizado).
+O badge “Pipeline” mostra o preset ativo ou o tempo gasto pelo backend. Caso o endpoint esteja indisponível, a interface alerta o usuário e mantém apenas o áudio bruto até o serviço voltar.
+Utilize o laboratório antes de entrar no passo **Gravação** do fluxo principal para ajustar ganho do microfone, escolher ambientes silenciosos e confirmar que o backend de limpeza está entregando o padrão esperado.
 
 A rota `/audio-eq-lab` complementa a limpeza com um banco de três takes sequenciais. Cada take é gravado individualmente, e o laboratório gera duas versões concatenadas: a mix bruta e a mix equalizada com filtros `lowshelf`, `peaking` e `highshelf` baseados no Web Audio API `BiquadFilterNode`. Ajuste os sliders de ganho, clique em **Gerar mix** e compare imediatamente os resultados usando os players expostos no laboratório.
 

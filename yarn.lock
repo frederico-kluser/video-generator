@@ -844,13 +844,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@timephy/rnnoise-wasm@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "@timephy/rnnoise-wasm@npm:1.0.0"
-  checksum: 9a12a29d04193a24a78f470088071655c9c8d463c0e5466e581377a33510d3968c4e948b5af03509094d650358595633b958ced45c0b80ebba1c766d33560415
-  languageName: node
-  linkType: hard
-
 "@types/babel__core@npm:^7.20.5":
   version: 7.20.5
   resolution: "@types/babel__core@npm:7.20.5"
@@ -5214,7 +5207,6 @@ __metadata:
     "@eslint/js": ^9.17.0
     "@langchain/core": ^0.3.0
     "@langchain/openai": ^0.3.0
-    "@timephy/rnnoise-wasm": ^1.0.0
     "@types/jszip": ^3.4.1
     "@types/node": ^22.14.0
     "@types/react": ^19.0.8

@@ -16,7 +16,8 @@ const LAB_LINKS: Array<{
   {
     id: 'cleanup',
     title: 'Audio Cleanup Lab',
-    description: 'RNNoise + filtros nativos para testar a cadeia de limpeza.',
+    description:
+      'Sherpa-ONNX + arnndn remotos para testar a cadeia de limpeza.',
     href: '/audio-lab',
     badge: 'Limpeza',
   },

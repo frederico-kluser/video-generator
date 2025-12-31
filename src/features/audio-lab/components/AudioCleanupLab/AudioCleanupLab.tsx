@@ -1,11 +1,10 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
-import { NoiseSuppressorWorklet_Name } from '@timephy/rnnoise-wasm';
-import NoiseSuppressorWorklet from '@timephy/rnnoise-wasm/NoiseSuppressorWorklet?worker&url';
 import {
   AlertTriangle,
   ArrowLeft,
   Mic,
+  Server,
   Sparkles,
   Square,
   Waves,
@@ -18,31 +17,31 @@ import {
   safeStopRecorder,
   useObjectUrl,
 } from '@/features/audio-lab/lib/mediaUtils';
+import {
+  CLEANUP_PIPELINE_PRESETS,
+  type CleanupDiagnostics,
+  type CleanupPreset,
+  requestNoiseCleanup,
+} from '@/features/audio-lab/lib/noiseSuppressionService';
 import { appLogger } from '@/shared/logging/logger';
 
 type RecorderPhase = 'idle' | 'preparing' | 'recording' | 'processing';
-type PipelineMode = 'rnnoise' | 'native';
-
-type ProcessedStreamResult = {
-  stream: MediaStream;
-  cleanup: () => Promise<void> | void;
-  mode: PipelineMode;
-};
 
 export function AudioCleanupLab() {
   const [phase, setPhase] = useState<RecorderPhase>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [rawAudio, setRawAudio] = useState<Blob | null>(null);
   const [cleanAudio, setCleanAudio] = useState<Blob | null>(null);
-  const [pipelineMode, setPipelineMode] = useState<PipelineMode | null>(null);
+  const [selectedPreset, setSelectedPreset] =
+    useState<CleanupPreset>('sherpa-onnx');
+  const [processingDiagnostics, setProcessingDiagnostics] =
+    useState<CleanupDiagnostics | null>(null);
 
   const preferredMimeTypeRef = useRef<string | null>(null);
   const rawRecorderRef = useRef<MediaRecorder | null>(null);
-  const cleanRecorderRef = useRef<MediaRecorder | null>(null);
   const rawCompletionRef = useRef<Promise<Blob> | null>(null);
-  const cleanCompletionRef = useRef<Promise<Blob> | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const pipelineCleanupRef = useRef<(() => Promise<void> | void) | null>(null);
+  const uploadControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     preferredMimeTypeRef.current = getPreferredMimeType();
@@ -51,13 +50,14 @@ export function AudioCleanupLab() {
   useEffect(() => {
     return () => {
       safeStopRecorder(rawRecorderRef.current);
-      safeStopRecorder(cleanRecorderRef.current);
       cleanupActiveCapture();
+      uploadControllerRef.current?.abort();
     };
   }, []);
 
   const rawPreviewUrl = useObjectUrl(rawAudio);
   const cleanPreviewUrl = useObjectUrl(cleanAudio);
+  const selectedPresetMeta = CLEANUP_PIPELINE_PRESETS[selectedPreset];
 
   const supportsRecording =
     typeof window !== 'undefined' &&
@@ -73,9 +73,11 @@ export function AudioCleanupLab() {
     setErrorMessage(null);
     setRawAudio(null);
     setCleanAudio(null);
-    setPipelineMode(null);
+    setProcessingDiagnostics(null);
     setPhase('preparing');
-    appLogger.info('🔧 Preparando pipeline do Audio Cleanup Lab.');
+    appLogger.info('🔧 Preparando captura do Audio Cleanup Lab.', {
+      preset: selectedPreset,
+    });
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -90,24 +92,9 @@ export function AudioCleanupLab() {
       rawRecorderRef.current = rawBundle.recorder;
       rawCompletionRef.current = rawBundle.completion;
 
-      const processed = await setupNoiseSuppressionPipeline(stream);
-      if (processed) {
-        pipelineCleanupRef.current = processed.cleanup;
-        setPipelineMode(processed.mode);
-        const cleanBundle = createRecorderBundle(
-          processed.stream,
-          preferredMimeTypeRef.current,
-        );
-        cleanRecorderRef.current = cleanBundle.recorder;
-        cleanCompletionRef.current = cleanBundle.completion;
-      } else {
-        pipelineCleanupRef.current = null;
-        setPipelineMode(null);
-      }
-
       setPhase('recording');
-      appLogger.info('🎙️ Audio Cleanup Lab iniciado.', {
-        pipeline: processed?.mode ?? 'raw-only',
+      appLogger.info('🎙️ Audio Cleanup Lab gravando amostra.', {
+        preset: selectedPreset,
       });
     } catch (error) {
       setPhase('idle');
@@ -126,6 +113,9 @@ export function AudioCleanupLab() {
       return;
     }
     setPhase('processing');
+    appLogger.info('🧾 Finalizando captura para enviar ao backend.', {
+      preset: selectedPreset,
+    });
 
     try {
       const rawPromise = rawCompletionRef.current?.catch((error) => {
@@ -133,29 +123,23 @@ export function AudioCleanupLab() {
         return null as Blob | null;
       });
 
-      const cleanPromise = cleanCompletionRef.current?.catch((error) => {
-        appLogger.error('💥 Erro ao finalizar áudio tratado.', { error });
-        return null as Blob | null;
-      });
-
       safeStopRecorder(rawRecorderRef.current);
-      safeStopRecorder(cleanRecorderRef.current);
 
-      const [rawBlob, cleanBlob] = await Promise.all([
-        rawPromise ?? Promise.resolve<Blob | null>(null),
-        cleanPromise ?? Promise.resolve<Blob | null>(null),
-      ]);
+      const rawBlob = await (rawPromise ?? Promise.resolve<Blob | null>(null));
+
+      if (!rawBlob) {
+        throw new Error('Captura vazia. Nenhum áudio bruto encontrado.');
+      }
 
       setRawAudio(rawBlob);
-      setCleanAudio(cleanBlob);
+      await processWithBackend(rawBlob);
       setPhase('idle');
-      appLogger.info('✅ Audio Cleanup Lab finalizado.', {
-        hasRaw: Boolean(rawBlob),
-        hasClean: Boolean(cleanBlob),
+      appLogger.info('✅ Audio Cleanup Lab finalizado com pipeline remoto.', {
+        preset: selectedPreset,
       });
     } catch (error) {
       setErrorMessage(
-        'Algo deu errado ao finalizar a gravação. Tente novamente.',
+        'Algo deu errado ao enviar a amostra para o backend de limpeza. Tente novamente.',
       );
       setPhase('idle');
       appLogger.error('💥 Erro inesperado ao finalizar o Audio Cleanup Lab.', {
@@ -165,8 +149,34 @@ export function AudioCleanupLab() {
       cleanupActiveCapture();
       rawRecorderRef.current = null;
       rawCompletionRef.current = null;
-      cleanRecorderRef.current = null;
-      cleanCompletionRef.current = null;
+    }
+  };
+
+  const processWithBackend = async (blob: Blob) => {
+    uploadControllerRef.current?.abort();
+    setCleanAudio(null);
+    setProcessingDiagnostics(null);
+
+    const controller = new AbortController();
+    uploadControllerRef.current = controller;
+
+    try {
+      const { blob: cleanedBlob, diagnostics } = await requestNoiseCleanup(
+        blob,
+        {
+          preset: selectedPreset,
+          signal: controller.signal,
+        },
+      );
+
+      setCleanAudio(cleanedBlob);
+      setProcessingDiagnostics(diagnostics);
+      appLogger.info('🧼 Pipeline remoto retornou o áudio limpo.', diagnostics);
+    } catch (error) {
+      appLogger.error('💥 Falha ao processar áudio no backend.', { error });
+      throw error;
+    } finally {
+      uploadControllerRef.current = null;
     }
   };
 
@@ -174,18 +184,6 @@ export function AudioCleanupLab() {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
-    }
-    if (pipelineCleanupRef.current) {
-      Promise.resolve()
-        .then(() => pipelineCleanupRef.current?.())
-        .catch((error) => {
-          appLogger.warn('⚠️ Falha ao limpar AudioContext do Audio Lab.', {
-            error,
-          });
-        })
-        .finally(() => {
-          pipelineCleanupRef.current = null;
-        });
     }
   };
 
@@ -196,18 +194,47 @@ export function AudioCleanupLab() {
     phase === 'recording'
       ? 'Gravando… descreva um trecho curto.'
       : phase === 'preparing'
-        ? 'Preparando pipeline de limpeza...'
+        ? 'Preparando captura do microfone...'
         : phase === 'processing'
-          ? 'Finalizando buffers…'
+          ? `Enviando para ${selectedPresetMeta.label}…`
           : 'Pressione para iniciar uma nova amostra.';
-  const pipelineStatus =
-    phase === 'preparing'
-      ? 'Carregando pipeline'
-      : pipelineMode === 'rnnoise'
-        ? 'RNNoise ativo'
-        : pipelineMode === 'native'
-          ? 'Pipeline nativo'
-          : 'Pipeline inativo';
+  const pipelineStatus = (() => {
+    if (phase === 'preparing') {
+      return 'Inicializando captura';
+    }
+    if (phase === 'processing') {
+      return `Pipeline remoto (${selectedPresetMeta.badge}) em execução`;
+    }
+    if (processingDiagnostics) {
+      const time =
+        typeof processingDiagnostics.processingTimeMs === 'number'
+          ? `${(processingDiagnostics.processingTimeMs / 1000).toFixed(2)} s`
+          : 'tempo não informado';
+      return `${processingDiagnostics.backendLabel} · ${time}`;
+    }
+    return 'Pipeline aguardando amostra';
+  })();
+  const treatedSubtitle = processingDiagnostics
+    ? [
+        processingDiagnostics.backendLabel,
+        typeof processingDiagnostics.snrImprovementDb === 'number'
+          ? `+${processingDiagnostics.snrImprovementDb.toFixed(1)} dB SNR`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : 'Pipeline remoto aguardando upload';
+  const treatedEmptyDescription =
+    phase === 'processing'
+      ? 'Processamento remoto em andamento...'
+      : 'Após parar a gravação, o áudio tratado aparece aqui.';
+  const canChangePreset = phase === 'idle';
+  const handlePresetChange = (preset: CleanupPreset) => {
+    if (!canChangePreset) {
+      return;
+    }
+    setSelectedPreset(preset);
+  };
 
   return (
     <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-16">
@@ -222,19 +249,23 @@ export function AudioCleanupLab() {
           Compare antes e depois
         </h1>
         <p className="text-base text-white/70">
-          Grave uma amostra de voz, ouvindo a captura original e o resultado com
-          nossa cadeia de filtros (RNNoise → high-pass → compressor → limiter).
-          Ideal para ajustar microfones antes de produzir um roteiro completo.
+          Grave uma amostra de voz, faça o upload automático para o backend
+          (sherpa-onnx GTCRN + FFmpeg arnndn + DeepFilterNet) e compare o áudio
+          original com o resultado neurally limpo. Ideal para validar microfones
+          antes de gravar o roteiro completo.
         </p>
         <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
           <div className="rounded-full border border-white/10 px-3 py-1">
             48 kHz mono
           </div>
           <div className="rounded-full border border-white/10 px-3 py-1">
-            RNNoise AudioWorklet
+            Sherpa-ONNX GTCRN
           </div>
           <div className="rounded-full border border-white/10 px-3 py-1">
-            Comparativo instantâneo
+            FFmpeg arnndn (lq.rnnn)
+          </div>
+          <div className="rounded-full border border-white/10 px-3 py-1">
+            DeepFilterNet ready
           </div>
         </div>
         <a
@@ -244,6 +275,12 @@ export function AudioCleanupLab() {
           <ArrowLeft size={16} /> Voltar para o fluxo principal
         </a>
       </div>
+
+      <PipelinePresetSelector
+        value={selectedPreset}
+        onChange={handlePresetChange}
+        disabled={!canChangePreset}
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         <AudioPanel
@@ -257,16 +294,12 @@ export function AudioCleanupLab() {
         />
         <AudioPanel
           title="Tratado"
-          subtitle={
-            pipelineMode === 'rnnoise'
-              ? 'RNNoise + compressão dinâmica'
-              : 'Filtros nativos (sem RNNoise)'
-          }
+          subtitle={treatedSubtitle}
           badge="Depois"
           color="from-success-500/40 to-success-600/30"
           audioUrl={cleanPreviewUrl}
           emptyHeadline="Aguardando processamento"
-          emptyDescription="Após parar a gravação, o áudio tratado aparece aqui."
+          emptyDescription={treatedEmptyDescription}
         />
       </div>
 
@@ -296,7 +329,7 @@ export function AudioCleanupLab() {
           </button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <StatusBadge
             icon={<Waves size={16} />}
             label="Pipeline"
@@ -320,6 +353,11 @@ export function AudioCleanupLab() {
             label="Compatibilidade"
             value={supportsRecording ? 'Tudo certo' : 'Microfone indisponível'}
           />
+          <StatusBadge
+            icon={<Server size={16} />}
+            label="Preset"
+            value={selectedPresetMeta.label}
+          />
         </div>
 
         {errorMessage && (
@@ -331,86 +369,6 @@ export function AudioCleanupLab() {
       </div>
     </div>
   );
-}
-
-async function setupNoiseSuppressionPipeline(
-  stream: MediaStream,
-): Promise<ProcessedStreamResult | null> {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const AudioContextCtor =
-    window.AudioContext ||
-    (window as Window & { webkitAudioContext?: typeof AudioContext })
-      .webkitAudioContext;
-
-  if (!AudioContextCtor) {
-    appLogger.warn(
-      '🛑 AudioContext indisponível; impossibilitado de aplicar filtros.',
-    );
-    return null;
-  }
-
-  const ctx = new AudioContextCtor({ sampleRate: 48_000 });
-  const source = ctx.createMediaStreamSource(stream);
-  const nodes: AudioNode[] = [source];
-  let mode: PipelineMode = 'native';
-
-  const connectNode = (next: AudioNode) => {
-    nodes[nodes.length - 1].connect(next);
-    nodes.push(next);
-  };
-
-  try {
-    await ctx.audioWorklet.addModule(NoiseSuppressorWorklet);
-    const noiseNode = new AudioWorkletNode(ctx, NoiseSuppressorWorklet_Name);
-    connectNode(noiseNode);
-    mode = 'rnnoise';
-  } catch (error) {
-    appLogger.warn(
-      '🤖 RNNoise indisponível; aplicando somente filtros nativos.',
-      { error },
-    );
-  }
-
-  const highpass = ctx.createBiquadFilter();
-  highpass.type = 'highpass';
-  highpass.frequency.value = 80;
-  connectNode(highpass);
-
-  const compressor = ctx.createDynamicsCompressor();
-  compressor.threshold.value = -24;
-  compressor.ratio.value = 4;
-  compressor.attack.value = 0.003;
-  compressor.release.value = 0.15;
-  connectNode(compressor);
-
-  const limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = -1;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.001;
-  limiter.release.value = 0.05;
-  connectNode(limiter);
-
-  const destination = ctx.createMediaStreamDestination();
-  nodes[nodes.length - 1].connect(destination);
-
-  return {
-    stream: destination.stream,
-    mode,
-    cleanup: async () => {
-      nodes.forEach((node) => {
-        try {
-          node.disconnect();
-        } catch {
-          /* ignore disconnect errors */
-        }
-      });
-      destination.disconnect();
-      await ctx.close().catch(() => undefined);
-    },
-  };
 }
 
 type AudioPanelProps = {
@@ -474,6 +432,73 @@ function StatusBadge({ icon, label, value }: StatusBadgeProps) {
         {label}
       </div>
       <p className="mt-2 text-lg font-semibold text-white">{value}</p>
+    </div>
+  );
+}
+
+type PipelinePresetSelectorProps = {
+  value: CleanupPreset;
+  onChange: (preset: CleanupPreset) => void;
+  disabled?: boolean;
+};
+
+function PipelinePresetSelector({
+  value,
+  onChange,
+  disabled,
+}: PipelinePresetSelectorProps) {
+  return (
+    <div className="glass-card flex flex-col gap-4 rounded-3xl border border-white/5 bg-dark-900/80 p-6 text-white">
+      <div className="flex flex-col gap-2">
+        <p className="text-sm uppercase tracking-[0.3em] text-white/40">
+          Pipelines server-side
+        </p>
+        <h2 className="text-2xl font-semibold text-white">
+          Escolha o modelo de limpeza
+        </h2>
+        <p className="text-sm text-white/70">
+          Sherpa-ONNX GTCRN, FFmpeg arnndn (lq.rnnn) e DeepFilterNet rodando no
+          backend Node.js. Alterne conforme o ruído capturado.
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {Object.entries(CLEANUP_PIPELINE_PRESETS).map(([key, preset]) => {
+          const presetId = key as CleanupPreset;
+          const isActive = presetId === value;
+          return (
+            <button
+              key={presetId}
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                if (disabled || isActive) {
+                  return;
+                }
+                onChange(presetId);
+              }}
+              className={`group flex flex-col rounded-2xl border px-5 py-4 text-left transition ${
+                isActive
+                  ? 'border-primary-400/70 bg-primary-500/10 shadow-lg shadow-primary-500/20'
+                  : 'border-white/10 bg-white/5 hover:border-white/30 hover:-translate-y-0.5'
+              } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+            >
+              <div className="flex items-center justify-between text-xs uppercase tracking-[0.3em] text-white/50">
+                <span>{preset.badge}</span>
+                {isActive && (
+                  <span className="rounded-full bg-primary-500/20 px-2 py-0.5 text-[10px] font-semibold text-primary-100">
+                    Ativo
+                  </span>
+                )}
+              </div>
+              <h3 className="mt-3 text-lg font-semibold text-white">
+                {preset.label}
+              </h3>
+              <p className="text-sm text-white/70">{preset.description}</p>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
