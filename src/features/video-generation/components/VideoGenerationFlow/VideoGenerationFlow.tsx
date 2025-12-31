@@ -1,16 +1,18 @@
 import { ErrorBoundary } from 'react-error-boundary';
+
 import { Sparkles } from 'lucide-react';
+
 import {
   VIDEO_CONFIG,
   VIDEO_GENERATION_STEP,
   type VideoGenerationStep,
 } from '@/config/constants/video';
 import { getPromptBlueprintById } from '@/content/prompts';
+import { EditorStep } from '@/features/video-generation/components/EditorStep/EditorStep';
 import { InputStep } from '@/features/video-generation/components/InputStep/InputStep';
 import { LoadingStep } from '@/features/video-generation/components/LoadingStep/LoadingStep';
-import { EditorStep } from '@/features/video-generation/components/EditorStep/EditorStep';
-import { RecordingStep } from '@/features/video-generation/components/RecordingStep/RecordingStep';
 import { PreviewStep } from '@/features/video-generation/components/PreviewStep/PreviewStep';
+import { RecordingStep } from '@/features/video-generation/components/RecordingStep/RecordingStep';
 import { useVideoGeneration } from '@/features/video-generation/hooks/useVideoGeneration';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
 
@@ -39,6 +41,9 @@ export function VideoGenerationFlow() {
   const blueprint = projectData.promptId
     ? getPromptBlueprintById(projectData.promptId)
     : null;
+  const isDebugMode =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('debug') === 'true';
 
   const currentStepIndex = STEP_ORDER.indexOf(step);
 
@@ -112,6 +117,9 @@ export function VideoGenerationFlow() {
             aspectRatio={aspectRatio}
             onUpdateSlide={actions.updateSlide}
             onFinish={actions.openPreview}
+            isDebugMode={isDebugMode}
+            onExportSnapshot={actions.exportSnapshot}
+            onImportSnapshot={actions.importSnapshot}
           />
         </ErrorBoundary>
       )}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -20,6 +20,9 @@ type RecordingStepProps = {
   aspectRatio: AspectRatio;
   onUpdateSlide: (id: string, updates: Partial<Slide>) => void;
   onFinish: () => void;
+  isDebugMode: boolean;
+  onExportSnapshot: () => Promise<string>;
+  onImportSnapshot: (fileContent: string) => Promise<void>;
 };
 
 export function RecordingStep({
@@ -27,13 +30,18 @@ export function RecordingStep({
   aspectRatio,
   onUpdateSlide,
   onFinish,
+  isDebugMode,
+  onExportSnapshot,
+  onImportSnapshot,
 }: RecordingStepProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isSnapshotBusy, setIsSnapshotBusy] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentSlide = slides[currentIndex];
   const recordedCount = slides.filter((s) => s.audioBlob).length;
@@ -72,7 +80,7 @@ export function RecordingStep({
       recorder.start();
       setIsRecording(true);
     } catch (error) {
-      appLogger.error('Microfone não disponível.', { error });
+      appLogger.error('💥 Microfone não disponível.', { error });
       window.alert('Precisamos de acesso ao microfone para gravar o áudio.');
     }
   };
@@ -95,7 +103,7 @@ export function RecordingStep({
     audio.onended = () => setIsPlaying(false);
     setIsPlaying(true);
     audio.play().catch((error) => {
-      appLogger.error('Não foi possível reproduzir o áudio.', { error });
+      appLogger.error('💥 Não foi possível reproduzir o áudio.', { error });
       setIsPlaying(false);
     });
   };
@@ -117,6 +125,56 @@ export function RecordingStep({
       setCurrentIndex((prev) => prev + 1);
     } else {
       onFinish();
+    }
+  };
+
+  const handleExportSnapshot = async () => {
+    try {
+      setIsSnapshotBusy(true);
+      const snapshot = await onExportSnapshot();
+      const blob = new Blob([snapshot], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `video-generator-snapshot-${Date.now()}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      appLogger.error('💥 Falha ao exportar snapshot.', { error });
+      window.alert('Não foi possível exportar o snapshot. Tente novamente.');
+    } finally {
+      setIsSnapshotBusy(false);
+    }
+  };
+
+  const handleImportClick = () => {
+    if (isSnapshotBusy) {
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleSnapshotFileChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      setIsSnapshotBusy(true);
+      const payload = await file.text();
+      await onImportSnapshot(payload);
+      window.alert('Snapshot importado com sucesso.');
+    } catch (error) {
+      appLogger.error('💥 Falha ao importar arquivo de snapshot.', { error });
+      window.alert(
+        'Não foi possível importar o snapshot. Verifique o arquivo e tente novamente.',
+      );
+    } finally {
+      event.target.value = '';
+      setIsSnapshotBusy(false);
     }
   };
 
@@ -150,12 +208,44 @@ export function RecordingStep({
           </span>
         </div>
         <div className="mt-3 progress-bar">
-          <div
-            className="progress-fill"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
       </div>
+
+      {isDebugMode && (
+        <div className="mx-4 mb-4 rounded-xl border border-dashed border-amber-400/40 bg-amber-500/5 px-4 py-3 text-sm text-white/80">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-semibold text-amber-300">
+              Debug snapshots
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleExportSnapshot}
+                disabled={isSnapshotBusy}
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Exportar JSON
+              </button>
+              <button
+                type="button"
+                onClick={handleImportClick}
+                disabled={isSnapshotBusy}
+                className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Importar JSON
+              </button>
+            </div>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={handleSnapshotFileChange}
+          />
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 pb-4 lg:flex-row lg:items-start lg:justify-center">
@@ -203,7 +293,9 @@ export function RecordingStep({
           <div className="glass-card flex-1 overflow-hidden">
             <div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
               <Volume2 size={16} className="text-primary-400" />
-              <span className="text-sm font-medium text-white/70">Texto para narrar</span>
+              <span className="text-sm font-medium text-white/70">
+                Texto para narrar
+              </span>
             </div>
             <div className="max-h-[30vh] overflow-y-auto p-4 lg:max-h-[40vh]">
               <p className="text-lg leading-relaxed text-white/90">
@@ -270,7 +362,9 @@ export function RecordingStep({
               disabled={!currentSlide.audioBlob}
               className="btn-primary mt-4 w-full"
             >
-              {currentIndex === slides.length - 1 ? 'Finalizar projeto' : 'Próximo slide'}
+              {currentIndex === slides.length - 1
+                ? 'Finalizar projeto'
+                : 'Próximo slide'}
               <ArrowRight size={18} />
             </button>
           </div>

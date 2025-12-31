@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
+import { z } from 'zod';
 
 import {
+  VIDEO_ASPECT_RATIOS,
   VIDEO_CONFIG,
   VIDEO_GENERATION_STEP,
   type AspectRatio,
@@ -14,10 +16,12 @@ import type {
   GenerationProgress,
   ProjectData,
   Slide,
+  VideoGenerationSnapshot,
   VideoGenerationPayload,
 } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 import { runWithConcurrency } from '@/shared/utils/concurrency';
+import { blobToDataUrl, dataUrlToBlob } from '@/shared/utils/blob';
 import { uuidv4 } from '@/shared/utils/uuid';
 
 const initialProgress: GenerationProgress = {
@@ -25,6 +29,47 @@ const initialProgress: GenerationProgress = {
   completed: 0,
   currentAction: '',
 };
+
+const SNAPSHOT_VERSION = 1 as const;
+
+const STEP_VALUES = Object.values(VIDEO_GENERATION_STEP) as readonly [
+  VideoGenerationStep,
+  ...VideoGenerationStep[],
+];
+
+const slideSnapshotSchema = z.object({
+  id: z.string(),
+  order: z.number(),
+  scriptText: z.string(),
+  visualPrompt: z.string(),
+  imageUrl: z.string().optional(),
+  userNotes: z.string().optional(),
+  isRegeneratingImage: z.boolean(),
+  audioDataUrl: z.string().optional(),
+});
+
+const snapshotSchema = z.object({
+  version: z.literal(SNAPSHOT_VERSION),
+  timestamp: z.string(),
+  projectData: z
+    .object({
+      topic: z.string().optional(),
+      materials: z.string().optional(),
+      aspectRatio: z.enum(VIDEO_ASPECT_RATIOS).optional(),
+      targetAudience: z.string().optional(),
+      promptId: z.string().optional(),
+    })
+    .partial()
+    .passthrough()
+    .default({}),
+  slides: z.array(slideSnapshotSchema),
+  progress: z.object({
+    total: z.number(),
+    completed: z.number(),
+    currentAction: z.string(),
+  }),
+  step: z.enum(STEP_VALUES),
+});
 
 export function useVideoGeneration() {
   const [step, setStep] = useState<VideoGenerationStep>(
@@ -75,7 +120,7 @@ export function useVideoGeneration() {
               ),
             );
           } catch (error) {
-            appLogger.error('Falha ao gerar imagem.', {
+            appLogger.error('💥 Falha ao gerar imagem.', {
               error,
               slideId: slide.id,
             });
@@ -102,6 +147,50 @@ export function useVideoGeneration() {
     },
     [],
   );
+
+  const exportSnapshot = useCallback(async () => {
+    const serializedSlides: VideoGenerationSnapshot['slides'] =
+      await Promise.all(
+        slides.map(async ({ audioBlob, ...rest }) => ({
+          ...rest,
+          audioDataUrl: audioBlob ? await blobToDataUrl(audioBlob) : undefined,
+        })),
+      );
+
+    const snapshot: VideoGenerationSnapshot = {
+      version: SNAPSHOT_VERSION,
+      timestamp: new Date().toISOString(),
+      projectData: projectData ?? {},
+      slides: serializedSlides,
+      progress,
+      step,
+    };
+
+    return JSON.stringify(snapshot, null, 2);
+  }, [slides, projectData, progress, step]);
+
+  const importSnapshot = useCallback(async (fileContent: string) => {
+    try {
+      const parsed = snapshotSchema.parse(
+        JSON.parse(fileContent),
+      ) as VideoGenerationSnapshot;
+
+      const hydratedSlides: Slide[] = parsed.slides.map(
+        ({ audioDataUrl, ...rest }) => ({
+          ...rest,
+          audioBlob: audioDataUrl ? dataUrlToBlob(audioDataUrl) : undefined,
+        }),
+      );
+
+      setProjectData(parsed.projectData ?? {});
+      setSlides(hydratedSlides);
+      setProgress(parsed.progress);
+      setStep(parsed.step);
+    } catch (error) {
+      appLogger.error('💥 Falha ao importar snapshot de vídeo.', { error });
+      throw error;
+    }
+  }, []);
 
   const startGeneration = useCallback(
     async (payload: VideoGenerationPayload) => {
@@ -132,7 +221,7 @@ export function useVideoGeneration() {
         await generateVisuals(preparedSlides, payload.aspectRatio);
         setStep(VIDEO_GENERATION_STEP.EDITOR);
       } catch (error) {
-        appLogger.error('Fluxo de geração interrompido.', { error });
+        appLogger.error('💥 Fluxo de geração interrompido.', { error });
         setStep(VIDEO_GENERATION_STEP.INPUT);
         setProgress(initialProgress);
         throw error;
@@ -163,6 +252,8 @@ export function useVideoGeneration() {
       slides,
       progress,
       actions: {
+        exportSnapshot,
+        importSnapshot,
         startGeneration,
         startRecording,
         openPreview,
@@ -171,6 +262,8 @@ export function useVideoGeneration() {
       },
     }),
     [
+      exportSnapshot,
+      importSnapshot,
       openPreview,
       progress,
       projectData,
