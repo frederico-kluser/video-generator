@@ -127,6 +127,30 @@ const langchainModel = new ChatOpenAI({
   apiKey,
 });
 
+const createChatModel = (model: string, temperature = 0.7) =>
+  new ChatOpenAI({
+    model,
+    temperature,
+    maxRetries: 2,
+    apiKey,
+  });
+
+const SCRIPT_MODEL_FALLBACKS: Array<{
+  name: string;
+  temperature: number;
+}> = [
+  { name: 'gpt-4o', temperature: 0.7 },
+  { name: 'gpt-4.1-mini', temperature: 0.65 },
+  { name: 'gpt-4o-mini', temperature: 0.72 },
+];
+
+const RECOVERABLE_MODEL_ERROR_CODES = new Set([
+  'RATE_LIMIT',
+  'SERVER_ERROR',
+  'UNKNOWN',
+  'UNKNOWN_ERROR',
+]);
+
 // =====================================================
 // TIPOS DE ERRO CUSTOMIZADOS
 // =====================================================
@@ -180,26 +204,70 @@ Gere um script completo com:
 - Notas do apresentador para cada slide
 - Indicações de onde inserir imagens`;
 
-  try {
-    const structuredModel = langchainModel.withStructuredOutput(ScriptSchema, {
-      strict: true,
-      name: 'educational_script',
-    });
+  const prompt = ChatPromptTemplate.fromMessages([
+    ['system', systemPrompt],
+    ['user', userPrompt],
+  ]);
 
-    const prompt = ChatPromptTemplate.fromMessages([
-      ['system', systemPrompt],
-      ['user', userPrompt],
-    ]);
+  let lastError: OpenAIServiceError | null = null;
 
-    const script = await prompt.pipe(structuredModel).invoke({});
+  for (const fallback of SCRIPT_MODEL_FALLBACKS) {
+    try {
+      appLogger.info('🤖 Tentando modelo para script estruturado.', {
+        model: fallback.name,
+        temperature: fallback.temperature,
+      });
 
-    appLogger.info('🧠 Script estruturado gerado com sucesso.', {
-      slides: script.slides.length,
-    });
-    return script;
-  } catch (error) {
-    handleOpenAIError(error, 'generateScriptFromMaterials');
+      const structuredModel = createChatModel(
+        fallback.name,
+        fallback.temperature,
+      ).withStructuredOutput(ScriptSchema, {
+        strict: true,
+        name: 'educational_script',
+      });
+
+      const script = await withRetry(
+        () => prompt.pipe(structuredModel).invoke({}),
+        {
+          maxRetries: 2,
+          baseDelay: 1_500,
+          maxDelay: 6_000,
+        },
+      );
+
+      appLogger.info('🧠 Script estruturado gerado com sucesso.', {
+        slides: script.slides.length,
+        model: fallback.name,
+      });
+      return script;
+    } catch (error) {
+      const normalizedError = normalizeOpenAIError(
+        error,
+        'generateScriptFromMaterials',
+        'warn',
+      );
+      lastError = normalizedError;
+
+      if (!RECOVERABLE_MODEL_ERROR_CODES.has(normalizedError.code)) {
+        appLogger.error('❌ Erro não recuperável ao gerar script.', {
+          model: fallback.name,
+          code: normalizedError.code,
+        });
+        throw normalizedError;
+      }
+
+      appLogger.warn('🔁 Modelo indisponível, tentando fallback.', {
+        failedModel: fallback.name,
+        errorCode: normalizedError.code,
+      });
+    }
   }
+
+  appLogger.info('🛟 Ativando fallback via Responses API para script.', {
+    lastErrorCode: lastError?.code,
+  });
+
+  return generateScriptWithResponsesAPI(materials, options);
 }
 
 // =====================================================
@@ -534,8 +602,21 @@ export async function refineSlideContentWithFeedback(
 // =====================================================
 // TRATAMENTO DE ERROS
 // =====================================================
-function handleOpenAIError(error: unknown, functionName: string): never {
-  appLogger.error(`Falha em ${functionName}.`, { error });
+function normalizeOpenAIError(
+  error: unknown,
+  functionName: string,
+  logLevel: 'error' | 'warn' = 'error',
+): OpenAIServiceError {
+  const logMessage = `Falha em ${functionName}.`;
+  if (logLevel === 'warn') {
+    appLogger.warn(logMessage, { error });
+  } else {
+    appLogger.error(logMessage, { error });
+  }
+
+  if (error instanceof OpenAIServiceError) {
+    return error;
+  }
 
   if (error instanceof OpenAI.APIError) {
     const errorMap: Record<number, { code: string; message: string }> = {
@@ -552,7 +633,7 @@ function handleOpenAIError(error: unknown, functionName: string): never {
       message: error.message,
     };
 
-    throw new OpenAIServiceError(
+    return new OpenAIServiceError(
       `${errorInfo.message}: ${error.message}`,
       errorInfo.code,
       error.status,
@@ -560,16 +641,20 @@ function handleOpenAIError(error: unknown, functionName: string): never {
   }
 
   if (error instanceof z.ZodError) {
-    throw new OpenAIServiceError(
+    return new OpenAIServiceError(
       `Erro de validação: ${error.issues.map((issue) => issue.message).join(', ')}`,
       'VALIDATION_ERROR',
     );
   }
 
-  throw new OpenAIServiceError(
+  return new OpenAIServiceError(
     error instanceof Error ? error.message : 'Erro desconhecido',
     'UNKNOWN_ERROR',
   );
+}
+
+function handleOpenAIError(error: unknown, functionName: string): never {
+  throw normalizeOpenAIError(error, functionName);
 }
 
 // =====================================================
