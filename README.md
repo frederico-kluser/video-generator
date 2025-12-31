@@ -4,7 +4,7 @@
 
 # EduScript AI — React 19 + Vite 6 + TypeScript 5.8
 
-Video generator otimizado para 2025 com arquitetura feature-based, React 19 e integrações com Google Gemini. O projeto segue as referências do Bulletproof React, Feature-Sliced Design e recomendações de especialistas como Matt Pocock.
+Video generator otimizado para 2025 com arquitetura feature-based, React 19 e integrações com OpenAI (GPT-5.1-Codex-Max + GPT-image-1.5). O projeto segue as referências do Bulletproof React, Feature-Sliced Design e recomendações de especialistas como Matt Pocock.
 
 ## Stack & ferramentas
 
@@ -15,6 +15,7 @@ Video generator otimizado para 2025 com arquitetura feature-based, React 19 e in
 - Prettier 3 (execução separada, apenas `eslint-config-prettier` no lint)
 - `react-error-boundary` para isolarmos falhas por sessão da UI
 - `react-error-boundary` + logger estruturado com emojis para debugar rapidamente
+- OpenAI SDK 4 + LangChain para outputs estruturados via Zod (`schemas/eduScriptSchemas.ts`) e serviço dedicado em `services/openaiService.ts`
 
 ## Estrutura de pastas
 
@@ -26,29 +27,32 @@ src/
 ├── config/
 │   ├── constants/             # Constantes de domínio (vídeo, prompts)
 │   └── env.ts                 # Helper type-safe para variáveis Vite
+├── schemas/                   # Zod schemas (script, slide, refinamentos)
+├── services/
+│   └── openaiService.ts       # Integrações GPT-5.1 + GPT-image com retries
 ├── features/
 │   └── video-generation/
-│       ├── api/               # Integrações com Gemini (scripts, imagens)
+│       ├── api/               # Integrações com OpenAI (scripts, imagens)
 │       ├── components/        # Input, Loading, Editor, Recording, Preview
 │       ├── hooks/             # `useVideoGeneration` com todo o fluxo
 │       └── model/             # Tipos coesos da feature
 ├── shared/
 │   ├── components/            # Error boundaries reutilizáveis
 │   ├── errors/                # Modelos de erro
-│   ├── lib/                   # SDKs/configurações (Google GenAI)
+│   ├── lib/                   # SDKs/configurações compartilhadas
 │   ├── logging/               # Logger estruturado com emojis
 │   └── utils/                 # Helpers (UUID, controle de concorrência)
 └── vite-env.d.ts
 ```
 
-Cada feature expõe apenas o que precisa através de seus próprios diretórios, evitando barrels globais. Código verdadeiramente compartilhado fica em `shared/`.
+Cada feature expõe apenas o que precisa através de seus próprios diretórios, evitando barrels globais. Código verdadeiramente compartilhado fica em `shared/`. Schemas e serviços OpenAI são centrais para reaproveitar validações/integrações.
 
 ## Variáveis de ambiente
 
 Crie um arquivo `.env` ou `.env.local` na raiz com:
 
 ```
-VITE_GOOGLE_AI_KEY=xxxxxx   # obrigatório para usar a API Gemini
+VITE_OPENAI_API_KEY=sk-...  # obrigatório para usar GPT-5.1 no front (dev only)
 VITE_API_URL=               # opcional se for consumir outro backend
 VITE_APP_TITLE=EduScript AI # opcional, muda o título do browser
 VITE_PORT=5173              # opcional, porta do dev server
@@ -56,21 +60,21 @@ VITE_PORT=5173              # opcional, porta do dev server
 
 ## Scripts principais
 
-| Comando                | Ação |
-|------------------------|------|
-| `yarn install`         | Instala dependências
-| `yarn dev`             | Inicia Vite com React Fast Refresh
-| `yarn build`           | `tsc --noEmit` + `vite build`
-| `yarn preview`         | Pré-visualiza o build
-| `yarn lint`            | ESLint 9 (flat) com React + TS + a11y
-| `yarn typecheck`       | Garante que o TS está saudável
-| `yarn format`          | Prettier com `printWidth: 80`, `singleQuote: true`
+| Comando          | Ação                                               |
+| ---------------- | -------------------------------------------------- |
+| `yarn install`   | Instala dependências                               |
+| `yarn dev`       | Inicia Vite com React Fast Refresh                 |
+| `yarn build`     | `tsc --noEmit` + `vite build`                      |
+| `yarn preview`   | Pré-visualiza o build                              |
+| `yarn lint`      | ESLint 9 (flat) com React + TS + a11y              |
+| `yarn typecheck` | Garante que o TS está saudável                     |
+| `yarn format`    | Prettier com `printWidth: 80`, `singleQuote: true` |
 
 ## Fluxo de geração
 
 1. **Briefing (`InputStep`)** — formulário com `useActionState` valida os campos e dispara `useVideoGeneration().actions.startGeneration`.
-2. **Roteiro** — `generateScriptFromMaterials` conversa com o Gemini 3 Flash usando o prompt pedagógico.
-3. **Visuais** — `runWithConcurrency` limita a geração de imagens (`gemini-2.5-flash-image`) ao valor em `VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT`.
+2. **Roteiro** — `generateScriptFromMaterials` usa GPT-5.1-Codex-Max (via LangChain) com schemas Zod para garantir JSON válido.
+3. **Visuais** — `runWithConcurrency` limita a geração de imagens (`gpt-image-1.5`) ao valor em `VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT`.
 4. **Edição** — usuário pode ajustar o texto manualmente ou enviar feedback para `refineSlideContent`.
 5. **Gravação** — `MediaRecorder` captura o áudio por slide e o fluxo garante limpeza dos streams.
 6. **Preview & Export** — preview sincronizado com áudio e export via `MediaRecorder`. Implementamos fallback para criação de canvas (DOM e Offscreen) e checagens extras de compatibilidade.

@@ -1,76 +1,121 @@
-import { Type } from '@google/genai';
-
-import { PEDAGOGICAL_SYSTEM_INSTRUCTION } from '@/config/constants/pedagogy';
 import type { AspectRatio } from '@/config/constants/video';
 import type { Slide } from '@/features/video-generation/model/types';
-import { ApiError } from '@/shared/errors/ApiError';
-import { getGenAiClient } from '@/shared/lib/genAiClient';
+import {
+  generateScriptFromMaterials as generateStructuredScript,
+  generateSlideImage as generateOpenAiSlideImage,
+  refineSlideContentWithFeedback,
+  type Script,
+  type ContentBlock,
+} from '@/services/openaiService';
 import { appLogger } from '@/shared/logging/logger';
 
-const SCRIPT_MODEL = 'gemini-3-flash-preview';
-const IMAGE_MODEL = 'gemini-2.5-flash-image';
+type RawSlide = Omit<Slide, 'id' | 'order' | 'isRegeneratingImage'>;
 
-type RawSlide = {
-  scriptText: string;
-  visualPrompt: string;
+const AUDIENCE_KEYWORDS: Array<{
+  matcher: RegExp;
+  mapped: Script['targetAudience'];
+}> = [
+  { matcher: /elementary|fundamental|k-5/i, mapped: 'elementary' },
+  { matcher: /middle|6-9|fundamental ii/i, mapped: 'middleSchool' },
+  { matcher: /high|ensino médio|10-12/i, mapped: 'highSchool' },
+  { matcher: /college|universit|adulto/i, mapped: 'college' },
+  { matcher: /.*/, mapped: 'professional' },
+];
+
+const STYLE_BY_RATIO: Record<
+  AspectRatio,
+  'realistic' | 'illustrated' | 'diagram' | 'infographic'
+> = {
+  '16:9': 'illustrated',
+  '9:16': 'infographic',
+  '1:1': 'diagram',
+};
+
+const DEFAULT_AUDIENCE: Script['targetAudience'] = 'professional';
+
+const normalizeAudience = (audience: string): Script['targetAudience'] => {
+  const match = AUDIENCE_KEYWORDS.find(({ matcher }) => matcher.test(audience));
+  return match?.mapped ?? DEFAULT_AUDIENCE;
+};
+
+const estimateDurationFromMaterials = (materials: string): number => {
+  const wordCount = materials.split(/\s+/).filter(Boolean).length;
+  return Math.min(12, Math.max(3, Math.ceil(wordCount / 120)));
+};
+
+const buildScriptText = (
+  blocks: ContentBlock[],
+  speakerNotes?: string,
+): string => {
+  const parts: string[] = [];
+
+  blocks.forEach((block) => {
+    if (block.type === 'text') {
+      parts.push(block.content);
+    }
+
+    if (block.type === 'bulletList') {
+      block.items.forEach((item) => {
+        const indent = '  '.repeat(item.indent);
+        parts.push(`${indent}• ${item.text}`);
+      });
+    }
+  });
+
+  if (speakerNotes) {
+    parts.push(`Notas do apresentador: ${speakerNotes}`);
+  }
+
+  return parts.join('\n');
+};
+
+const buildVisualPrompt = (
+  slideTitle: string,
+  blocks: ContentBlock[],
+): string => {
+  const placeholder = blocks.find((block) => block.type === 'imagePlaceholder');
+
+  if (placeholder && placeholder.type === 'imagePlaceholder') {
+    return `${placeholder.description}. Alt text: ${placeholder.alt}`;
+  }
+
+  return `Educational illustration for "${slideTitle}" highlighting the core concept.`;
 };
 
 export async function generateScriptFromMaterials(
   topic: string,
   materials: string,
   audience: string,
-): Promise<Omit<Slide, 'id' | 'order' | 'isRegeneratingImage'>[]> {
-  appLogger.info('Iniciando geração de roteiro pedagógico.', {
+): Promise<RawSlide[]> {
+  const targetAudience = normalizeAudience(audience);
+  const desiredDuration = estimateDurationFromMaterials(materials);
+
+  appLogger.info('🧠 Iniciando geração de roteiro pedagógico com OpenAI.', {
     topic,
-    audience,
-  });
-  const client = getGenAiClient();
-
-  const prompt = `
-    Topic: ${topic}
-    Target Audience: ${audience}
-    Source Materials: ${materials}
-
-    Generate a video script broken down into slides. Return ONLY JSON.
-  `;
-
-  const response = await client.models.generateContent({
-    model: SCRIPT_MODEL,
-    contents: prompt,
-    config: {
-      systemInstruction: PEDAGOGICAL_SYSTEM_INSTRUCTION,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            scriptText: { type: Type.STRING },
-            visualPrompt: { type: Type.STRING },
-          },
-          required: ['scriptText', 'visualPrompt'],
-        },
-      },
-    },
+    targetAudience,
+    desiredDuration,
   });
 
-  const text = response.text;
-  if (!text) {
-    const message = 'A API não retornou conteúdo para o roteiro.';
-    appLogger.error(message);
-    throw new ApiError(message, 502);
-  }
+  const script = await generateStructuredScript(materials, {
+    topic,
+    targetAudience,
+    desiredDuration,
+    style: 'engaging',
+  });
 
-  const parsed = JSON.parse(text) as unknown;
+  const slides: RawSlide[] = script.slides.map((slide) => ({
+    scriptText: buildScriptText(slide.content, slide.speakerNotes),
+    visualPrompt: buildVisualPrompt(slide.title, slide.content),
+    imageUrl: undefined,
+    userNotes: undefined,
+    audioBlob: undefined,
+    isRegeneratingImage: true,
+  }));
 
-  if (!Array.isArray(parsed)) {
-    const message = 'O formato retornado pelo modelo é inválido.';
-    appLogger.error(message);
-    throw new ApiError(message, 502);
-  }
+  appLogger.info('📝 Roteiro convertido para o formato interno.', {
+    slides: slides.length,
+  });
 
-  const slides = parsed as RawSlide[];
-  appLogger.info('Roteiro gerado com sucesso.', { slides: slides.length });
   return slides;
 }
 
@@ -78,76 +123,34 @@ export async function generateSlideImage(
   visualPrompt: string,
   aspectRatio: AspectRatio,
 ): Promise<string> {
-  const client = getGenAiClient();
-  appLogger.info('Solicitando geração de imagem.', { aspectRatio });
+  const style = STYLE_BY_RATIO[aspectRatio] ?? 'illustrated';
+  appLogger.info('🖼️ Solicitando imagem via OpenAI.', { aspectRatio, style });
 
-  const enhancedPrompt = `
-    Create an educational illustration.
-    Style: Clean vector art, flat design, minimalist background, vibrant colors.
-    Subject: ${visualPrompt}
-    Aspect Ratio: ${aspectRatio}
-    Avoid embedding text into the image.
-  `;
-
-  const response = await client.models.generateContent({
-    model: IMAGE_MODEL,
-    contents: enhancedPrompt,
+  const image = await generateOpenAiSlideImage({
+    description: visualPrompt,
+    style,
+    targetAudience: DEFAULT_AUDIENCE,
+    slideTitle: visualPrompt.slice(0, 80) || 'EduScript Slide',
   });
 
-  const candidates = response.candidates ?? [];
-  for (const candidate of candidates) {
-    for (const part of candidate.content?.parts ?? []) {
-      if (part.inlineData?.data) {
-        const mimeType = part.inlineData.mimeType ?? 'image/png';
-        return `data:${mimeType};base64,${part.inlineData.data}`;
-      }
-    }
-  }
-
-  const message = 'Não foi possível gerar a imagem para o slide.';
-  appLogger.error(message);
-  throw new ApiError(message, 502);
+  return `data:${image.mimeType};base64,${image.base64}`;
 }
 
 export async function refineSlideContent(
   currentSlide: Slide,
   feedback: string,
 ) {
-  const client = getGenAiClient();
-  const prompt = `
-    Current Script: "${currentSlide.scriptText}"
-    Current Visual Prompt: "${currentSlide.visualPrompt}"
-    User Feedback/Notes: "${feedback}"
+  appLogger.info('✏️ Refinando slide com feedback do usuário.');
 
-    Based on the feedback, REWRITE the script and the visual prompt.
-    If the feedback focuses on visuals, update visualPrompt significantly.
-    If the feedback focuses on text, update scriptText.
-
-    Return JSON.
-  `;
-
-  const response = await client.models.generateContent({
-    model: SCRIPT_MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          scriptText: { type: Type.STRING },
-          visualPrompt: { type: Type.STRING },
-        },
-        required: ['scriptText', 'visualPrompt'],
-      },
+  const result = await refineSlideContentWithFeedback(
+    {
+      scriptText: currentSlide.scriptText,
+      visualPrompt: currentSlide.visualPrompt,
+      userNotes: currentSlide.userNotes,
     },
-  });
+    feedback,
+    DEFAULT_AUDIENCE,
+  );
 
-  const text = response.text;
-  if (!text) {
-    const message = 'A API não retornou refinamentos.';
-    appLogger.error(message);
-    throw new ApiError(message, 502);
-  }
-
-  return JSON.parse(text) as { scriptText: string; visualPrompt: string };
+  return result;
 }
