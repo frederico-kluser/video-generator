@@ -4,6 +4,25 @@ import type {
 } from '@/config/constants/video';
 import type { PromptBlueprintId } from '@/content/prompts';
 
+export type SlideStyleReference = {
+  id: string;
+  name: string;
+  previewUrl: string;
+  file?: File;
+};
+
+export type SlideStyleGuide = {
+  notes: string;
+  inputFidelity: 'high' | 'low';
+  references: SlideStyleReference[];
+};
+
+export const createDefaultStyleGuide = (): SlideStyleGuide => ({
+  notes: '',
+  inputFidelity: 'high',
+  references: [],
+});
+
 export type Slide = {
   id: string;
   order: number;
@@ -14,6 +33,7 @@ export type Slide = {
   userNotes?: string;
   audioBlob?: Blob;
   isRegeneratingImage: boolean;
+  styleGuide: SlideStyleGuide;
 };
 
 export type ProjectData = {

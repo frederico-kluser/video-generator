@@ -345,6 +345,11 @@ export interface SlideImageOptions {
   targetAudience: Script['targetAudience'];
   slideTitle: string;
   aspectRatio: ImageAspectRatio;
+  styleGuide?: {
+    notes?: string;
+    inputFidelity?: 'high' | 'low';
+    references?: (File | Blob)[];
+  };
 }
 
 export interface GeneratedImage {
@@ -358,6 +363,9 @@ export async function generateSlideImage(
   options: SlideImageOptions,
 ): Promise<GeneratedImage> {
   const sizeConfig = IMAGE_SIZE_BY_ASPECT_RATIO[options.aspectRatio];
+  const referenceFiles = options.styleGuide?.references?.filter(Boolean) ?? [];
+  const hasReferences = referenceFiles.length > 0;
+  const styleNotes = options.styleGuide?.notes?.trim();
 
   const styleGuides: Record<SlideImageOptions['style'], string> = {
     realistic: 'fotorrealista, alta qualidade, iluminação profissional',
@@ -378,7 +386,7 @@ export async function generateSlideImage(
     professional: 'design corporativo, minimalista, alta qualidade',
   };
 
-  const prompt = `
+  const basePrompt = `
 Crie uma imagem educacional para um slide de vídeo:
 
 TÍTULO DO SLIDE: ${options.slideTitle}
@@ -400,16 +408,38 @@ REQUISITOS OBRIGATÓRIOS:
 - Composição equilibrada respeitando as zonas seguras descritas
 `.trim();
 
+  const styleNotesBlock = styleNotes
+    ? `ÂNCORAS DO USUÁRIO:\n${styleNotes}`
+    : '';
+
+  const referencesBlock = hasReferences
+    ? 'Use as imagens fornecidas (Image 1...N) como referência direta de paleta, iluminação, textura e pinceladas. Preserve os traços principais e aplique-os somente ao novo conteúdo descrito.'
+    : '';
+
+  const prompt = [basePrompt, styleNotesBlock, referencesBlock]
+    .filter(Boolean)
+    .join('\n\n');
+
   try {
-    const result = await openai.images.generate({
+    const commonPayload = {
       model: 'gpt-image-1.5',
       prompt,
       size: sizeConfig.apiSize,
-      quality: 'high',
+      quality: 'high' as const,
       n: 1,
-      background: 'opaque',
-      output_format: 'png',
-    });
+      output_format: 'png' as const,
+    };
+
+    const result = hasReferences
+      ? await openai.images.edit({
+          ...commonPayload,
+          image: referenceFiles,
+          input_fidelity: options.styleGuide?.inputFidelity ?? 'high',
+        })
+      : await openai.images.generate({
+          ...commonPayload,
+          background: 'opaque',
+        });
 
     const imageData = result.data[0];
 

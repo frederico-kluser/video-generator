@@ -16,6 +16,7 @@ import type {
   Slide,
   VideoGenerationPayload,
 } from '@/features/video-generation/model/types';
+import { createDefaultStyleGuide } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 import { runWithConcurrency } from '@/shared/utils/concurrency';
 import { uuidv4 } from '@/shared/utils/uuid';
@@ -36,6 +37,7 @@ const createBlankSlide = (order: number): Slide => ({
   userNotes: undefined,
   audioBlob: undefined,
   isRegeneratingImage: false,
+  styleGuide: createDefaultStyleGuide(),
 });
 
 const normalizeSlideOrder = (slideList: Slide[]): Slide[] =>
@@ -129,10 +131,7 @@ export function useVideoGeneration() {
         VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT,
         async (slide) => {
           try {
-            const imageUrl = await generateSlideImage(
-              slide.visualPrompt,
-              aspectRatio,
-            );
+            const imageUrl = await generateSlideImage(slide, aspectRatio);
             setSlides((prev) =>
               prev.map((current) =>
                 current.id === slide.id
@@ -197,6 +196,7 @@ export function useVideoGeneration() {
             id: uuidv4(),
             order: index,
             isRegeneratingImage: false,
+            styleGuide: slide.styleGuide ?? createDefaultStyleGuide(),
           })),
         );
 
@@ -254,6 +254,7 @@ export function useVideoGeneration() {
             id: uuidv4(),
             order: index,
             isRegeneratingImage: false,
+            styleGuide: slide.styleGuide ?? createDefaultStyleGuide(),
           })),
         );
 

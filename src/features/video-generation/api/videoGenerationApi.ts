@@ -6,6 +6,7 @@ import {
   type PromptBlueprintId,
 } from '@/content/prompts';
 import type { Slide } from '@/features/video-generation/model/types';
+import { createDefaultStyleGuide } from '@/features/video-generation/model/types';
 import {
   generateScriptFromMaterials as generateStructuredScript,
   generateSlideImage as generateOpenAiSlideImage,
@@ -157,6 +158,7 @@ export async function generateScriptFromMaterials(
       userNotes: undefined,
       audioBlob: undefined,
       isRegeneratingImage: false,
+      styleGuide: createDefaultStyleGuide(),
     };
   });
 
@@ -168,15 +170,21 @@ export async function generateScriptFromMaterials(
 }
 
 export async function generateSlideImage(
-  visualPrompt: string,
+  slide: Slide,
   aspectRatio: AspectRatio,
 ): Promise<string> {
+  const visualPrompt = slide.visualPrompt;
   const style = STYLE_BY_RATIO[aspectRatio] ?? 'illustrated';
   const sizeConfig = IMAGE_SIZE_BY_ASPECT_RATIO[aspectRatio];
+  const styleGuide = slide.styleGuide;
+  const styleReferenceFiles = styleGuide.references
+    .map((reference) => reference.file)
+    .filter(Boolean) as File[];
   appLogger.info('🖼️ Solicitando imagem via OpenAI.', {
     aspectRatio,
     style,
     apiSize: sizeConfig.apiSize,
+    styleReferences: styleReferenceFiles.length,
   });
 
   const image = await generateOpenAiSlideImage({
@@ -185,6 +193,11 @@ export async function generateSlideImage(
     targetAudience: DEFAULT_AUDIENCE,
     slideTitle: visualPrompt.slice(0, 80) || 'EduScript Slide',
     aspectRatio,
+    styleGuide: {
+      notes: styleGuide.notes,
+      inputFidelity: styleGuide.inputFidelity,
+      references: styleReferenceFiles,
+    },
   });
 
   return `data:${image.mimeType};base64,${image.base64}`;
