@@ -1,3 +1,4 @@
+import { IMAGE_SIZE_BY_ASPECT_RATIO } from '@/config/constants/imageGeneration';
 import type { AspectRatio } from '@/config/constants/video';
 import type { Slide } from '@/features/video-generation/model/types';
 import {
@@ -125,13 +126,19 @@ export async function generateSlideImage(
   aspectRatio: AspectRatio,
 ): Promise<string> {
   const style = STYLE_BY_RATIO[aspectRatio] ?? 'illustrated';
-  appLogger.info('🖼️ Solicitando imagem via OpenAI.', { aspectRatio, style });
+  const sizeConfig = IMAGE_SIZE_BY_ASPECT_RATIO[aspectRatio];
+  appLogger.info('🖼️ Solicitando imagem via OpenAI.', {
+    aspectRatio,
+    style,
+    apiSize: sizeConfig.apiSize,
+  });
 
   const image = await generateOpenAiSlideImage({
     description: visualPrompt,
     style,
     targetAudience: DEFAULT_AUDIENCE,
     slideTitle: visualPrompt.slice(0, 80) || 'EduScript Slide',
+    aspectRatio,
   });
 
   return `data:${image.mimeType};base64,${image.base64}`;

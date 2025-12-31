@@ -33,6 +33,7 @@ async function createEducationalVideo() {
     script.slides,
     'illustrated',
     script.targetAudience,
+    '16:9',
   );
   console.log(`✅ ${images.size} imagens geradas`);
 

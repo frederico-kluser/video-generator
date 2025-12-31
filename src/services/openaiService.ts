@@ -5,6 +5,15 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 
 import {
+  IMAGE_SIZE_BY_ASPECT_RATIO,
+  type ImageAspectRatio,
+} from '@/config/constants/imageGeneration';
+import {
+  COMPOSITION_GUIDES,
+  SAFE_ZONE_INSTRUCTIONS,
+  SUBTITLE_SPACE_INSTRUCTIONS,
+} from '@/config/constants/imagePrompts';
+import {
   type ContentBlock,
   type RefinedContent,
   RefinedContentSchema,
@@ -242,6 +251,7 @@ export interface SlideImageOptions {
   style: 'realistic' | 'illustrated' | 'diagram' | 'infographic';
   targetAudience: Script['targetAudience'];
   slideTitle: string;
+  aspectRatio: ImageAspectRatio;
 }
 
 export interface GeneratedImage {
@@ -254,14 +264,16 @@ export interface GeneratedImage {
 export async function generateSlideImage(
   options: SlideImageOptions,
 ): Promise<GeneratedImage> {
+  const sizeConfig = IMAGE_SIZE_BY_ASPECT_RATIO[options.aspectRatio];
+
   const styleGuides: Record<SlideImageOptions['style'], string> = {
     realistic: 'fotorrealista, alta qualidade, iluminação profissional',
     illustrated:
       'ilustração digital, cores vibrantes, estilo educacional amigável',
     diagram:
-      'diagrama técnico limpo, linhas precisas, labels claros, fundo branco',
+      'diagrama técnico limpo, linhas precisas, áreas bem delimitadas, fundo branco',
     infographic:
-      'infográfico moderno, ícones flat, tipografia clara, cores coordenadas',
+      'infográfico moderno, ícones flat, blocos de cor coordenados, sem texto',
   };
 
   const audienceStyle: Record<Script['targetAudience'], string> = {
@@ -273,13 +285,33 @@ export async function generateSlideImage(
     professional: 'design corporativo, minimalista, alta qualidade',
   };
 
-  const prompt = `Crie uma imagem educacional para um slide:\n\nTÍTULO DO SLIDE: ${options.slideTitle}\nDESCRIÇÃO: ${options.description}\nESTILO VISUAL: ${styleGuides[options.style]}\nPÚBLICO-ALVO: ${audienceStyle[options.targetAudience]}\n\nRequisitos:\n- Imagem clara e legível em apresentações\n- Contraste adequado para projeção\n- Sem texto complexo (o texto será adicionado separadamente)\n- Composição equilibrada com espaço para overlays de texto`;
+  const prompt = `
+Crie uma imagem educacional para um slide de vídeo:
+
+TÍTULO DO SLIDE: ${options.slideTitle}
+DESCRIÇÃO: ${options.description}
+ESTILO VISUAL: ${styleGuides[options.style]}
+PÚBLICO-ALVO: ${audienceStyle[options.targetAudience]}
+
+COMPOSIÇÃO E ORIENTAÇÃO:
+${COMPOSITION_GUIDES[options.aspectRatio]}
+${SAFE_ZONE_INSTRUCTIONS[options.aspectRatio]}
+${SUBTITLE_SPACE_INSTRUCTIONS[options.aspectRatio]}
+
+REQUISITOS OBRIGATÓRIOS:
+- Imagem clara e legível em apresentações
+- Contraste adequado para projeção
+- Sujeito principal ocupando no máximo 60% da área total para facilitar crops
+- A imagem não deve conter texto, labels, tipografia, logos ou bordas
+- Fundo limpo com espaço negativo que permita overlays posteriormente
+- Composição equilibrada respeitando as zonas seguras descritas
+`.trim();
 
   try {
     const result = await openai.images.generate({
       model: 'gpt-image-1.5',
       prompt,
-      size: '1536x1024',
+      size: sizeConfig.apiSize,
       quality: 'high',
       n: 1,
       background: 'opaque',
@@ -295,12 +327,15 @@ export async function generateSlideImage(
       );
     }
 
-    appLogger.info('🖼️ Imagem de slide gerada.');
+    appLogger.info('🖼️ Imagem de slide gerada.', {
+      aspectRatio: options.aspectRatio,
+      apiSize: sizeConfig.apiSize,
+    });
     return {
       base64: imageData.b64_json,
       mimeType: 'image/png',
-      width: 1536,
-      height: 1024,
+      width: sizeConfig.width,
+      height: sizeConfig.height,
     };
   } catch (error) {
     handleOpenAIError(error, 'generateSlideImage');
@@ -311,6 +346,7 @@ export async function generateSlideImages(
   slides: Slide[],
   style: SlideImageOptions['style'],
   targetAudience: Script['targetAudience'],
+  aspectRatio: ImageAspectRatio = '16:9',
 ): Promise<Map<string, GeneratedImage>> {
   const results = new Map<string, GeneratedImage>();
   const slidesNeedingImages = slides.filter((slide) =>
@@ -333,6 +369,7 @@ export async function generateSlideImages(
             style,
             targetAudience,
             slideTitle: slide.title,
+            aspectRatio,
           });
           results.set(slide.id, image);
         }
@@ -344,7 +381,10 @@ export async function generateSlideImages(
     }
   }
 
-  appLogger.info('🖼️ Lote de imagens concluído.', { generated: results.size });
+  appLogger.info('🖼️ Lote de imagens concluído.', {
+    generated: results.size,
+    aspectRatio,
+  });
   return results;
 }
 
