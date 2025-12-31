@@ -98,6 +98,43 @@ graph TD
 
 > Cada linha será originada automaticamente ao cruzarmos o tipo de vídeo e o subobjetivo. A partir daí derivamos parâmetros (contagem de slides, duração-alvo, vocabulário, instruções visuais) e aplicamos filtros adicionais (público, idioma, plataforma).
 
+## Indagações derivadas do guia de Design Instrucional
+
+O relatório "Design Instrucional e Pipelines de IA para Vídeos Educacionais" levanta hipóteses que precisamos validar antes de consolidar prompts definitivos. Abaixo registramos perguntas abertas (não conclusões) para orientar ajustes posteriores.
+
+### Segmentação de público & necessidades especiais
+
+- Como parametrizar automaticamente duração, ritmo e tom quando o usuário seleciona faixas etárias descritas (infantil 3-10 min, fundamental I 8-15 min, etc.)?
+- Que combinações de seletores precisamos para contemplar contextos (formal, corporativo, MOOC, microlearning) e motivações (obrigatório vs. voluntário)?
+- De que forma capturamos requisitos de acessibilidade específicos (audiodescrição, Libras, contrastes 4.5:1) dentro dos prompts de texto/imagem/áudio?
+- Precisamos de campos extras para necessidades como TDAH, autismo, dislexia ou isso deve virar um pós-processamento?
+
+### Taxonomia de conteúdo e formatos
+
+- Como distinguiremos prompts para dimensões de conhecimento (factual, conceitual, procedural, metacognitivo) para refletir estruturas sugeridas (tell-show-tell, exemplos trabalhados)?
+- Existe dependência entre domínio (STEM, humanidades, soft skills, compliance) e escolha automática de formatação visual ou duração ideal indicada?
+- Devemos introduzir seletores explícitos para formatos (tutorial, demonstração, storytelling) citados na tabela?
+
+### Fundamentos pedagógicos
+
+- Quais prompts precisam referenciar diretamente Mayer, Gagné, Sweller, Merrill ou modelo ADDIE/SAM? Há risco de sobrecarregar o modelo com instruções redundantes?
+- Como garantiremos eventos instrucionais de Gagné completos dentro do script gerado (principalmente elicitar performance/feedback/transferência)?
+- Devemos pedir ao modelo para monitorar carga cognitiva (intrínseca, estranha, germane) ou isso fica para validação posterior?
+
+### Visuais, mídia e acessibilidade
+
+- Como os prompts de imagem incorporam decisões sobre animação vs. frame estático sem assumir certezas (ex.: procedural motor x referência futura)?
+- Precisamos pedir explicitamente por labels embutidos, disclosure progressiva e verificação de contrastes ou tratamos isso como checklist manual?
+- Há forma de adicionar instruções para verificação de precisão (especialmente em domínios científicos) sem comprometer criatividade?
+
+### Pipeline, personalização e QA
+
+- Onde introduzimos captura de perfil do aprendiz e personalização por interesses? Isso deve acontecer antes do prompt principal ou como camada de pós-processamento?
+- Quais etapas de QA multi-camada serão automatizadas (gramática, factual, pedagógico, acessibilidade) versus revisadas por humanos?
+- Precisamos de prompts adicionais para validação de imagens/audio, conforme estudo que apontou altas taxas de erro em visuais médicos?
+
+As perguntas acima devem acompanhar cada discussão de prompt para garantir aderência aos achados do documento. Ainda não há respostas definitivas; usamos as indagações como trilhas de investigação.
+
 ## Prompts Deep Research por Variação
 
 Os prompts abaixo seguem o framework completo de Deep Research (arquitetura multi-agente, instruções explícitas, MECE, 5W2H, CoT guiado, multi-perspectiva e validação). Estão escritos em inglês para maximizar qualidade, porém cada um exige saída final em português brasileiro. Use estes blocos diretamente no Claude Deep Research para investigar cada combinação antes de desenhar os prompts definitivos de geração de vídeo.
