@@ -1,8 +1,8 @@
 import { Type } from '@google/genai';
 
 import { PEDAGOGICAL_SYSTEM_INSTRUCTION } from '@/config/constants/pedagogy';
-import { AspectRatio } from '@/config/constants/video';
-import { Slide } from '@/features/video-generation/model/types';
+import type { AspectRatio } from '@/config/constants/video';
+import type { Slide } from '@/features/video-generation/model/types';
 import { ApiError } from '@/shared/errors/ApiError';
 import { getGenAiClient } from '@/shared/lib/genAiClient';
 import { appLogger } from '@/shared/logging/logger';
@@ -20,7 +20,10 @@ export async function generateScriptFromMaterials(
   materials: string,
   audience: string,
 ): Promise<Omit<Slide, 'id' | 'order' | 'isRegeneratingImage'>[]> {
-  appLogger.info('Iniciando geração de roteiro pedagógico.', { topic, audience });
+  appLogger.info('Iniciando geração de roteiro pedagógico.', {
+    topic,
+    audience,
+  });
   const client = getGenAiClient();
 
   const prompt = `
@@ -71,7 +74,10 @@ export async function generateScriptFromMaterials(
   return slides;
 }
 
-export async function generateSlideImage(visualPrompt: string, aspectRatio: AspectRatio): Promise<string> {
+export async function generateSlideImage(
+  visualPrompt: string,
+  aspectRatio: AspectRatio,
+): Promise<string> {
   const client = getGenAiClient();
   appLogger.info('Solicitando geração de imagem.', { aspectRatio });
 
@@ -103,7 +109,10 @@ export async function generateSlideImage(visualPrompt: string, aspectRatio: Aspe
   throw new ApiError(message, 502);
 }
 
-export async function refineSlideContent(currentSlide: Slide, feedback: string) {
+export async function refineSlideContent(
+  currentSlide: Slide,
+  feedback: string,
+) {
   const client = getGenAiClient();
   const prompt = `
     Current Script: "${currentSlide.scriptText}"

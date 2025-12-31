@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Pause, Play, RotateCcw } from 'lucide-react';
-import { AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
-import { Slide } from '@/features/video-generation/model/types';
+
+import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
+import type { Slide } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 
 type PreviewStepProps = {
@@ -24,9 +25,14 @@ type CanvasSurface =
 
 const FALLBACK_DURATION_MS = 3_000;
 
-function createCanvasSurface(width: number, height: number): CanvasSurface | null {
+function createCanvasSurface(
+  width: number,
+  height: number,
+): CanvasSurface | null {
   if (typeof document !== 'undefined') {
-    const existing = document.getElementById('render-surface') as HTMLCanvasElement | null;
+    const existing = document.getElementById(
+      'render-surface',
+    ) as HTMLCanvasElement | null;
     const canvas = existing ?? document.createElement('canvas');
     canvas.id = 'render-surface';
     canvas.width = width;
@@ -43,13 +49,21 @@ function createCanvasSurface(width: number, height: number): CanvasSurface | nul
 
   if (typeof OffscreenCanvas !== 'undefined') {
     const offscreen = new OffscreenCanvas(width, height);
-    return { kind: 'offscreen', canvas: offscreen, context: offscreen.getContext('2d') };
+    return {
+      kind: 'offscreen',
+      canvas: offscreen,
+      context: offscreen.getContext('2d'),
+    };
   }
 
   return null;
 }
 
-export function PreviewStep({ slides, aspectRatio, onReset }: PreviewStepProps) {
+export function PreviewStep({
+  slides,
+  aspectRatio,
+  onReset,
+}: PreviewStepProps) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
@@ -138,14 +152,19 @@ export function PreviewStep({ slides, aspectRatio, onReset }: PreviewStepProps) 
       }
 
       if (surface.kind !== 'dom') {
-        window.alert('Seu navegador não suporta captura de tela para exportar vídeo. Tente no Chrome ou Edge.');
+        window.alert(
+          'Seu navegador não suporta captura de tela para exportar vídeo. Tente no Chrome ou Edge.',
+        );
         return;
       }
 
       const canvas = surface.canvas;
       const ctx = surface.context;
 
-      const AudioContextCtor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const AudioContextCtor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
       if (!AudioContextCtor) {
         throw new Error('API de áudio não suportada neste navegador.');
       }
@@ -222,7 +241,9 @@ export function PreviewStep({ slides, aspectRatio, onReset }: PreviewStepProps) 
       audioCtx.close();
     } catch (error) {
       appLogger.error('Falha ao renderizar o vídeo final.', { error });
-      window.alert('Não foi possível renderizar o vídeo. Verifique o console para mais detalhes.');
+      window.alert(
+        'Não foi possível renderizar o vídeo. Verifique o console para mais detalhes.',
+      );
     } finally {
       setIsRendering(false);
       setRenderProgress(0);
@@ -247,21 +268,36 @@ export function PreviewStep({ slides, aspectRatio, onReset }: PreviewStepProps) 
       {isRendering && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80">
           <span className="text-4xl text-blue-400">⏳</span>
-          <p className="text-xl font-semibold text-white">Renderizando vídeo...</p>
+          <p className="text-xl font-semibold text-white">
+            Renderizando vídeo...
+          </p>
           <div className="h-2 w-64 rounded-full bg-gray-800">
-            <div className="h-full rounded-full bg-blue-500" style={{ width: `${renderProgress}%` }} />
+            <div
+              className="h-full rounded-full bg-blue-500"
+              style={{ width: `${renderProgress}%` }}
+            />
           </div>
         </div>
       )}
 
-      <div className={`relative overflow-hidden rounded-2xl border border-gray-800 bg-black shadow-2xl ${arClass}`}>
+      <div
+        className={`relative overflow-hidden rounded-2xl border border-gray-800 bg-black shadow-2xl ${arClass}`}
+      >
         {currentSlide.imageUrl ? (
-          <img src={currentSlide.imageUrl} alt="Slide atual" className="h-full w-full object-cover" />
+          <img
+            src={currentSlide.imageUrl}
+            alt="Slide atual"
+            className="h-full w-full object-cover"
+          />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-gray-500">Sem imagem</div>
+          <div className="flex h-full w-full items-center justify-center text-gray-500">
+            Sem imagem
+          </div>
         )}
         <div className="absolute bottom-8 left-0 right-0 px-8 text-center">
-          <span className="rounded bg-black/60 px-3 py-2 text-lg text-white">{currentSlide.scriptText}</span>
+          <span className="rounded bg-black/60 px-3 py-2 text-lg text-white">
+            {currentSlide.scriptText}
+          </span>
         </div>
       </div>
 
@@ -306,14 +342,24 @@ async function createImageElement(src: string) {
   });
 }
 
-function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, width: number, height: number) {
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  width: number,
+  height: number,
+) {
   const scale = Math.max(width / img.width, height / img.height);
   const x = width / 2 - (img.width / 2) * scale;
   const y = height / 2 - (img.height / 2) * scale;
   ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
 }
 
-function drawSubtitle(ctx: CanvasRenderingContext2D, text: string, width: number, height: number) {
+function drawSubtitle(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  width: number,
+  height: number,
+) {
   ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
   const fontSize = Math.floor(height * 0.05);
   ctx.font = `${fontSize}px sans-serif`;
@@ -335,7 +381,11 @@ function drawSubtitle(ctx: CanvasRenderingContext2D, text: string, width: number
   });
 }
 
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+) {
   const words = text.split(' ');
   const lines: string[] = [];
   let currentLine = '';

@@ -1,10 +1,24 @@
 import { useCallback, useMemo, useState } from 'react';
-import { AspectRatio, VIDEO_CONFIG, VIDEO_GENERATION_STEP, VideoGenerationStep } from '@/config/constants/video';
+
+import {
+  VIDEO_CONFIG,
+  VIDEO_GENERATION_STEP,
+  type AspectRatio,
+  type VideoGenerationStep,
+} from '@/config/constants/video';
+import {
+  generateScriptFromMaterials,
+  generateSlideImage,
+} from '@/features/video-generation/api/videoGenerationApi';
+import type {
+  GenerationProgress,
+  ProjectData,
+  Slide,
+  VideoGenerationPayload,
+} from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
-import { uuidv4 } from '@/shared/utils/uuid';
 import { runWithConcurrency } from '@/shared/utils/concurrency';
-import { generateScriptFromMaterials, generateSlideImage } from '@/features/video-generation/api/videoGenerationApi';
-import { GenerationProgress, ProjectData, Slide, VideoGenerationPayload } from '@/features/video-generation/model/types';
+import { uuidv4 } from '@/shared/utils/uuid';
 
 const initialProgress: GenerationProgress = {
   total: 0,
@@ -13,13 +27,17 @@ const initialProgress: GenerationProgress = {
 };
 
 export function useVideoGeneration() {
-  const [step, setStep] = useState<VideoGenerationStep>(VIDEO_GENERATION_STEP.INPUT);
+  const [step, setStep] = useState<VideoGenerationStep>(
+    VIDEO_GENERATION_STEP.INPUT,
+  );
   const [projectData, setProjectData] = useState<Partial<ProjectData>>({});
   const [slides, setSlides] = useState<Slide[]>([]);
   const [progress, setProgress] = useState<GenerationProgress>(initialProgress);
 
   const updateSlide = useCallback((id: string, updates: Partial<Slide>) => {
-    setSlides((prev) => prev.map((slide) => (slide.id === id ? { ...slide, ...updates } : slide)));
+    setSlides((prev) =>
+      prev.map((slide) => (slide.id === id ? { ...slide, ...updates } : slide)),
+    );
   }, []);
 
   const generateVisuals = useCallback(
@@ -41,7 +59,10 @@ export function useVideoGeneration() {
         VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT,
         async (slide) => {
           try {
-            const imageUrl = await generateSlideImage(slide.visualPrompt, aspectRatio);
+            const imageUrl = await generateSlideImage(
+              slide.visualPrompt,
+              aspectRatio,
+            );
             setSlides((prev) =>
               prev.map((current) =>
                 current.id === slide.id
@@ -54,7 +75,10 @@ export function useVideoGeneration() {
               ),
             );
           } catch (error) {
-            appLogger.error('Falha ao gerar imagem.', { error, slideId: slide.id });
+            appLogger.error('Falha ao gerar imagem.', {
+              error,
+              slideId: slide.id,
+            });
             setSlides((prev) =>
               prev.map((current) =>
                 current.id === slide.id
@@ -84,7 +108,11 @@ export function useVideoGeneration() {
       try {
         setProjectData(payload);
         setStep(VIDEO_GENERATION_STEP.GENERATING_SCRIPT);
-        setProgress({ total: 1, completed: 0, currentAction: 'Escrevendo roteiro pedagógico...' });
+        setProgress({
+          total: 1,
+          completed: 0,
+          currentAction: 'Escrevendo roteiro pedagógico...',
+        });
 
         const rawSlides = await generateScriptFromMaterials(
           payload.topic,
@@ -141,7 +169,17 @@ export function useVideoGeneration() {
         updateSlide,
       },
     }),
-    [openPreview, progress, projectData, resetFlow, slides, startGeneration, startRecording, step, updateSlide],
+    [
+      openPreview,
+      progress,
+      projectData,
+      resetFlow,
+      slides,
+      startGeneration,
+      startRecording,
+      step,
+      updateSlide,
+    ],
   );
 
   return value;

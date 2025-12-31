@@ -61,7 +61,10 @@ export default [
         },
       ],
       'simple-import-sort/exports': 'error',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       'jsx-a11y/no-autofocus': 'warn',
       'jsx-a11y/media-has-caption': 'warn',
     },

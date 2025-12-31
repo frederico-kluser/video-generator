@@ -2,11 +2,11 @@ import { useActionState, useState } from 'react';
 import { BookOpen, LayoutTemplate, Video } from 'lucide-react';
 
 import {
-  AspectRatio,
+  type AspectRatio,
   VIDEO_ASPECT_RATIOS,
   VIDEO_CONFIG,
 } from '@/config/constants/video';
-import { VideoGenerationPayload } from '@/features/video-generation/model/types';
+import type { VideoGenerationPayload } from '@/features/video-generation/model/types';
 
 const AUDIENCE_OPTIONS = [
   'Elementary School (K-5)',

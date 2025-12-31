@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, CheckCircle2, Mic, Play, Square, Trash2 } from 'lucide-react';
-import { AspectRatio } from '@/config/constants/video';
-import { Slide } from '@/features/video-generation/model/types';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Mic,
+  Play,
+  Square,
+  Trash2,
+} from 'lucide-react';
+
+import { type AspectRatio } from '@/config/constants/video';
+import type { Slide } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 
 type RecordingStepProps = {
@@ -11,7 +19,12 @@ type RecordingStepProps = {
   onFinish: () => void;
 };
 
-export function RecordingStep({ slides, aspectRatio, onUpdateSlide, onFinish }: RecordingStepProps) {
+export function RecordingStep({
+  slides,
+  aspectRatio,
+  onUpdateSlide,
+  onFinish,
+}: RecordingStepProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -45,7 +58,9 @@ export function RecordingStep({ slides, aspectRatio, onUpdateSlide, onFinish }: 
       };
 
       recorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: 'audio/webm',
+        });
         onUpdateSlide(currentSlide.id, { audioBlob });
         stream.getTracks().forEach((track) => track.stop());
       };
@@ -112,16 +127,27 @@ export function RecordingStep({ slides, aspectRatio, onUpdateSlide, onFinish }: 
           </p>
         </div>
         <div className="mx-auto mt-3 h-1 w-full max-w-4xl rounded-full bg-gray-800">
-          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${progress}%` }} />
+          <div
+            className="h-full rounded-full bg-emerald-500"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-8 p-6 md:flex-row">
-        <div className={`${arClass} flex-shrink-0 overflow-hidden rounded-2xl border border-gray-800 bg-black shadow-2xl`}>
+        <div
+          className={`${arClass} flex-shrink-0 overflow-hidden rounded-2xl border border-gray-800 bg-black shadow-2xl`}
+        >
           {currentSlide.imageUrl ? (
-            <img src={currentSlide.imageUrl} alt="Visual do slide" className="h-full w-full object-cover" />
+            <img
+              src={currentSlide.imageUrl}
+              alt="Visual do slide"
+              className="h-full w-full object-cover"
+            />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-gray-500">Sem imagem</div>
+            <div className="flex h-full w-full items-center justify-center text-gray-500">
+              Sem imagem
+            </div>
           )}
           {currentSlide.audioBlob && (
             <div className="absolute right-4 top-4 rounded-full bg-emerald-500 p-2 text-white">
@@ -182,7 +208,9 @@ export function RecordingStep({ slides, aspectRatio, onUpdateSlide, onFinish }: 
               disabled={!currentSlide.audioBlob}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 font-semibold text-white transition hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-500"
             >
-              {currentIndex === slides.length - 1 ? 'Finalizar projeto' : 'Próximo slide'}
+              {currentIndex === slides.length - 1
+                ? 'Finalizar projeto'
+                : 'Próximo slide'}
               <ArrowRight size={16} />
             </button>
           </div>

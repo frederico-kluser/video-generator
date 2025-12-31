@@ -7,12 +7,12 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-import { AspectRatio } from '@/config/constants/video';
+import { type AspectRatio } from '@/config/constants/video';
 import {
   generateSlideImage,
   refineSlideContent,
 } from '@/features/video-generation/api/videoGenerationApi';
-import { Slide } from '@/features/video-generation/model/types';
+import type { Slide } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 
 type EditorStepProps = {

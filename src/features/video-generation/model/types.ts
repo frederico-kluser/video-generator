@@ -1,4 +1,7 @@
-import { AspectRatio, VideoGenerationStep } from '@/config/constants/video';
+import type {
+  AspectRatio,
+  VideoGenerationStep,
+} from '@/config/constants/video';
 
 export type Slide = {
   id: string;
