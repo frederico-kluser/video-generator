@@ -49,13 +49,45 @@ Cada feature expõe apenas o que precisa através de seus próprios diretórios,
 
 ## Variáveis de ambiente
 
-Crie um arquivo `.env` ou `.env.local` na raiz com:
+Use o template [.env.example](.env.example) como base:
 
+```bash
+cp .env.example .env
 ```
-VITE_OPENAI_API_KEY=sk-...  # obrigatório para usar GPT-5.1 no front (dev only)
-VITE_API_URL=               # opcional se for consumir outro backend
-VITE_APP_TITLE=EduScript AI # opcional, muda o título do browser
-VITE_PORT=5173              # opcional, porta do dev server
+
+Valores disponíveis:
+
+| Variável              | Obrigatório      | Observação                                                 |
+| --------------------- | ---------------- | ---------------------------------------------------------- |
+| `VITE_OPENAI_API_KEY` | Desenvolvimento  | Exposta no bundle; use apenas para testes locais.          |
+| `OPENAI_API_KEY`      | Produção/backend | Injete via proxy/edge function para esconder a chave real. |
+| `VITE_APP_TITLE`      | Não              | Atualiza o título da aba.                                  |
+| `VITE_API_URL`        | Não              | Endpoint para futuros backends.                            |
+| `VITE_PORT`           | Não              | Porta do dev server.                                       |
+
+> ⚠️ Em produção, mantenha somente `OPENAI_API_KEY` no servidor e encaminhe chamadas via proxy para evitar vazamento da chave.
+
+## Schemas & serviço OpenAI
+
+- [src/schemas/eduScriptSchemas.ts](src/schemas/eduScriptSchemas.ts) concentra os modelos Zod de slides, scripts e refinamentos. Isso garante que o contrato usado pelo LangChain/Responses API seja o mesmo consumido no app.
+- [src/services/openaiService.ts](src/services/openaiService.ts) orquestra GPT-5.1-Codex-Max para texto e GPT-image-1.5 para imagens, inclui `withRetry`, tratamento de erros estruturado e helpers como `refineSlideContentWithFeedback`.
+- [src/examples/usageExample.ts](src/examples/usageExample.ts) demonstra o fluxo completo (`generateScriptFromMaterials`, `generateSlideImages`, `refineContent`) pronto para CLI/tests.
+
+Exemplo rápido do serviço:
+
+```ts
+import {
+  generateScriptFromMaterials,
+  withRetry,
+} from '@/services/openaiService';
+
+const script = await withRetry(() =>
+  generateScriptFromMaterials(materials, {
+    topic: 'Ciclo da água',
+    targetAudience: 'middleSchool',
+    desiredDuration: 5,
+  }),
+);
 ```
 
 ## Scripts principais
