@@ -16,6 +16,7 @@ Video generator otimizado para 2025 com arquitetura feature-based, React 19 e in
 - `react-error-boundary` para isolarmos falhas por sessão da UI
 - `react-error-boundary` + logger estruturado com emojis para debugar rapidamente
 - OpenAI SDK 4 + LangChain para outputs estruturados via Zod (`schemas/eduScriptSchemas.ts`) e serviço dedicado em `services/openaiService.ts`
+- JSZip 3 para gerar bundles `.zip` com todo o conteúdo do projeto em modo debug
 
 ## Experiência visual 2025
 
@@ -41,6 +42,9 @@ src/
 ├── services/
 │   └── openaiService.ts       # Integrações GPT-5.1 + GPT-image com retries
 ├── features/
+│   ├── render-test/
+│   │   ├── components/        # Página /render-test para validar bundles
+│   │   └── model/             # Contratos (manifesto, slides) compartilhados
 │   └── video-generation/
 │       ├── api/               # Integrações com OpenAI (scripts, imagens)
 │       ├── components/        # Input, Loading, Editor, Recording, Preview
@@ -126,9 +130,16 @@ const script = await withRetry(() =>
 3. **Visuais** — `runWithConcurrency` limita a geração de imagens (`gpt-image-1.5`) ao valor em `VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT`.
 4. **Edição** — usuário pode ajustar o texto manualmente ou enviar feedback para `refineSlideContent`.
 5. **Gravação** — `MediaRecorder` captura o áudio por slide e o fluxo garante limpeza dos streams.
-6. **Preview & Export** — preview sincronizado com áudio e export via `MediaRecorder`. Implementamos fallback para criação de canvas (DOM e Offscreen) e checagens extras de compatibilidade.
+6. **Preview & Export** — preview sincronizado com áudio e export via `MediaRecorder`. Implementamos fallback para criação de canvas (DOM e Offscreen) e checagens extras de compatibilidade. Em modo debug é possível exportar um bundle `.zip` contendo roteiro, imagens e áudios para inspeção offline.
 
 Falhas em cada etapa são isoladas com `react-error-boundary`: `AppProviders` cobre a árvore inteira e `SectionErrorFallback` envolve Editor/Recording/Preview individualmente.
+
+## Modo debug & render-test
+
+- Ative o modo debug com `?debug=true` (ou definindo `localStorage.setItem('eduscript:debug-mode','true')`). O novo hook [useDebugMode](src/shared/hooks/useDebugMode.ts) mantém o flag sincronizado entre query string, hash, `localStorage` e window globals.
+- Quando o modo estiver ativo, o `PreviewStep` exibe o botão **Bundle debug**, que gera um `.zip` contendo `manifest.json`, imagens e áudios por slide usando JSZip. Esse pacote permite validar a renderização final sem reprocessar os materiais.
+- A rota `/render-test` carrega a página [RenderTestPage](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx): basta arrastar o bundle `.zip` (ou apenas o `manifest.json`) para ver cada slide, ouvir o áudio, conferir prompts e métricas antes de enviar para o renderizador definitivo.
+- O modelo do manifesto fica em [renderBundle.ts](src/features/render-test/model/renderBundle.ts) e é compartilhado entre exportação e leitura, evitando incompatibilidades entre ambientes.
 
 ## Logging e diagnósticos
 
