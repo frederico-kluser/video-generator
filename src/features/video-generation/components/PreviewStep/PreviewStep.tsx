@@ -24,6 +24,7 @@ type CanvasSurface =
     };
 
 const FALLBACK_DURATION_MS = 3_000;
+const EXPORT_FRAME_RATE = 30;
 
 function createCanvasSurface(
   width: number,
@@ -37,7 +38,11 @@ function createCanvasSurface(
     canvas.id = 'render-surface';
     canvas.width = width;
     canvas.height = height;
-    canvas.style.display = 'none';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '-9999px';
+    canvas.style.left = '-9999px';
+    canvas.style.opacity = '0';
+    canvas.style.pointerEvents = 'none';
     if (!existing && document.body) {
       document.body.appendChild(canvas);
     }
@@ -177,7 +182,30 @@ export function PreviewStep({
       const audioCtx = new AudioContextCtor();
       const dest = audioCtx.createMediaStreamDestination();
 
-      const stream = canvas.captureStream(30);
+      const stream = canvas.captureStream(EXPORT_FRAME_RATE);
+      const canvasTrack = stream.getVideoTracks()[0];
+      const canForceFrame = Boolean(
+        canvasTrack && 'requestFrame' in canvasTrack,
+      );
+
+      if (!canvasTrack) {
+        appLogger.warn('🪟 Track de vídeo indisponível na stream de captura.');
+      } else if (canForceFrame) {
+        appLogger.info('🖼️ Track do canvas suporta requestFrame.', {
+          frameRate: EXPORT_FRAME_RATE,
+        });
+      } else {
+        appLogger.info('ℹ️ Track sem requestFrame; confiando no RAF.', {
+          frameRate: EXPORT_FRAME_RATE,
+        });
+      }
+
+      const requestCanvasFrame = () => {
+        if (canForceFrame && canvasTrack) {
+          (canvasTrack as CanvasCaptureMediaStreamTrack).requestFrame();
+        }
+      };
+
       const audioTrack = dest.stream.getAudioTracks()[0];
       if (audioTrack) {
         stream.addTrack(audioTrack);
@@ -201,6 +229,16 @@ export function PreviewStep({
         }
       };
 
+      const stopPromise = new Promise<void>((resolve, reject) => {
+        recorder.onstop = () => resolve();
+        recorder.onerror = (event) => {
+          reject(
+            event.error ??
+              new Error('Erro no MediaRecorder durante a exportação.'),
+          );
+        };
+      });
+
       recorder.start();
 
       for (let index = 0; index < slides.length; index += 1) {
@@ -216,6 +254,8 @@ export function PreviewStep({
         }
 
         drawSubtitle(ctx, slide.scriptText, width, height);
+        requestCanvasFrame();
+        await waitNextFrame();
 
         if (slide.audioBlob) {
           const arrayBuffer = await slide.audioBlob.arrayBuffer();
@@ -232,19 +272,26 @@ export function PreviewStep({
 
       setRenderProgress(100);
 
+      requestCanvasFrame();
+      await waitNextFrame();
       recorder.stop();
-      await new Promise((resolve) => {
-        recorder.onstop = resolve;
-      });
+      await stopPromise;
 
       const blob = new Blob(chunks, { type: mimeType });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = `eduscript_video.${mimeType === 'video/mp4' ? 'mp4' : 'webm'}`;
-      document.body?.appendChild(anchor);
-      anchor.click();
-      document.body?.removeChild(anchor);
+      if (document.body) {
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+      } else {
+        appLogger.warn(
+          '⚠️ document.body ausente; usando fallback de download.',
+        );
+        window.open(url, '_blank', 'noopener');
+      }
       URL.revokeObjectURL(url);
       audioCtx.close();
 
@@ -429,5 +476,11 @@ function wrapText(
 function wait(durationMs: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs);
+  });
+}
+
+function waitNextFrame() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(resolve);
   });
 }
