@@ -1,0 +1,24 @@
+export const VIDEO_ASPECT_RATIOS = ['16:9', '9:16', '1:1'] as const;
+
+export type AspectRatio = (typeof VIDEO_ASPECT_RATIOS)[number];
+
+export const VIDEO_GENERATION_STEP = {
+  INPUT: 'INPUT',
+  GENERATING_SCRIPT: 'GENERATING_SCRIPT',
+  GENERATING_VISUALS: 'GENERATING_VISUALS',
+  EDITOR: 'EDITOR',
+  RECORDING: 'RECORDING',
+  PREVIEW: 'PREVIEW',
+} as const;
+
+export type VideoGenerationStep = (typeof VIDEO_GENERATION_STEP)[keyof typeof VIDEO_GENERATION_STEP];
+
+export const VIDEO_CONFIG = {
+  MAX_DURATION_SECONDS: 300,
+  SUPPORTED_FORMATS: ['mp4', 'webm'] as const,
+  DEFAULT_RESOLUTION: { width: 1920, height: 1080 },
+  GENERATION_TIMEOUT_MS: 60_000,
+  IMAGE_GENERATION_CONCURRENCY_LIMIT: 3,
+  DEFAULT_ASPECT_RATIO: '16:9' as AspectRatio,
+  DEFAULT_AUDIENCE: 'General Public',
+} as const;
