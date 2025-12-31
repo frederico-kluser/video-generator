@@ -64,7 +64,7 @@ graph TD
   D2 --> G2[Prompt de imagem com foco em produto]
 
   D3 --> E3[Slides 4-6 · Duração 2-4 min]
-  D3 --> F3[Narrativa temporal (antes/durante/depois)]
+  D3 --> F3[Narrativa temporal antes-durante-depois]
   D3 --> G3[Visual destacando público, palco e ambientação]
 
   D4 --> E4[Slides 5-7 · Duração 5-8 min]
