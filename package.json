@@ -12,9 +12,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@timephy/rnnoise-wasm": "^1.0.0",
     "@langchain/core": "^0.3.0",
     "@langchain/openai": "^0.3.0",
+    "@timephy/rnnoise-wasm": "^1.0.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.562.0",
     "openai": "^4.73.0",

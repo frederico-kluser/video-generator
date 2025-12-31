@@ -3,6 +3,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 
 import { getEnv } from '@/config/env';
 import { AudioCleanupLab } from '@/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab';
+import { AudioEqualizerLab } from '@/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab';
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
 import { RenderTestPage } from '@/features/render-test/components/RenderTestPage/RenderTestPage';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
@@ -24,6 +25,8 @@ export function App() {
     page = <RenderTestPage />;
   } else if (normalizedPath === '/audio-lab') {
     page = <AudioCleanupLab />;
+  } else if (normalizedPath === '/audio-eq-lab') {
+    page = <AudioEqualizerLab />;
   }
 
   return (

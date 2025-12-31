@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { NoiseSuppressorWorklet_Name } from '@timephy/rnnoise-wasm';
 import NoiseSuppressorWorklet from '@timephy/rnnoise-wasm/NoiseSuppressorWorklet?worker&url';
@@ -11,47 +11,23 @@ import {
   Waves,
 } from 'lucide-react';
 
+import {
+  createRecorderBundle,
+  getPreferredMimeType,
+  getVoiceMediaConstraints,
+  safeStopRecorder,
+  useObjectUrl,
+} from '@/features/audio-lab/lib/mediaUtils';
 import { appLogger } from '@/shared/logging/logger';
-
-const AUDIO_MIME_TYPES = [
-  'audio/webm;codecs=opus',
-  'audio/mp4',
-  'audio/webm',
-] as const;
 
 type RecorderPhase = 'idle' | 'preparing' | 'recording' | 'processing';
 type PipelineMode = 'rnnoise' | 'native';
-
-type RecorderBundle = {
-  recorder: MediaRecorder;
-  completion: Promise<Blob>;
-};
 
 type ProcessedStreamResult = {
   stream: MediaStream;
   cleanup: () => Promise<void> | void;
   mode: PipelineMode;
 };
-
-const getPreferredMimeType = (): string | null => {
-  if (typeof MediaRecorder === 'undefined') {
-    return null;
-  }
-
-  return (
-    AUDIO_MIME_TYPES.find((candidate) =>
-      MediaRecorder.isTypeSupported(candidate),
-    ) ?? null
-  );
-};
-
-const getAudioConstraints = (): MediaTrackConstraints => ({
-  channelCount: 1,
-  sampleRate: 48_000,
-  noiseSuppression: true,
-  echoCancellation: true,
-  autoGainControl: true,
-});
 
 export function AudioCleanupLab() {
   const [phase, setPhase] = useState<RecorderPhase>('idle');
@@ -344,42 +320,6 @@ export function AudioCleanupLab() {
   );
 }
 
-function createRecorderBundle(
-  stream: MediaStream,
-  preferredMime: string | null,
-): RecorderBundle {
-  const options: MediaRecorderOptions = {
-    audioBitsPerSecond: 128_000,
-  };
-  if (preferredMime) {
-    options.mimeType = preferredMime;
-  }
-
-  const recorder = new MediaRecorder(stream, options);
-  const completion = new Promise<Blob>((resolve, reject) => {
-    const chunks: Blob[] = [];
-
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        chunks.push(event.data);
-      }
-    };
-
-    recorder.onerror = (event) => {
-      reject(
-        event.error ?? new Error('MediaRecorder falhou durante a captura.'),
-      );
-    };
-
-    recorder.onstop = () => {
-      resolve(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
-    };
-  });
-
-  recorder.start();
-  return { recorder, completion };
-}
-
 async function setupNoiseSuppressionPipeline(
   stream: MediaStream,
 ): Promise<ProcessedStreamResult | null> {
@@ -458,34 +398,6 @@ async function setupNoiseSuppressionPipeline(
       await ctx.close().catch(() => undefined);
     },
   };
-}
-
-function useObjectUrl(blob: Blob | null): string | null {
-  const url = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob]);
-
-  useEffect(() => {
-    if (!url) {
-      return undefined;
-    }
-    return () => {
-      URL.revokeObjectURL(url);
-    };
-  }, [url]);
-
-  return url;
-}
-
-function safeStopRecorder(recorder: MediaRecorder | null) {
-  if (!recorder) {
-    return;
-  }
-  if (recorder.state !== 'inactive') {
-    try {
-      recorder.stop();
-    } catch (error) {
-      appLogger.warn('⚠️ Falha ao parar MediaRecorder.', { error });
-    }
-  }
 }
 
 type AudioPanelProps = {
