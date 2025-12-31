@@ -11,7 +11,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
-import { type AspectRatio } from '@/config/constants/video';
+import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
 import type { Slide } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 import { dataUrlToBlob } from '@/shared/utils/blob';
@@ -175,9 +175,11 @@ export function PreviewStep({
   };
 
   const getResolution = () => {
-    if (aspectRatio === '9:16') return [720, 1280] as const;
-    if (aspectRatio === '1:1') return [1080, 1080] as const;
-    return [1280, 720] as const;
+    const { width, height } = VIDEO_CONFIG.DEFAULT_RESOLUTION;
+    if (aspectRatio === '9:16') return [height, width] as const;
+    if (aspectRatio === '1:1')
+      return [Math.min(width, height), Math.min(width, height)] as const;
+    return [width, height] as const;
   };
 
   const handleDownloadVideo = async () => {
@@ -297,8 +299,6 @@ export function PreviewStep({
         } else {
           drawFallbackBackground(ctx, width, height);
         }
-
-        drawSubtitle(ctx, slide.narrationText, width, height);
         requestCanvasFrame();
         await waitNextFrame();
 
@@ -556,68 +556,6 @@ function drawFallbackBackground(
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
   ctx.fillRect(0, 0, width, height);
-}
-
-function drawSubtitle(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  width: number,
-  height: number,
-) {
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-  const fontSize = Math.floor(height * 0.05);
-  ctx.font = `${fontSize}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-
-  const lineHeight = fontSize * 1.2;
-  const maxLines = Math.max(1, Math.floor((height * 0.35) / lineHeight));
-  const lines = wrapText(ctx, text, width * 0.85, maxLines);
-  const blockHeight = Math.min(lines.length * lineHeight, height * 0.35);
-  const startY = Math.max(height * 0.45, height - blockHeight - height * 0.05);
-
-  ctx.fillRect(0, startY - 20, width, blockHeight + 40);
-  ctx.fillStyle = '#fff';
-  lines.forEach((line, index) => {
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 4;
-    const yPosition = startY + index * lineHeight;
-    ctx.strokeText(line, width / 2, yPosition);
-    ctx.fillText(line, width / 2, yPosition);
-  });
-}
-
-function wrapText(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-  maxLines = Infinity,
-) {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let currentLine = '';
-
-  for (const word of words) {
-    const prospectiveLine = `${currentLine}${word} `;
-    if (ctx.measureText(prospectiveLine).width > maxWidth && currentLine) {
-      lines.push(currentLine.trim());
-      if (lines.length === maxLines) {
-        return lines;
-      }
-      currentLine = `${word} `;
-    } else {
-      currentLine = prospectiveLine;
-    }
-  }
-
-  if (lines.length < maxLines) {
-    lines.push(currentLine.trim());
-    return lines;
-  }
-
-  const lastIndex = lines.length - 1;
-  lines[lastIndex] = `${lines[lastIndex]}…`;
-  return lines;
 }
 
 function getSourceDimensions(
