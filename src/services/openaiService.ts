@@ -75,7 +75,62 @@ const scriptJsonSchema = {
             type: 'string',
             enum: ['title', 'content', 'twoColumn', 'imageLeft', 'imageRight'],
           },
-          content: { type: 'array', items: { type: 'object' } },
+          content: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              anyOf: [
+                {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'string', const: 'text' },
+                    content: { type: 'string' },
+                    style: {
+                      type: 'string',
+                      enum: ['heading', 'subheading', 'body', 'caption'],
+                    },
+                  },
+                  required: ['type', 'content', 'style'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'string', const: 'bulletList' },
+                    items: {
+                      type: 'array',
+                      minItems: 1,
+                      items: {
+                        type: 'object',
+                        properties: {
+                          text: { type: 'string' },
+                          indent: {
+                            type: 'number',
+                            minimum: 0,
+                            maximum: 2,
+                          },
+                        },
+                        required: ['text', 'indent'],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ['type', 'items'],
+                  additionalProperties: false,
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    type: { type: 'string', const: 'imagePlaceholder' },
+                    description: { type: 'string' },
+                    alt: { type: 'string' },
+                  },
+                  required: ['type', 'description', 'alt'],
+                  additionalProperties: false,
+                },
+              ],
+            },
+          },
           speakerNotes: { type: ['string', 'null'] },
           duration: { type: ['number', 'null'] },
         },
@@ -127,30 +182,6 @@ const langchainModel = new ChatOpenAI({
   apiKey,
 });
 
-const createChatModel = (model: string, temperature = 0.7) =>
-  new ChatOpenAI({
-    model,
-    temperature,
-    maxRetries: 2,
-    apiKey,
-  });
-
-const SCRIPT_MODEL_FALLBACKS: Array<{
-  name: string;
-  temperature: number;
-}> = [
-  { name: 'gpt-4o', temperature: 0.7 },
-  { name: 'gpt-4.1-mini', temperature: 0.65 },
-  { name: 'gpt-4o-mini', temperature: 0.72 },
-];
-
-const RECOVERABLE_MODEL_ERROR_CODES = new Set([
-  'RATE_LIMIT',
-  'SERVER_ERROR',
-  'UNKNOWN',
-  'UNKNOWN_ERROR',
-]);
-
 // =====================================================
 // TIPOS DE ERRO CUSTOMIZADOS
 // =====================================================
@@ -177,14 +208,59 @@ export async function generateScriptFromMaterials(
     style?: 'formal' | 'casual' | 'engaging';
   },
 ): Promise<Script> {
+  const slideCountMin = Math.ceil(options.desiredDuration * 1.5);
+  const slideCountMax = Math.ceil(options.desiredDuration * 2);
+  try {
+    const script = await withRetry(
+      () =>
+        generateScriptWithResponsesAPI(materials, {
+          ...options,
+          slideCountMin,
+          slideCountMax,
+        }),
+      {
+        maxRetries: 3,
+        baseDelay: 1_500,
+        maxDelay: 6_000,
+      },
+    );
+
+    appLogger.info('🧠 Script estruturado gerado com sucesso.', {
+      slides: script.slides.length,
+      model: 'gpt-5.1-codex-max',
+      temperature: 0,
+    });
+
+    return script;
+  } catch (error) {
+    handleOpenAIError(error, 'generateScriptFromMaterials');
+  }
+}
+
+// =====================================================
+// FUNÇÃO 1B: Responses API
+// =====================================================
+export async function generateScriptWithResponsesAPI(
+  materials: string,
+  options: {
+    topic: string;
+    targetAudience: Script['targetAudience'];
+    desiredDuration: number;
+    style?: 'formal' | 'casual' | 'engaging';
+    slideCountMin?: number;
+    slideCountMax?: number;
+  },
+): Promise<Script> {
+  const slideCountMin =
+    options.slideCountMin ?? Math.ceil(options.desiredDuration * 1.5);
+  const slideCountMax =
+    options.slideCountMax ?? Math.ceil(options.desiredDuration * 2);
+
   const systemPrompt = `Você é um especialista em criação de conteúdo educacional.
 Crie scripts de vídeo envolventes, didáticos e bem estruturados.
 Adapte a linguagem ao público-alvo especificado.
 Inclua notas do apresentador detalhadas para cada slide.
 Garanta progressão lógica do conteúdo.`;
-
-  const slideCountMin = Math.ceil(options.desiredDuration * 1.5);
-  const slideCountMax = Math.ceil(options.desiredDuration * 2);
 
   const userPrompt = `Crie um script de vídeo educacional com as seguintes especificações:
 
@@ -202,94 +278,18 @@ Gere um script completo com:
 - ${slideCountMin} a ${slideCountMax} slides
 - Conteúdo progressivo e didático
 - Notas do apresentador para cada slide
-- Indicações de onde inserir imagens`;
+- Indicações de onde inserir imagens
+- Palavras-chave para SEO educativo`;
 
-  const prompt = ChatPromptTemplate.fromMessages([
-    ['system', systemPrompt],
-    ['user', userPrompt],
-  ]);
-
-  let lastError: OpenAIServiceError | null = null;
-
-  for (const fallback of SCRIPT_MODEL_FALLBACKS) {
-    try {
-      appLogger.info('🤖 Tentando modelo para script estruturado.', {
-        model: fallback.name,
-        temperature: fallback.temperature,
-      });
-
-      const structuredModel = createChatModel(
-        fallback.name,
-        fallback.temperature,
-      ).withStructuredOutput(ScriptSchema, {
-        strict: true,
-        name: 'educational_script',
-      });
-
-      const script = await withRetry(
-        () => prompt.pipe(structuredModel).invoke({}),
-        {
-          maxRetries: 2,
-          baseDelay: 1_500,
-          maxDelay: 6_000,
-        },
-      );
-
-      appLogger.info('🧠 Script estruturado gerado com sucesso.', {
-        slides: script.slides.length,
-        model: fallback.name,
-      });
-      return script;
-    } catch (error) {
-      const normalizedError = normalizeOpenAIError(
-        error,
-        'generateScriptFromMaterials',
-        'warn',
-      );
-      lastError = normalizedError;
-
-      if (!RECOVERABLE_MODEL_ERROR_CODES.has(normalizedError.code)) {
-        appLogger.error('❌ Erro não recuperável ao gerar script.', {
-          model: fallback.name,
-          code: normalizedError.code,
-        });
-        throw normalizedError;
-      }
-
-      appLogger.warn('🔁 Modelo indisponível, tentando fallback.', {
-        failedModel: fallback.name,
-        errorCode: normalizedError.code,
-      });
-    }
-  }
-
-  appLogger.info('🛟 Ativando fallback via Responses API para script.', {
-    lastErrorCode: lastError?.code,
-  });
-
-  return generateScriptWithResponsesAPI(materials, options);
-}
-
-// =====================================================
-// FUNÇÃO 1B: Responses API
-// =====================================================
-export async function generateScriptWithResponsesAPI(
-  materials: string,
-  options: {
-    topic: string;
-    targetAudience: Script['targetAudience'];
-    desiredDuration: number;
-  },
-): Promise<Script> {
   try {
     const response = await openai.responses.create({
       model: 'gpt-5.1-codex-max',
-      instructions:
-        'Você é um especialista em criação de conteúdo educacional. Crie scripts envolventes e didáticos.',
+      temperature: 0,
+      instructions: systemPrompt,
       input: [
         {
           role: 'user',
-          content: `Crie um script educacional sobre "${options.topic}" para ${options.targetAudience}, com duração de ${options.desiredDuration} minutos.\nMateriais: ${materials}`,
+          content: userPrompt,
         },
       ],
       text: {
@@ -302,7 +302,16 @@ export async function generateScriptWithResponsesAPI(
       },
     });
 
-    const parsed = JSON.parse(response.output_text);
+    const outputText = response.output_text?.trim();
+
+    if (!outputText) {
+      throw new OpenAIServiceError(
+        'Resposta vazia do Responses API',
+        'EMPTY_RESPONSE',
+      );
+    }
+
+    const parsed = JSON.parse(outputText);
     const script = ScriptSchema.parse(parsed);
     appLogger.info('🧩 Script gerado via Responses API.');
     return script;
