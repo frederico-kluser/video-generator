@@ -4,6 +4,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
+  AudioWaveform,
   Cpu,
   Download,
   Gauge,
@@ -14,7 +15,6 @@ import {
   Sparkles,
   Square,
   UploadCloud,
-  Waveform,
 } from 'lucide-react';
 
 import {
@@ -71,7 +71,7 @@ const CHAIN_DEFINITION: Record<
     label: 'High-pass + DC',
     description: 'Remove hum (80 Hz) e offset DC antes dos nós WASM.',
     badge: 'Filtro',
-    icon: <Waveform size={16} />,
+    icon: <AudioWaveform size={16} />,
   },
   adaptiveGate: {
     label: 'Adaptive gate',
@@ -477,7 +477,7 @@ export function AudioCleanupLab() {
         <ul className="grid gap-2 text-sm text-white/70 md:grid-cols-2">
           <li className="flex items-center gap-2"><ShieldCheck size={14} /> AudioWorklet + gate dinâmico (0.4 s blocks)</li>
           <li className="flex items-center gap-2"><Cpu size={14} /> Web Worker + ebur128-wasm (multi-thread)</li>
-          <li className="flex items-center gap-2"><Waveform size={14} /> Crossfade e filtros renderizados no OfflineAudioContext</li>
+          <li className="flex items-center gap-2"><AudioWaveform size={14} /> Crossfade e filtros renderizados no OfflineAudioContext</li>
           <li className="flex items-center gap-2"><Gauge size={14} /> Targets Spotify/Apple/EBU com -1 dBTP</li>
         </ul>
         <a
