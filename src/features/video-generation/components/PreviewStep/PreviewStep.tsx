@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import JSZip from 'jszip';
 import {
@@ -13,6 +13,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
+import { WebAVRenderer } from './WebAVRenderer';
+
 import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
 import type { RenderBundleManifest } from '@/features/render-test/model/renderBundle';
 import type {
@@ -21,6 +23,7 @@ import type {
 } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 import { dataUrlToBlob } from '@/shared/utils/blob';
+import type { WebAVRendererSlideInput } from '@/shared/types/webav.types';
 
 type PreviewStepProps = {
   slides: Slide[];
@@ -117,11 +120,13 @@ export function PreviewStep({
 }: PreviewStepProps) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isRendering, setIsRendering] = useState(false);
+  const [isFallbackRendering, setIsFallbackRendering] = useState(false);
+  const [isWebAVRendering, setIsWebAVRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
   const [isBundlingAssets, setIsBundlingAssets] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fallbackTimeoutRef = useRef<number | null>(null);
+  const isAnyRendering = isFallbackRendering || isWebAVRendering;
 
   const clearFallbackTimeout = () => {
     if (fallbackTimeoutRef.current !== null) {
@@ -199,7 +204,7 @@ export function PreviewStep({
       aspectRatio,
     });
     const startedAt = performance.now();
-    setIsRendering(true);
+    setIsFallbackRendering(true);
     setRenderProgress(0);
 
     let slideImageSources: SlideImageSourceMap | null = null;
@@ -362,7 +367,7 @@ export function PreviewStep({
       );
     } finally {
       cleanupSlideImageSources(slideImageSources);
-      setIsRendering(false);
+      setIsFallbackRendering(false);
       setRenderProgress(0);
     }
   };
@@ -444,6 +449,16 @@ export function PreviewStep({
     }
   };
 
+  const webAvSlides = useMemo<WebAVRendererSlideInput[]>(() => {
+    return slides.map((slide, index) => ({
+      id: slide.id,
+      order: slide.order ?? index,
+      imageUrl: slide.imageUrl ?? undefined,
+      audioBlob: slide.audioBlob ?? undefined,
+      zIndex: 1,
+    }));
+  }, [slides]);
+
   const currentSlide = slides[currentSlideIndex];
 
   if (!currentSlide) {
@@ -459,8 +474,8 @@ export function PreviewStep({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 pt-14">
-      {/* Rendering overlay */}
-      {isRendering && (
+      {/* Rendering overlay (fallback MediaRecorder) */}
+      {isFallbackRendering && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-dark-950/95 backdrop-blur-sm">
           <div className="relative">
             <div className="absolute inset-0 animate-ping rounded-full bg-primary-500/30" />
@@ -572,7 +587,7 @@ export function PreviewStep({
         <button
           type="button"
           onClick={onReset}
-          disabled={isRendering}
+          disabled={isAnyRendering}
           className="btn-icon"
           title="Reiniciar projeto"
         >
@@ -582,7 +597,7 @@ export function PreviewStep({
         <button
           type="button"
           onClick={togglePlay}
-          disabled={isRendering}
+          disabled={isAnyRendering}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-dark-900 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl disabled:opacity-50"
         >
           {isPlaying ? (
@@ -592,13 +607,30 @@ export function PreviewStep({
           )}
         </button>
 
+        {/* WebAV Renderer (GPU-accelerated) */}
+        <WebAVRenderer
+          slides={webAvSlides}
+          aspectRatio={aspectRatio}
+          isRendering={isWebAVRendering}
+          onRenderStart={() => setIsWebAVRendering(true)}
+          onRenderComplete={() => setIsWebAVRendering(false)}
+          onRenderError={(error) => {
+            setIsWebAVRendering(false);
+            window.alert(
+              `Falha na renderização: ${error.message}\n\nTente usar o fallback abaixo.`
+            );
+          }}
+        />
+
+        {/* Fallback: Legacy MediaRecorder */}
         <button
           type="button"
           onClick={handleDownloadVideo}
-          disabled={isRendering}
-          className="btn-primary px-6"
+          disabled={isAnyRendering}
+          className="btn-secondary px-6"
+          title="Exportar com MediaRecorder (fallback)"
         >
-          {isRendering ? (
+          {isFallbackRendering ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
               Exportando...
@@ -606,7 +638,7 @@ export function PreviewStep({
           ) : (
             <>
               <Download size={20} />
-              Exportar vídeo
+              Fallback (MediaRecorder)
             </>
           )}
         </button>
@@ -615,7 +647,7 @@ export function PreviewStep({
           <button
             type="button"
             onClick={handleDownloadDebugBundle}
-            disabled={isRendering || isBundlingAssets}
+            disabled={isAnyRendering || isBundlingAssets}
             className="btn-secondary px-6"
           >
             {isBundlingAssets ? (

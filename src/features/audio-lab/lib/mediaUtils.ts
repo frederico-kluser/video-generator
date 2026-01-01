@@ -23,9 +23,10 @@ export const getPreferredMimeType = (): string | null => {
 export const getVoiceMediaConstraints = (): MediaTrackConstraints => ({
   channelCount: 1,
   sampleRate: 48_000,
-  noiseSuppression: true,
-  echoCancellation: true,
-  autoGainControl: true,
+  // Chrome só desativa AGC/NS/EC quando echoCancellation=false; ver bug crbug.com/687574.
+  noiseSuppression: false,
+  echoCancellation: false,
+  autoGainControl: false,
 });
 
 export const getAudioConstraints = (
@@ -33,9 +34,9 @@ export const getAudioConstraints = (
 ): MediaTrackConstraints => ({
   channelCount: 1,
   sampleRate: 48_000,
-  noiseSuppression: true,
-  echoCancellation: true,
-  autoGainControl: true,
+  noiseSuppression: false,
+  echoCancellation: false,
+  autoGainControl: false,
   ...overrides,
 });
 
