@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently --names \"client,cleanup\" --prefix '[{name}]' \"yarn dev:client\" \"yarn dev:cleanup\"",
+    "dev:client": "vite",
     "dev:cleanup": "tsx server/audio-cleanup-server.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
@@ -39,6 +40,7 @@
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.23",
+    "concurrently": "^9.2.1",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
