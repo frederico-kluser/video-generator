@@ -35,6 +35,8 @@ const SHOULD_VALIDATE_BUFFERS =
   typeof import.meta !== 'undefined' && Boolean(import.meta.env?.DEV);
 const OFFLINE_RENDER_TIMEOUT_MS = 30_000;
 const SILENCE_THRESHOLD = 0.0001;
+const MAX_EQ_GAIN_DB = 24;
+const EQ_CHUNK_DURATION_SECONDS = 60;
 
 type TakeState = {
   index: number;
@@ -52,6 +54,19 @@ type EqSettings = {
 type MixResult = {
   raw: Blob;
   equalized: Blob;
+};
+
+const sanitizeEqSettings = (settings: EqSettings): EqSettings => ({
+  low: clampEqGain(settings.low),
+  mid: clampEqGain(settings.mid),
+  high: clampEqGain(settings.high),
+});
+
+const clampEqGain = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(-MAX_EQ_GAIN_DB, Math.min(MAX_EQ_GAIN_DB, value));
 };
 
 export function AudioEqualizerLab() {
@@ -587,6 +602,7 @@ async function decodeBlobToBuffer(
   const arrayBuffer = await blob.arrayBuffer();
   const buffer = await context.decodeAudioData(arrayBuffer.slice(0));
   debugValidateBuffer(buffer, stageName);
+  ensureBufferHasSignal(buffer, stageName);
   return buffer;
 }
 
@@ -649,12 +665,68 @@ function debugValidateBuffer(buffer: AudioBuffer, stageName: string): boolean {
   return !isSilent;
 }
 
+function ensureBufferHasSignal(
+  buffer: AudioBuffer | null,
+  stageName: string,
+): asserts buffer is AudioBuffer {
+  if (!buffer || buffer.length === 0) {
+    const error = new Error(
+      `${stageName} retornou um buffer vazio ou inexistente.`,
+    );
+    appLogger.error('💥 Buffer inválido detectado.', {
+      stage: stageName,
+      error,
+    });
+    throw error;
+  }
+
+  let hasSignal = false;
+
+  outer: for (
+    let channel = 0;
+    channel < buffer.numberOfChannels;
+    channel += 1
+  ) {
+    const data = buffer.getChannelData(channel);
+    for (let index = 0; index < data.length; index += 1) {
+      const value = data[index];
+      if (!Number.isFinite(value)) {
+        const error = new Error(
+          `${stageName} contém valores inválidos no canal ${channel}.`,
+        );
+        appLogger.error('💥 Buffer contém NaN/Infinity.', {
+          stage: stageName,
+          channel,
+          sampleIndex: index,
+        });
+        throw error;
+      }
+
+      if (Math.abs(value) > SILENCE_THRESHOLD) {
+        hasSignal = true;
+        break outer;
+      }
+    }
+  }
+
+  if (!hasSignal) {
+    const error = new Error(
+      `${stageName} resultou em silêncio detectável (peak <= ${SILENCE_THRESHOLD}).`,
+    );
+    appLogger.warn('🔇 Buffer silencioso bloqueado.', {
+      stage: stageName,
+      threshold: SILENCE_THRESHOLD,
+    });
+    throw error;
+  }
+}
+
 async function renderOfflineWithTimeout(
   offlineCtx: OfflineAudioContext,
   stageName: string,
   timeoutMs = OFFLINE_RENDER_TIMEOUT_MS,
 ): Promise<AudioBuffer> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
       reject(new Error(`${stageName} excedeu ${timeoutMs}ms`));
@@ -664,9 +736,6 @@ async function renderOfflineWithTimeout(
   try {
     const renderPromise = offlineCtx.startRendering();
     const buffer = await Promise.race([renderPromise, timeoutPromise]);
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
     return buffer;
   } catch (error) {
     appLogger.error('💥 Renderização offline falhou.', {
@@ -674,6 +743,10 @@ async function renderOfflineWithTimeout(
       error,
     });
     throw error;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
@@ -737,6 +810,7 @@ async function mixRecordings(
     sampleRate: TARGET_SAMPLE_RATE,
   });
   try {
+    const normalizedEqSettings = sanitizeEqSettings(eqSettings);
     const processedBuffers: AudioBuffer[] = [];
     for (const [index, blob] of blobs.entries()) {
       ensureBlobHasAudio(blob, index);
@@ -747,16 +821,25 @@ async function mixRecordings(
       );
       const mono = convertToMono(decoded);
       debugValidateBuffer(mono, `Take ${index + 1} · mono`);
-      processedBuffers.push(
-        await resampleBuffer(mono, TARGET_SAMPLE_RATE, `Take ${index + 1}`),
+      ensureBufferHasSignal(mono, `Take ${index + 1} · mono`);
+      const resampled = await resampleBuffer(
+        mono,
+        TARGET_SAMPLE_RATE,
+        `Take ${index + 1}`,
       );
+      debugValidateBuffer(resampled, `Take ${index + 1} · resampled`);
+      ensureBufferHasSignal(resampled, `Take ${index + 1} · resampled`);
+      processedBuffers.push(resampled);
     }
 
     const combined = concatenateBuffers(processedBuffers, TARGET_SAMPLE_RATE);
     debugValidateBuffer(combined, 'After concatenate');
 
-    const equalized = await applyEqualizer(combined, eqSettings);
+    ensureBufferHasSignal(combined, 'After concatenate');
+
+    const equalized = await applyEqualizer(combined, normalizedEqSettings);
     debugValidateBuffer(equalized, 'After applyEqualizer');
+    ensureBufferHasSignal(equalized, 'After applyEqualizer');
 
     return {
       raw: audioBufferToWaveBlob(combined),
@@ -831,17 +914,40 @@ function concatenateBuffers(
   buffers: AudioBuffer[],
   sampleRate: number,
 ): AudioBuffer {
+  if (buffers.length === 0) {
+    return new AudioBuffer({
+      length: 0,
+      numberOfChannels: 1,
+      sampleRate,
+    });
+  }
+
   const totalLength = buffers.reduce((sum, buffer) => sum + buffer.length, 0);
+  const numberOfChannels = buffers[0].numberOfChannels;
   const output = new AudioBuffer({
     length: totalLength,
-    numberOfChannels: 1,
+    numberOfChannels,
     sampleRate,
   });
 
-  const data = output.getChannelData(0);
   let offset = 0;
   for (const buffer of buffers) {
-    data.set(buffer.getChannelData(0), offset);
+    if (buffer.sampleRate !== sampleRate) {
+      throw new Error(
+        'Buffers com sample rates diferentes não podem ser concatenados.',
+      );
+    }
+
+    if (buffer.numberOfChannels !== numberOfChannels) {
+      throw new Error(
+        'Buffers com número de canais diferentes não podem ser concatenados.',
+      );
+    }
+
+    for (let channel = 0; channel < numberOfChannels; channel += 1) {
+      const target = output.getChannelData(channel);
+      target.set(buffer.getChannelData(channel), offset);
+    }
     offset += buffer.length;
   }
   return output;
@@ -860,37 +966,83 @@ async function applyEqualizer(
     return buffer;
   }
 
-  const offline = new OfflineAudioContextCtor(
-    1,
-    buffer.length,
-    buffer.sampleRate,
-  );
-  const source = offline.createBufferSource();
-  source.buffer = buffer;
+  const normalizedSettings = sanitizeEqSettings(settings);
 
-  const low = offline.createBiquadFilter();
-  low.type = 'lowshelf';
-  low.frequency.value = 120;
-  low.gain.value = settings.low;
+  const renderChunk = async (
+    chunkBuffer: AudioBuffer,
+    label: string,
+  ): Promise<AudioBuffer> => {
+    const offline = new OfflineAudioContextCtor(
+      chunkBuffer.numberOfChannels,
+      chunkBuffer.length,
+      chunkBuffer.sampleRate,
+    );
+    const source = offline.createBufferSource();
+    source.buffer = chunkBuffer;
 
-  const mid = offline.createBiquadFilter();
-  mid.type = 'peaking';
-  mid.frequency.value = 1_000;
-  mid.Q.value = 1;
-  mid.gain.value = settings.mid;
+    const low = offline.createBiquadFilter();
+    low.type = 'lowshelf';
+    low.frequency.value = 120;
+    low.gain.value = normalizedSettings.low;
 
-  const high = offline.createBiquadFilter();
-  high.type = 'highshelf';
-  high.frequency.value = 6_000;
-  high.gain.value = settings.high;
+    const mid = offline.createBiquadFilter();
+    mid.type = 'peaking';
+    mid.frequency.value = 1_000;
+    mid.Q.value = 1;
+    mid.gain.value = normalizedSettings.mid;
 
-  source.connect(low).connect(mid).connect(high).connect(offline.destination);
-  verifyGraphBeforeRender(source, [low, mid, high], offline.destination);
-  source.start(0);
+    const high = offline.createBiquadFilter();
+    high.type = 'highshelf';
+    high.frequency.value = 6_000;
+    high.gain.value = normalizedSettings.high;
 
-  const rendered = await renderOfflineWithTimeout(offline, 'Equalizer render');
-  debugValidateBuffer(rendered, 'After applyEqualizer (offline)');
-  return rendered;
+    source.connect(low).connect(mid).connect(high).connect(offline.destination);
+    verifyGraphBeforeRender(source, [low, mid, high], offline.destination);
+    source.start(0);
+
+    const rendered = await renderOfflineWithTimeout(offline, label);
+    debugValidateBuffer(rendered, `${label} · output`);
+    ensureBufferHasSignal(rendered, `${label} · output`);
+    return rendered;
+  };
+
+  if (buffer.duration <= EQ_CHUNK_DURATION_SECONDS) {
+    return renderChunk(buffer, 'Equalizer render');
+  }
+
+  const chunkLength = Math.ceil(EQ_CHUNK_DURATION_SECONDS * buffer.sampleRate);
+  const chunks: AudioBuffer[] = [];
+  let offset = 0;
+  let chunkIndex = 0;
+
+  while (offset < buffer.length) {
+    const length = Math.min(chunkLength, buffer.length - offset);
+    const chunkBuffer = new AudioBuffer({
+      length,
+      numberOfChannels: buffer.numberOfChannels,
+      sampleRate: buffer.sampleRate,
+    });
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+      const sourceData = buffer
+        .getChannelData(channel)
+        .subarray(offset, offset + length);
+      chunkBuffer.copyToChannel(sourceData, channel);
+    }
+
+    chunkIndex += 1;
+    const processedChunk = await renderChunk(
+      chunkBuffer,
+      `Equalizer chunk #${chunkIndex}`,
+    );
+    chunks.push(processedChunk);
+    offset += length;
+  }
+
+  const stitched = concatenateBuffers(chunks, buffer.sampleRate);
+  debugValidateBuffer(stitched, 'After applyEqualizer (chunked)');
+  ensureBufferHasSignal(stitched, 'After applyEqualizer (chunked)');
+  return stitched;
 }
 
 function audioBufferToWaveBlob(buffer: AudioBuffer): Blob {
