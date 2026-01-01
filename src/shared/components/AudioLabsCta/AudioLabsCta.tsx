@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 
-type AudioLabId = 'cleanup' | 'equalizer';
+type AudioLabId = 'cleanup' | 'equalizer' | 'render';
 
 type AudioLabsCtaProps = {
   current?: AudioLabId;
@@ -27,6 +27,13 @@ const LAB_LINKS: Array<{
     description: 'Monte takes sequenciais e aplique shelves + peaking.',
     href: '/audio-eq-lab',
     badge: 'Equalizacao',
+  },
+  {
+    id: 'render',
+    title: 'Render Test Lab',
+    description: 'Teste o sistema de renderização de vídeo com WebAV.',
+    href: '/render-test',
+    badge: 'Render',
   },
 ];
 
