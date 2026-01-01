@@ -3,18 +3,22 @@
  * Gerencia exportação de vídeo usando WebAV SDK (20x mais rápido que FFmpeg.wasm)
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Film, Loader2 } from 'lucide-react';
 import { useWebAVRenderer } from '@/shared/hooks/useWebAVRenderer';
-import type { WebAVSlideConfig } from '@/shared/types/webav.types';
+import type {
+  WebAVRendererSlideInput,
+  WebAVSlideConfig,
+} from '@/shared/types/webav.types';
 import { toMicroseconds } from '@/shared/types/webav.types';
-import type { Slide } from '@/features/video-generation/model/types';
 import type { AspectRatio } from '@/config/constants/video';
 import { VIDEO_CONFIG } from '@/config/constants/video';
 import { appLogger } from '@/shared/logging/logger';
 
+const FALLBACK_DURATION_SECONDS = 3;
+
 interface WebAVRendererProps {
-  slides: Slide[];
+  slides: WebAVRendererSlideInput[];
   aspectRatio: AspectRatio;
   isRendering: boolean;
   onRenderStart: () => void;
@@ -32,12 +36,16 @@ export function WebAVRenderer({
 }: WebAVRendererProps) {
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderStatus, setRenderStatus] = useState('');
+  const audioCleanupUrlsRef = useRef<string[]>([]);
 
   const getResolution = useCallback(() => {
     const { width, height } = VIDEO_CONFIG.DEFAULT_RESOLUTION;
     if (aspectRatio === '9:16') return { width: height, height: width };
     if (aspectRatio === '1:1')
-      return { width: Math.min(width, height), height: Math.min(width, height) };
+      return {
+        width: Math.min(width, height),
+        height: Math.min(width, height),
+      };
     return { width, height };
   }, [aspectRatio]);
 
@@ -53,42 +61,112 @@ export function WebAVRenderer({
     },
   });
 
-  const convertSlidesToWebAVConfig = useCallback(
-    async (inputSlides: Slide[]): Promise<WebAVSlideConfig[]> => {
-      let offset: number = 0;
+  const registerCleanupUrls = useCallback((urls: string[]) => {
+    if (!urls.length) {
+      return;
+    }
+    audioCleanupUrlsRef.current = [...audioCleanupUrlsRef.current, ...urls];
+  }, []);
 
-      const configs: WebAVSlideConfig[] = [];
+  const cleanupAudioUrls = useCallback(() => {
+    audioCleanupUrlsRef.current.forEach((url) => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    audioCleanupUrlsRef.current = [];
+  }, []);
 
-      for (const slide of inputSlides) {
-        // Calcular duração do slide baseado no áudio ou fallback
-        let durationSeconds = 3; // Fallback padrão
+  const getAudioContextCtor = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    return (
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext
+    );
+  }, []);
 
-        if (slide.audioBlob) {
-          try {
-            const audioContext = new AudioContext();
-            const arrayBuffer = await slide.audioBlob.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            durationSeconds = audioBuffer.duration;
-            audioContext.close();
-          } catch (error) {
-            appLogger.warn('Failed to decode audio duration, using fallback', {
-              slideId: slide.id,
-              error,
-            });
-          }
+  const measureAudioDuration = useCallback(
+    async (
+      slide: WebAVRendererSlideInput,
+      audioUrl?: string | null,
+    ): Promise<number | null> => {
+      if (slide.durationSeconds) {
+        return slide.durationSeconds;
+      }
+
+      if (!audioUrl) {
+        return null;
+      }
+
+      const AudioContextCtor = getAudioContextCtor();
+      if (!AudioContextCtor) {
+        appLogger.warn('AudioContext API não suportada; usando fallback', {
+          slideId: slide.id,
+        });
+        return null;
+      }
+
+      const audioContext = new AudioContextCtor();
+      try {
+        const arrayBuffer = slide.audioBlob
+          ? await slide.audioBlob.arrayBuffer()
+          : await (await fetch(audioUrl)).arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        return audioBuffer.duration;
+      } catch (error) {
+        appLogger.warn('Failed to decode audio duration, using fallback', {
+          slideId: slide.id,
+          error,
+        });
+        return null;
+      } finally {
+        try {
+          await audioContext.close();
+        } catch {
+          // ignore close errors
         }
+      }
+    },
+    [getAudioContextCtor],
+  );
+
+  const convertSlidesToWebAVConfig = useCallback(
+    async (
+      inputSlides: WebAVRendererSlideInput[],
+    ): Promise<{ configs: WebAVSlideConfig[]; cleanupUrls: string[] }> => {
+      const orderedSlides = [...inputSlides].sort(
+        (a, b) => (a.order ?? 0) - (b.order ?? 0),
+      );
+
+      let offset = 0;
+      const configs: WebAVSlideConfig[] = [];
+      const cleanupUrls: string[] = [];
+
+      for (const slide of orderedSlides) {
+        let audioUrl = slide.audioUrl ?? undefined;
+
+        if (!audioUrl && slide.audioBlob) {
+          audioUrl = URL.createObjectURL(slide.audioBlob);
+          cleanupUrls.push(audioUrl);
+        }
+
+        const durationSeconds =
+          (await measureAudioDuration(slide, audioUrl)) ??
+          slide.fallbackDurationSeconds ??
+          FALLBACK_DURATION_SECONDS;
 
         const duration = toMicroseconds(durationSeconds);
 
         configs.push({
           id: slide.id,
-          imageUrl: slide.imageUrl || '',
-          audioUrl: slide.audioBlob
-            ? URL.createObjectURL(slide.audioBlob)
-            : '',
+          imageUrl: slide.imageUrl ?? null,
+          audioUrl,
           duration,
           offset,
-          zIndex: 1,
+          zIndex: slide.zIndex ?? 1,
         });
 
         offset += duration;
@@ -99,21 +177,28 @@ export function WebAVRenderer({
         totalDuration: offset,
       });
 
-      return configs;
+      return { configs, cleanupUrls };
     },
-    [],
+    [measureAudioDuration],
   );
 
   const handleRender = useCallback(async () => {
     if (isRendering) return;
 
+    cleanupAudioUrls();
+
+    if (slides.length === 0) {
+      onRenderError(new Error('Nenhum slide disponível para renderização.'));
+      return;
+    }
+
     onRenderStart();
 
     try {
-      const webavSlides = await convertSlidesToWebAVConfig(slides);
-      const result = await render(webavSlides);
+      const { configs, cleanupUrls } = await convertSlidesToWebAVConfig(slides);
+      registerCleanupUrls(cleanupUrls);
+      const result = await render(configs);
 
-      // Download do vídeo renderizado
       if (result.blobUrl) {
         const anchor = document.createElement('a');
         anchor.href = result.blobUrl;
@@ -121,13 +206,6 @@ export function WebAVRenderer({
         document.body.appendChild(anchor);
         anchor.click();
         document.body.removeChild(anchor);
-
-        // Cleanup blob URLs dos áudios
-        webavSlides.forEach((slide) => {
-          if (slide.audioUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(slide.audioUrl);
-          }
-        });
 
         appLogger.info('✅ Video downloaded successfully', {
           blobUrl: result.blobUrl,
@@ -141,6 +219,8 @@ export function WebAVRenderer({
       onRenderError(
         error instanceof Error ? error : new Error('Unknown render error'),
       );
+    } finally {
+      cleanupAudioUrls();
     }
   }, [
     slides,
@@ -150,15 +230,18 @@ export function WebAVRenderer({
     onRenderError,
     convertSlidesToWebAVConfig,
     render,
+    cleanupAudioUrls,
+    registerCleanupUrls,
   ]);
 
   useEffect(() => {
     return () => {
+      cleanupAudioUrls();
       if (isRendering) {
         cancel();
       }
     };
-  }, [isRendering, cancel]);
+  }, [isRendering, cancel, cleanupAudioUrls]);
 
   // Verificar compatibilidade do navegador
   if (!capabilities.supported) {

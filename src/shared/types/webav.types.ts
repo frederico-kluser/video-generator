@@ -21,14 +21,34 @@ export interface WebAVSlideConfig {
   /** ID único do slide */
   id: string;
   /** URL da imagem do slide (blob ou data URL) */
-  imageUrl: string;
+  imageUrl?: string | null;
   /** URL do áudio do slide (blob ou data URL) */
-  audioUrl: string;
+  audioUrl?: string | null;
   /** Duração do slide em microsegundos */
   duration: Microseconds;
   /** Offset temporal em microsegundos (posição na timeline) */
   offset: Microseconds;
   /** Índice de z-order (maior = frente) */
+  zIndex?: number;
+}
+
+/** Entrada genérica usada pelo componente WebAVRenderer */
+export interface WebAVRendererSlideInput {
+  /** ID do slide */
+  id: string;
+  /** Ordem opcional para controlar a timeline */
+  order?: number;
+  /** URL da imagem (blob/data/http) */
+  imageUrl?: string | null;
+  /** Blob de áudio capturado no fluxo principal */
+  audioBlob?: Blob | null;
+  /** URL já existente para áudio (bundle importado) */
+  audioUrl?: string | null;
+  /** Duração conhecida do slide em segundos */
+  durationSeconds?: number;
+  /** Duração fallback em segundos (default 3s) */
+  fallbackDurationSeconds?: number;
+  /** Profundidade opcional no canvas */
   zIndex?: number;
 }
 

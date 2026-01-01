@@ -16,9 +16,7 @@ import type {
 import { WebAVError } from '@/shared/types/webav.types';
 import {
   blobToStream,
-  closeVideoFrame,
   calculateTotalDuration,
-  estimateFileSize,
   detectWebCodecsCapabilities,
 } from '@/shared/utils/webav.utils';
 import { appLogger } from '@/shared/logging/logger';
@@ -66,12 +64,22 @@ export function useWebAVRenderer({
   }, []);
 
   const createImageClip = useCallback(
-    async (imageUrl: string, slideId: string): Promise<ImgClip> => {
+    async (imageUrl: string | null | undefined, slideId: string): Promise<ImgClip> => {
       try {
-        const response = await fetch(imageUrl);
-        const blob = await response.blob();
-        const imageBitmap = await createImageBitmap(blob);
-        
+        let imageBitmap: ImageBitmap;
+
+        if (imageUrl) {
+          const response = await fetch(imageUrl);
+          const blob = await response.blob();
+          imageBitmap = await createImageBitmap(blob);
+        } else {
+          imageBitmap = await createPlaceholderImageBitmap(
+            config.width,
+            config.height,
+            slideId,
+          );
+        }
+
         appLogger.info(`🖼️ Created image clip for slide ${slideId}`, {
           width: imageBitmap.width,
           height: imageBitmap.height,
@@ -88,11 +96,18 @@ export function useWebAVRenderer({
         throw webavError;
       }
     },
-    [],
+    [config.height, config.width],
   );
 
   const createAudioClip = useCallback(
-    async (audioUrl: string, slideId: string): Promise<AudioClip> => {
+    async (audioUrl: string | null | undefined, slideId: string): Promise<AudioClip | null> => {
+      if (!audioUrl) {
+        appLogger.info('🔇 Slide sem áudio — renderizando apenas vídeo', {
+          slideId,
+        });
+        return null;
+      }
+
       try {
         const response = await fetch(audioUrl);
         const blob = await response.blob();
@@ -123,7 +138,7 @@ export function useWebAVRenderer({
   const createSlideSprites = useCallback(
     async (slide: WebAVSlideConfig): Promise<{
       imageSprite: EnrichedSprite;
-      audioSprite: EnrichedSprite;
+      audioSprite?: EnrichedSprite;
     }> => {
       appLogger.info(`📦 Creating sprites for slide ${slide.id}`, {
         duration: slide.duration,
@@ -150,14 +165,10 @@ export function useWebAVRenderer({
       };
       imageSprite.zIndex = slide.zIndex ?? 1;
 
-      // Audio sprite
-      const audioSprite = new OffscreenSprite(audioClip);
-      audioSprite.time = {
-        offset: slide.offset,
-        duration: slide.duration,
-      };
-
-      return {
+      const result: {
+        imageSprite: EnrichedSprite;
+        audioSprite?: EnrichedSprite;
+      } = {
         imageSprite: {
           sprite: imageSprite,
           clip: imageClip,
@@ -166,11 +177,20 @@ export function useWebAVRenderer({
             duration: slide.duration,
             width: config.width,
             height: config.height,
-            hasAudio: false,
+            hasAudio: Boolean(audioClip),
             hasVideo: true,
           },
         },
-        audioSprite: {
+      };
+
+      if (audioClip) {
+        const audioSprite = new OffscreenSprite(audioClip);
+        audioSprite.time = {
+          offset: slide.offset,
+          duration: slide.duration,
+        };
+
+        result.audioSprite = {
           sprite: audioSprite,
           clip: audioClip,
           slideId: slide.id,
@@ -181,8 +201,10 @@ export function useWebAVRenderer({
             hasAudio: true,
             hasVideo: false,
           },
-        },
-      };
+        };
+      }
+
+      return result;
     },
     [config.width, config.height, createImageClip, createAudioClip],
   );
@@ -247,7 +269,9 @@ export function useWebAVRenderer({
           }
 
           await combinator.addSprite(imageSprite.sprite);
-          await combinator.addSprite(audioSprite.sprite);
+          if (audioSprite) {
+            await combinator.addSprite(audioSprite.sprite);
+          }
 
           addedCount++;
           const addProgress = 0.3 + (addedCount / slides.length) * 0.2;
@@ -266,9 +290,9 @@ export function useWebAVRenderer({
 
         // Gerar output stream
         const outputStream = combinator.output();
-        
+
         // Consumir stream e criar blob
-        const chunks: Uint8Array[] = [];
+        const chunks: BlobPart[] = [];
         const reader = outputStream.getReader();
 
         let readProgress = 0.6;
@@ -281,7 +305,11 @@ export function useWebAVRenderer({
           const { done, value } = await reader.read();
           if (done) break;
 
-          chunks.push(value);
+          if (value) {
+            const copy = new Uint8Array(value.length);
+            copy.set(value);
+            chunks.push(copy.buffer);
+          }
           readProgress += 0.004; // Incremento gradual
           setProgress(Math.min(readProgress, 0.95));
           onProgress?.({
@@ -290,7 +318,7 @@ export function useWebAVRenderer({
           });
         }
 
-        const blob = new Blob(chunks as BlobPart[], { type: 'video/mp4' });
+        const blob = new Blob(chunks, { type: 'video/mp4' });
         const blobUrl = URL.createObjectURL(blob);
 
         const totalDuration = calculateTotalDuration(
@@ -357,4 +385,77 @@ export function useWebAVRenderer({
     progress,
     capabilities,
   };
+}
+
+async function createPlaceholderImageBitmap(
+  width: number,
+  height: number,
+  slideId: string,
+): Promise<ImageBitmap> {
+  const fallbackWidth = Math.max(1, width || 1920);
+  const fallbackHeight = Math.max(1, height || 1080);
+
+  if (
+    typeof OffscreenCanvas === 'undefined' &&
+    typeof document === 'undefined'
+  ) {
+    const imageData = new ImageData(fallbackWidth, fallbackHeight);
+    return await createImageBitmap(imageData);
+  }
+
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(fallbackWidth, fallbackHeight)
+      : (() => {
+          const el = document.createElement('canvas');
+          el.width = fallbackWidth;
+          el.height = fallbackHeight;
+          return el;
+        })();
+
+  const ctx = canvas.getContext('2d') as
+    | CanvasRenderingContext2D
+    | OffscreenCanvasRenderingContext2D
+    | null;
+  if (!ctx) {
+    const imageData = new ImageData(fallbackWidth, fallbackHeight);
+    return await createImageBitmap(imageData);
+  }
+
+  const gradient = ctx.createLinearGradient(0, 0, fallbackWidth, fallbackHeight);
+  gradient.addColorStop(0, '#111827');
+  gradient.addColorStop(1, '#1f2937');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, fallbackWidth, fallbackHeight);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.fillRect(0, 0, fallbackWidth, fallbackHeight);
+
+  ctx.fillStyle = '#9CA3AF';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `${Math.max(24, fallbackWidth * 0.04)}px "Space Grotesk", sans-serif`;
+  ctx.fillText('Slide sem imagem', fallbackWidth / 2, fallbackHeight / 2);
+
+  ctx.font = `${Math.max(16, fallbackWidth * 0.03)}px "Space Mono", monospace`;
+  ctx.fillText(`#${slideId}`, fallbackWidth / 2, fallbackHeight / 2 + 48);
+
+  if (canvas instanceof OffscreenCanvas && 'convertToBlob' in canvas) {
+    const blob = await canvas.convertToBlob();
+    return await createImageBitmap(blob);
+  }
+
+  return await new Promise<ImageBitmap>((resolve, reject) => {
+    (canvas as HTMLCanvasElement).toBlob(
+      async (blob) => {
+        if (!blob) {
+          reject(new Error('Failed to create placeholder blob'));
+          return;
+        }
+        const bitmap = await createImageBitmap(blob);
+        resolve(bitmap);
+      },
+      'image/png',
+    );
+  });
 }

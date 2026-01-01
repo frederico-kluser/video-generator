@@ -14,6 +14,8 @@ import type {
   RenderBundleSlide,
 } from '@/features/render-test/model/renderBundle';
 import { appLogger } from '@/shared/logging/logger';
+import { WebAVRenderer } from '@/features/video-generation/components/PreviewStep/WebAVRenderer';
+import type { WebAVRendererSlideInput } from '@/shared/types/webav.types';
 
 const IMAGE_DIR = 'assets/images/';
 const AUDIO_DIR = 'assets/audio/';
@@ -31,6 +33,7 @@ export function RenderTestPage() {
     'Envie um bundle .zip ou manifest.json para iniciar.',
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isWebAVRendering, setIsWebAVRendering] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -41,6 +44,16 @@ export function RenderTestPage() {
   const orderedSlides = useMemo(() => {
     return [...slidesPreview].sort((a, b) => a.slide.order - b.slide.order);
   }, [slidesPreview]);
+  const renderAspectRatio = manifest?.aspectRatio ?? '16:9';
+  const webAvSlides = useMemo<WebAVRendererSlideInput[]>(() => {
+    return orderedSlides.map((entry, index) => ({
+      id: entry.slide.id,
+      order: entry.slide.order ?? index,
+      imageUrl: entry.imageUrl,
+      audioUrl: entry.audioUrl,
+      zIndex: 1,
+    }));
+  }, [orderedSlides]);
 
   const handleFileSelection = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -55,6 +68,7 @@ export function RenderTestPage() {
 
   const processFile = async (file: File) => {
     cleanupPreviewAssets(slidesPreview);
+     setIsWebAVRendering(false);
     setIsLoading(true);
     setStatus('Carregando bundle...');
 
@@ -134,6 +148,7 @@ export function RenderTestPage() {
 
   const handleReset = () => {
     cleanupPreviewAssets(slidesPreview);
+    setIsWebAVRendering(false);
     setManifest(null);
     setSlidesPreview([]);
     setStatus('Envie um bundle .zip ou manifest.json para iniciar.');
@@ -187,6 +202,34 @@ export function RenderTestPage() {
             </div>
           </div>
         </section>
+
+        {orderedSlides.length > 0 && (
+          <section className="rounded-3xl border border-dark-800 bg-dark-900/70 p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm uppercase tracking-[0.3em] text-white/50">
+                  Renderização WebAV
+                </p>
+                <p className="text-white/70">
+                  Gere o MP4 final usando o mesmo pipeline acelerado por GPU da etapa de preview.
+                </p>
+              </div>
+              <WebAVRenderer
+                slides={webAvSlides}
+                aspectRatio={renderAspectRatio}
+                isRendering={isWebAVRendering}
+                onRenderStart={() => setIsWebAVRendering(true)}
+                onRenderComplete={() => setIsWebAVRendering(false)}
+                onRenderError={(error) => {
+                  setIsWebAVRendering(false);
+                  window.alert(
+                    `Falha ao renderizar bundle com WebAV: ${error.message}`,
+                  );
+                }}
+              />
+            </div>
+          </section>
+        )}
 
         {isLoading && (
           <div className="rounded-3xl border border-dark-700 bg-dark-900/70 p-6 text-white/70">
