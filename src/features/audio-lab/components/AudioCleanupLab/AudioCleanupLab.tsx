@@ -228,19 +228,20 @@ export function AudioCleanupLab() {
     phase === 'processing'
       ? 'Processamento remoto em andamento...'
       : 'Após parar a gravação, o áudio tratado aparece aqui.';
+  const hasRecordedSample = Boolean(rawAudio && rawAudio.size > 0);
   const canChangePreset = phase === 'idle';
   const handlePresetChange = (preset: CleanupPreset) => {
     if (!canChangePreset) {
       return;
     }
     setSelectedPreset(preset);
-    if (rawAudio) {
+    if (hasRecordedSample) {
       void reprocessExistingCapture(preset);
     }
   };
 
   const reprocessExistingCapture = async (preset: CleanupPreset) => {
-    if (!rawAudio) {
+    if (!hasRecordedSample || !rawAudio) {
       return;
     }
 
