@@ -132,7 +132,7 @@ export function AudioCleanupLab() {
       }
 
       setRawAudio(rawBlob);
-      await processWithBackend(rawBlob);
+      await processWithBackend(rawBlob, selectedPreset);
       setPhase('idle');
       appLogger.info('✅ Audio Cleanup Lab finalizado com pipeline remoto.', {
         preset: selectedPreset,
@@ -152,7 +152,7 @@ export function AudioCleanupLab() {
     }
   };
 
-  const processWithBackend = async (blob: Blob) => {
+  const processWithBackend = async (blob: Blob, preset: CleanupPreset) => {
     uploadControllerRef.current?.abort();
     setCleanAudio(null);
     setProcessingDiagnostics(null);
@@ -164,7 +164,7 @@ export function AudioCleanupLab() {
       const { blob: cleanedBlob, diagnostics } = await requestNoiseCleanup(
         blob,
         {
-          preset: selectedPreset,
+          preset,
           signal: controller.signal,
         },
       );
@@ -234,6 +234,39 @@ export function AudioCleanupLab() {
       return;
     }
     setSelectedPreset(preset);
+    if (rawAudio) {
+      void reprocessExistingCapture(preset);
+    }
+  };
+
+  const reprocessExistingCapture = async (preset: CleanupPreset) => {
+    if (!rawAudio) {
+      return;
+    }
+
+    setPhase('processing');
+    setErrorMessage(null);
+    appLogger.info('♻️ Reprocessando captura com novo preset.', {
+      preset,
+    });
+
+    try {
+      await processWithBackend(rawAudio, preset);
+      appLogger.info('✅ Reprocessamento concluído com sucesso.', { preset });
+    } catch (error) {
+      setErrorMessage(
+        'Não foi possível reprocessar a amostra neste preset. Tente novamente.',
+      );
+      appLogger.error(
+        '💥 Falha ao reprocessar o áudio com preset alternativo.',
+        {
+          error,
+          preset,
+        },
+      );
+    } finally {
+      setPhase('idle');
+    }
   };
 
   return (
