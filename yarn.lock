@@ -1329,6 +1329,54 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@webav/av-canvas@npm:^1.2.7":
+  version: 1.2.7
+  resolution: "@webav/av-canvas@npm:1.2.7"
+  dependencies:
+    "@webav/av-cliper": 1.2.7
+    "@webav/internal-utils": 1.2.7
+  checksum: f945024d0715527ec4f77586f7e1fd590eac86e7297a8824a20ec24a8ae75fcb9db512386a04a4f2c9756009cb531bd5a0d5805052c6a931dfd3a991752e86da
+  languageName: node
+  linkType: hard
+
+"@webav/av-cliper@npm:1.2.7, @webav/av-cliper@npm:^1.2.7":
+  version: 1.2.7
+  resolution: "@webav/av-cliper@npm:1.2.7"
+  dependencies:
+    "@webav/internal-utils": 1.2.7
+    "@webav/mp4box.js": ^0.5.7
+    opfs-tools: ^0.7.2
+    wave-resampler: ^1.0.0
+  checksum: 30b3e1fac766db6cde6e9248458843e5b8d1bb070db752759e9dd10b32a1a0caf18b72598947485352066984f91e0bf842a64b476f9b7d95d859d832208ab81f
+  languageName: node
+  linkType: hard
+
+"@webav/av-recorder@npm:^1.2.7":
+  version: 1.2.7
+  resolution: "@webav/av-recorder@npm:1.2.7"
+  dependencies:
+    "@webav/av-cliper": 1.2.7
+    "@webav/internal-utils": 1.2.7
+  checksum: b843477604e349ce45b02a2eecc06e37097e29e135794449ed451542cdb193c8c2bed1d60eadc447aaadf17911aebac5b8b5f680e1750b2942eac6ceaf49adfb
+  languageName: node
+  linkType: hard
+
+"@webav/internal-utils@npm:1.2.7":
+  version: 1.2.7
+  resolution: "@webav/internal-utils@npm:1.2.7"
+  dependencies:
+    "@webav/mp4box.js": ^0.5.7
+  checksum: 636f1b909a990da6756b18a7e216a5370ca8c1218252587af6646c4f501f7b9a2e13c3bd14106229320ec5f286a0a2f5a6abb9c77d5e0b03d425d5cc903f34b7
+  languageName: node
+  linkType: hard
+
+"@webav/mp4box.js@npm:^0.5.7":
+  version: 0.5.7
+  resolution: "@webav/mp4box.js@npm:0.5.7"
+  checksum: c38d143bc1a40ac409030bcf3484b3e8cda80905c3df88c5163ebd9e83f326a90bf91cfd40abaf86c23d2d709a223a1026e85bef24d0b338387cd5f28afe0d2f
+  languageName: node
+  linkType: hard
+
 "abbrev@npm:^4.0.0":
   version: 4.0.0
   resolution: "abbrev@npm:4.0.0"
@@ -4430,6 +4478,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"opfs-tools@npm:^0.7.2":
+  version: 0.7.4
+  resolution: "opfs-tools@npm:0.7.4"
+  checksum: d352bde442feccd1028474a9112306eb0204b2c70c236fd61909cc152ff8a90f1b4882e18e7955bea21b0a023584d946e009aa02ab0761ae10d9918aff57041b
+  languageName: node
+  linkType: hard
+
 "optionator@npm:^0.9.3":
   version: 0.9.4
   resolution: "optionator@npm:0.9.4"
@@ -5992,6 +6047,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"wave-resampler@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "wave-resampler@npm:1.0.0"
+  checksum: ee3f4c8709f66acf35fceb580c768dc14d370b2502d7f81d48cb5699b2e3e34194e2f48b0733033b4d1e85ba53e6e0e6dc2191ef9eece6eb8d33c46774658b95
+  languageName: node
+  linkType: hard
+
 "web-streams-polyfill@npm:4.0.0-beta.3":
   version: 4.0.0-beta.3
   resolution: "web-streams-polyfill@npm:4.0.0-beta.3"
@@ -6173,6 +6235,9 @@ __metadata:
     "@types/react": ^19.0.8
     "@types/react-dom": ^19.0.3
     "@vitejs/plugin-react": ^5.0.0
+    "@webav/av-canvas": ^1.2.7
+    "@webav/av-cliper": ^1.2.7
+    "@webav/av-recorder": ^1.2.7
     autoprefixer: ^10.4.23
     cors: ^2.8.5
     eslint: ^9.17.0

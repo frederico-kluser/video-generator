@@ -8,6 +8,7 @@ Video generator otimizado para 2025 com arquitetura feature-based, React 19 e in
 
 ## Stack & ferramentas
 
+- **WebAV** (v1.x) como engine de renderização de vídeo com aceleração GPU via WebCodecs API — **20x mais rápido** que FFmpeg.wasm com apenas ~50KB compactados (ver [docs/WEBAV_INTEGRATION.md](docs/WEBAV_INTEGRATION.md))
 - Pipeline de limpeza server-side (sherpa-onnx GTCRN + FFmpeg arnndn + DeepFilterNet) exposto no `/audio-lab`, comparando áudio bruto vs tratado em tempo quase real
 - Laboratório `/audio-eq-lab` com equalizador 3 bandas via Web Audio API; grava três takes, soma tudo e entrega mix bruta e mix equalizada usando filtros `lowshelf`, `peaking` e `highshelf` (ver [src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx))
 
@@ -94,6 +95,8 @@ Cada feature expõe apenas o que precisa através de seus próprios diretórios,
 - [src/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow.tsx](src/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow.tsx) e [src/features/video-generation/hooks/useVideoGeneration.ts](src/features/video-generation/hooks/useVideoGeneration.ts) compõem o stepper, coordenam `VIDEO_GENERATION_STEP`, acionam o CTA de laboratórios e delegam controle de concorrência para [src/shared/utils/concurrency.ts](src/shared/utils/concurrency.ts).
 - [src/features/video-generation/api/videoGenerationApi.ts](src/features/video-generation/api/videoGenerationApi.ts) normaliza público-alvo, mistura duração estimada com o blueprint escolhido e injeta `styleGuide`/referências visuais antes de chamar o serviço de imagens.
 - [src/services/openaiService.ts](src/services/openaiService.ts) centraliza as chamadas OpenAI (Responses API + GPT-image), define JSON Schemas rígidos, aplica `withRetry` e propaga erros customizados (`OpenAIServiceError`).
+- [src/shared/hooks/useWebAVRenderer.ts](src/shared/hooks/useWebAVRenderer.ts) gerencia o ciclo completo de renderização com WebAV: criar sprites, combinar e exportar MP4 com aceleração GPU.
+- [src/features/video-generation/components/PreviewStep/WebAVRenderer.tsx](src/features/video-generation/components/PreviewStep/WebAVRenderer.tsx) expõe UI de renderização WebAV com progresso em tempo real e detecção automática de capabilities do navegador.
 - [src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx](src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx) conversa com [server/audio-cleanup-server.ts](server/audio-cleanup-server.ts) para gerenciar presets, diagnósticos e reprocessamentos com abort controller e logs estruturados.
 - [src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx) implementa um pipeline completo com `OfflineAudioContext`, chunking de 60 s, validação de buffers e export para WAV para cada mix.
 - [src/features/render-test/components/RenderTestPage/RenderTestPage.tsx](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx) usa JSZip para inspecionar bundles, gera `objectURL` para cada asset e garante limpeza com `cleanupPreviewAssets()` ao trocar de arquivo.
@@ -172,7 +175,7 @@ O estado global vive em [src/features/video-generation/hooks/useVideoGeneration.
 3. **Visuais** — `runWithConcurrency` limita a geração de imagens (`gpt-image-1.5`) ao valor em `VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT`, enquanto `generateSlideImage()` em [src/features/video-generation/api/videoGenerationApi.ts](src/features/video-generation/api/videoGenerationApi.ts) aplica prompt visual, aspect ratio e referências do `styleGuide` de cada slide.
 4. **Edição** — usuário pode ajustar o texto manualmente ou enviar feedback para `refineSlideContent`.
 5. **Gravação** — `MediaRecorder` captura o áudio por slide e o fluxo garante limpeza dos streams.
-6. **Preview & Export** — preview sincronizado com áudio e export via `MediaRecorder`. Implementamos fallback para criação de canvas (DOM e Offscreen) e checagens extras de compatibilidade. Em modo debug é possível exportar um bundle `.zip` contendo roteiro, imagens e áudios para inspeção offline.
+6. **Preview & Export** — preview sincronizado com áudio e export via **WebAV** (aceleração GPU, 20x mais rápido) ou fallback com `MediaRecorder`. Implementamos detecção de capabilities com `detectWebCodecsCapabilities()` e mantemos ambas as opções de renderização. Em modo debug é possível exportar um bundle `.zip` contendo roteiro, imagens e áudios para inspeção offline.
 
 Falhas em cada etapa são isoladas com `react-error-boundary`: `AppProviders` cobre a árvore inteira e `SectionErrorFallback` envolve Editor/Recording/Preview individualmente.
 

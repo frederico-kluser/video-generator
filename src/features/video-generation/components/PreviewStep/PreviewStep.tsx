@@ -13,6 +13,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
+import { WebAVRenderer } from './WebAVRenderer';
+
 import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
 import type { RenderBundleManifest } from '@/features/render-test/model/renderBundle';
 import type {
@@ -592,11 +594,28 @@ export function PreviewStep({
           )}
         </button>
 
+        {/* WebAV Renderer (GPU-accelerated) */}
+        <WebAVRenderer
+          slides={slides}
+          aspectRatio={aspectRatio}
+          isRendering={isRendering}
+          onRenderStart={() => setIsRendering(true)}
+          onRenderComplete={() => setIsRendering(false)}
+          onRenderError={(error) => {
+            setIsRendering(false);
+            window.alert(
+              `Falha na renderização: ${error.message}\n\nTente usar o fallback abaixo.`
+            );
+          }}
+        />
+
+        {/* Fallback: Legacy MediaRecorder */}
         <button
           type="button"
           onClick={handleDownloadVideo}
           disabled={isRendering}
-          className="btn-primary px-6"
+          className="btn-secondary px-6"
+          title="Exportar com MediaRecorder (fallback)"
         >
           {isRendering ? (
             <>
@@ -606,7 +625,7 @@ export function PreviewStep({
           ) : (
             <>
               <Download size={20} />
-              Exportar vídeo
+              Fallback (MediaRecorder)
             </>
           )}
         </button>

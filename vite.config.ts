@@ -33,6 +33,12 @@ export default defineConfig(({ mode }) => {
           }
         : undefined,
     },
+    preview: {
+      headers: {
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin',
+      },
+    },
     build: {
       target: 'esnext',
       sourcemap: !isProd,
@@ -41,9 +47,13 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             vendor: ['react', 'react-dom'],
             ai: ['@google/genai'],
+            webav: ['@webav/av-cliper', '@webav/av-canvas', '@webav/av-recorder'],
           },
         },
       },
+    },
+    optimizeDeps: {
+      include: ['@webav/av-cliper', '@webav/av-canvas', '@webav/av-recorder'],
     },
     define: {
       __APP_TITLE__: JSON.stringify(env.VITE_APP_TITLE ?? 'EduScript AI'),
