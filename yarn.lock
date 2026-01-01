@@ -2271,6 +2271,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"ebur128-wasm@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "ebur128-wasm@npm:3.0.0"
+  checksum: 76512514ea8944f5e85924c74361ded3db0dfd4829c0621810a745a17861279bf4b07602ea6fdb47d168dfb83ba8ede243cf8584010a61aa5110a082d4207e1d
+  languageName: node
+  linkType: hard
+
 "ee-first@npm:1.1.1":
   version: 1.1.1
   resolution: "ee-first@npm:1.1.1"
@@ -6405,6 +6412,7 @@ __metadata:
     autoprefixer: ^10.4.23
     concurrently: ^9.2.1
     cors: ^2.8.5
+    ebur128-wasm: ^3.0.0
     eslint: ^9.17.0
     eslint-config-prettier: ^9.1.0
     eslint-plugin-jsx-a11y: ^6.10.2
