@@ -22,6 +22,14 @@ Clique em **Gravar amostra** para capturar o áudio bruto; assim que você para 
 O badge “Pipeline” mostra o preset ativo ou o tempo gasto pelo backend. Caso o endpoint esteja indisponível, a interface alerta o usuário e mantém apenas o áudio bruto até o serviço voltar.
 Utilize o laboratório antes de entrar no passo **Gravação** do fluxo principal para ajustar ganho do microfone, escolher ambientes silenciosos e confirmar que o backend de limpeza está entregando o padrão esperado.
 
+> Para desenvolvimento local: (1) execute `npm run dev:cleanup` para subir o serviço em `http://localhost:3000`, (2) mantenha `VITE_API_URL=http://localhost:5173/api` e (3) defina `VITE_API_PROXY_TARGET=http://localhost:3000`. O Vite fará proxy de `/api` para o backend, evitando CORS e eliminando erros 404/500.
+
+### Servidor local de limpeza
+
+- O script [server/audio-cleanup-server.ts](server/audio-cleanup-server.ts) usa `express`, `multer` e `fluent-ffmpeg` (com `ffmpeg-static`) para aplicar as cadeias `afftdn` descritas na [documentação oficial do FFmpeg](https://ffmpeg.org/ffmpeg-filters.html#afftdn) e retornar um WAV pronto para comparação no laboratório.
+- O preset `arnndn-lq` baixa automaticamente o modelo público `lq.rnnn` do repositório [GregorR/rnnoise-models](https://github.com/GregorR/rnnoise-models); o arquivo fica em `server/models/lq.rnnn` e é ignorado pelo Git. Caso o download falhe, o servidor registra o motivo e faz fallback para `afftdn`.
+- Ajuste `CLEANUP_PORT` e `ARNNDN_MODEL_URL` conforme necessário (`CLEANUP_PORT=4000 npm run dev:cleanup`) e mantenha `VITE_API_PROXY_TARGET` sincronizado para que o proxy do Vite envie as requisições ao porto correto.
+
 A rota `/audio-eq-lab` complementa a limpeza com um banco de três takes sequenciais. Cada take é gravado individualmente, e o laboratório gera duas versões concatenadas: a mix bruta e a mix equalizada com filtros `lowshelf`, `peaking` e `highshelf` baseados no Web Audio API `BiquadFilterNode`. Ajuste os sliders de ganho, clique em **Gerar mix** e compare imediatamente os resultados usando os players expostos no laboratório.
 
 ```
@@ -108,15 +116,16 @@ const script = await withRetry(() =>
 
 ## Scripts principais
 
-| Comando          | Ação                                               |
-| ---------------- | -------------------------------------------------- |
-| `yarn install`   | Instala dependências                               |
-| `yarn dev`       | Inicia Vite com React Fast Refresh                 |
-| `yarn build`     | `tsc --noEmit` + `vite build`                      |
-| `yarn preview`   | Pré-visualiza o build                              |
-| `yarn lint`      | ESLint 9 (flat) com React + TS + a11y              |
-| `yarn typecheck` | Garante que o TS está saudável                     |
-| `yarn format`    | Prettier com `printWidth: 80`, `singleQuote: true` |
+| Comando            | Ação                                                      |
+| ------------------ | --------------------------------------------------------- |
+| `yarn install`     | Instala dependências                                      |
+| `yarn dev`         | Inicia Vite com React Fast Refresh                        |
+| `yarn dev:cleanup` | Inicia o backend local `/audio/cleanup` com fluent-ffmpeg |
+| `yarn build`       | `tsc --noEmit` + `vite build`                             |
+| `yarn preview`     | Pré-visualiza o build                                     |
+| `yarn lint`        | ESLint 9 (flat) com React + TS + a11y                     |
+| `yarn typecheck`   | Garante que o TS está saudável                            |
+| `yarn format`      | Prettier com `printWidth: 80`, `singleQuote: true`        |
 
 ## Fluxo de geração
 

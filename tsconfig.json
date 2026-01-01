@@ -20,7 +20,6 @@
     "noUncheckedIndexedAccess": true,
     "noPropertyAccessFromIndexSignature": true,
     "noImplicitOverride": true,
-    "importsNotUsedAsValues": "error",
     "baseUrl": "./src",
     "paths": {
       "@/*": [
