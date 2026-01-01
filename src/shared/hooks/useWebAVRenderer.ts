@@ -80,12 +80,15 @@ export function useWebAVRenderer({
           );
         }
 
+        const imgClip = new ImgClip(imageBitmap);
+        await imgClip.ready;
+
         appLogger.info(`🖼️ Created image clip for slide ${slideId}`, {
           width: imageBitmap.width,
           height: imageBitmap.height,
         });
 
-        return new ImgClip(imageBitmap);
+        return imgClip;
       } catch (error) {
         const webavError = new WebAVError(
           `Failed to create image clip for slide ${slideId}`,
@@ -140,6 +143,22 @@ export function useWebAVRenderer({
       imageSprite: EnrichedSprite;
       audioSprite?: EnrichedSprite;
     }> => {
+      // Validar valores de entrada
+      if (slide.duration <= 0) {
+        throw new WebAVError(
+          `Invalid duration for slide ${slide.id}: ${slide.duration}`,
+          'CLIP_ERROR',
+          { slide },
+        );
+      }
+      if (slide.offset < 0) {
+        throw new WebAVError(
+          `Invalid offset for slide ${slide.id}: ${slide.offset}`,
+          'CLIP_ERROR',
+          { slide },
+        );
+      }
+
       appLogger.info(`📦 Creating sprites for slide ${slide.id}`, {
         duration: slide.duration,
         offset: slide.offset,
@@ -156,13 +175,11 @@ export function useWebAVRenderer({
         offset: slide.offset,
         duration: slide.duration,
       };
-      // OffscreenSprite não suporta rect assignment direto, usar propriedades individuais
-      (imageSprite as any).rect = {
-        x: 0,
-        y: 0,
-        w: config.width,
-        h: config.height,
-      };
+      // Configurar propriedades rect individualmente (Rect é uma classe, não objeto simples)
+      imageSprite.rect.x = 0;
+      imageSprite.rect.y = 0;
+      imageSprite.rect.w = Math.max(1, config.width);
+      imageSprite.rect.h = Math.max(1, config.height);
       imageSprite.zIndex = slide.zIndex ?? 1;
 
       const result: {
@@ -268,9 +285,32 @@ export function useWebAVRenderer({
             throw new WebAVError('Render cancelled by user', 'RENDER_ERROR');
           }
 
-          await combinator.addSprite(imageSprite.sprite);
-          if (audioSprite) {
-            await combinator.addSprite(audioSprite.sprite);
+          try {
+            appLogger.info(`Adding sprite to combinator`, {
+              slideId: imageSprite.slideId,
+              rect: {
+                x: imageSprite.sprite.rect.x,
+                y: imageSprite.sprite.rect.y,
+                w: imageSprite.sprite.rect.w,
+                h: imageSprite.sprite.rect.h,
+              },
+              time: imageSprite.sprite.time,
+              zIndex: imageSprite.sprite.zIndex,
+            });
+
+            await combinator.addSprite(imageSprite.sprite);
+
+            if (audioSprite) {
+              await combinator.addSprite(audioSprite.sprite);
+            }
+          } catch (error) {
+            const webavError = new WebAVError(
+              `Failed to add sprite for slide ${imageSprite.slideId}`,
+              'COMBINATOR_ERROR',
+              { error, slideId: imageSprite.slideId },
+            );
+            appLogger.error(webavError.message, { error, slideId: imageSprite.slideId });
+            throw webavError;
           }
 
           addedCount++;
