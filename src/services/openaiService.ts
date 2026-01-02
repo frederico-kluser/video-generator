@@ -533,6 +533,59 @@ export async function generateSlideImages(
   return results;
 }
 
+const MIME_EXTENSION_MAP: Record<string, string> = {
+  'audio/webm': 'webm',
+  'audio/webm;codecs=opus': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/ogg;codecs=opus': 'ogg',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+};
+
+const fallbackExtension = 'webm';
+
+const resolveExtensionFromMime = (mime?: string) => {
+  if (!mime) {
+    return fallbackExtension;
+  }
+  const entry = Object.entries(MIME_EXTENSION_MAP).find(([key]) =>
+    mime.toLowerCase().startsWith(key),
+  );
+  return entry?.[1] ?? fallbackExtension;
+};
+
+export async function transcribeAudioBlob(
+  blob: Blob,
+  options: { language?: string } = {},
+): Promise<string> {
+  const extension = resolveExtensionFromMime(blob.type);
+  const file =
+    blob instanceof File
+      ? blob
+      : new File([blob], `voice-input.${extension}`, {
+          type: blob.type || 'audio/webm',
+        });
+
+  try {
+    const transcription = await openai.audio.transcriptions.create({
+      file,
+      model: 'gpt-4o-mini-transcribe',
+      response_format: 'text',
+      temperature: 0,
+      language: options.language,
+    });
+
+    if (typeof transcription === 'string') {
+      return transcription.trim();
+    }
+
+    return transcription.text?.trim() ?? '';
+  } catch (error) {
+    handleOpenAIError(error, 'transcribeAudioBlob');
+  }
+}
+
 // =====================================================
 // FUNÇÃO 3: refineContent
 // =====================================================

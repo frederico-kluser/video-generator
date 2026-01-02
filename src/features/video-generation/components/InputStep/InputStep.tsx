@@ -29,6 +29,8 @@ import {
   type PromptCategory,
 } from '@/content/prompts';
 import type { VideoGenerationPayload } from '@/features/video-generation/model/types';
+import { VoiceInputButton } from '@/shared/components/VoiceInput/VoiceInputButton';
+import { mergeTranscript } from '@/shared/utils/transcription';
 
 const AUDIENCE_OPTIONS = [
   { value: 'Elementary School (K-5)', label: 'Ensino Fundamental', icon: '🎒' },
@@ -183,16 +185,28 @@ export function InputStep({ onStart }: InputStepProps) {
                 <BookOpen size={16} className="text-primary-400" />
                 Qual é o tópico principal?
               </label>
-              <input
-                id="topic"
-                name="topic"
-                type="text"
-                className="input"
-                placeholder="Ex.: Teorema de Pitágoras, Fotossíntese, Segunda Guerra Mundial..."
-                value={topic}
-                onChange={(event) => setTopic(event.target.value)}
-                required
-              />
+              <div className="relative">
+                <input
+                  id="topic"
+                  name="topic"
+                  type="text"
+                  className="input pr-14"
+                  placeholder="Ex.: Teorema de Pitágoras, Fotossíntese, Segunda Guerra Mundial..."
+                  value={topic}
+                  onChange={(event) => setTopic(event.target.value)}
+                  required
+                />
+                <VoiceInputButton
+                  size="sm"
+                  ariaLabel="Ditado para o campo de tópico"
+                  className="absolute right-2 top-1/2 -translate-y-1/2"
+                  onTranscription={(text) =>
+                    setTopic((prev) =>
+                      mergeTranscript(prev, text, { separator: ' ' }),
+                    )
+                  }
+                />
+              </div>
             </div>
 
             {/* Audience Select */}
@@ -271,15 +285,24 @@ export function InputStep({ onStart }: InputStepProps) {
                 <Wand2 size={16} className="text-primary-400" />
                 Materiais ou notas de referência
               </label>
-              <textarea
-                id="materials"
-                name="materials"
-                className="input min-h-[140px] resize-none"
-                placeholder="Cole textos, tópicos, transcrições ou qualquer material que sirva de base para o roteiro..."
-                value={materials}
-                onChange={(event) => setMaterials(event.target.value)}
-                required
-              />
+              <div className="relative">
+                <textarea
+                  id="materials"
+                  name="materials"
+                  className="input min-h-[140px] resize-none pr-14"
+                  placeholder="Cole textos, tópicos, transcrições ou qualquer material que sirva de base para o roteiro..."
+                  value={materials}
+                  onChange={(event) => setMaterials(event.target.value)}
+                  required
+                />
+                <VoiceInputButton
+                  ariaLabel="Ditado para materiais de referência"
+                  className="absolute right-3 top-3"
+                  onTranscription={(text) =>
+                    setMaterials((prev) => mergeTranscript(prev, text))
+                  }
+                />
+              </div>
             </div>
 
             {/* Format Selection */}

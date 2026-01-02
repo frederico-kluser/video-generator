@@ -17,7 +17,9 @@ import {
   refineSlideContent,
 } from '@/features/video-generation/api/videoGenerationApi';
 import type { Slide } from '@/features/video-generation/model/types';
+import { VoiceInputButton } from '@/shared/components/VoiceInput/VoiceInputButton';
 import { appLogger } from '@/shared/logging/logger';
+import { mergeTranscript } from '@/shared/utils/transcription';
 
 type EditorStepProps = {
   slides: Slide[];
@@ -275,32 +277,59 @@ export function EditorStep({
                 <label className="label" htmlFor="scriptText">
                   Briefing / instruções do slide
                 </label>
-                <textarea
-                  id="scriptText"
-                  className="input min-h-[120px] resize-none text-sm"
-                  value={currentSlide.scriptText}
-                  onChange={(event) =>
-                    onUpdateSlide(currentSlide.id, {
-                      scriptText: event.target.value,
-                    })
-                  }
-                />
+                <div className="relative">
+                  <textarea
+                    id="scriptText"
+                    className="input min-h-[120px] resize-none pr-14 text-sm"
+                    value={currentSlide.scriptText}
+                    onChange={(event) =>
+                      onUpdateSlide(currentSlide.id, {
+                        scriptText: event.target.value,
+                      })
+                    }
+                  />
+                  <VoiceInputButton
+                    size="sm"
+                    className="absolute right-3 top-3"
+                    ariaLabel="Ditado para o briefing do slide"
+                    onTranscription={(text) =>
+                      onUpdateSlide(currentSlide.id, {
+                        scriptText: mergeTranscript(currentSlide.scriptText, text),
+                      })
+                    }
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
                 <label className="label" htmlFor="narrationText">
                   Texto literal para narrar
                 </label>
-                <textarea
-                  id="narrationText"
-                  className="input min-h-[100px] resize-none text-sm"
-                  value={currentSlide.narrationText}
-                  onChange={(event) =>
-                    onUpdateSlide(currentSlide.id, {
-                      narrationText: event.target.value,
-                    })
-                  }
-                />
+                <div className="relative">
+                  <textarea
+                    id="narrationText"
+                    className="input min-h-[100px] resize-none pr-14 text-sm"
+                    value={currentSlide.narrationText}
+                    onChange={(event) =>
+                      onUpdateSlide(currentSlide.id, {
+                        narrationText: event.target.value,
+                      })
+                    }
+                  />
+                  <VoiceInputButton
+                    size="sm"
+                    className="absolute right-3 top-3"
+                    ariaLabel="Ditado para o texto literal"
+                    onTranscription={(text) =>
+                      onUpdateSlide(currentSlide.id, {
+                        narrationText: mergeTranscript(
+                          currentSlide.narrationText,
+                          text,
+                        ),
+                      })
+                    }
+                  />
+                </div>
               </div>
             </div>
 
@@ -310,13 +339,24 @@ export function EditorStep({
                 <Sparkles size={16} className="animate-pulse" />
                 Revisão com IA
               </label>
-              <textarea
-                className="input min-h-[100px] resize-none border-primary-500/20 bg-dark-800/50 text-sm focus:border-primary-500/40"
-                placeholder="Ex.: deixe a imagem mais colorida, resuma o texto, mude o estilo visual..."
-                value={feedback}
-                onChange={(event) => setFeedback(event.target.value)}
-                disabled={isProcessingFeedback}
-              />
+              <div className="relative">
+                <textarea
+                  className="input min-h-[100px] resize-none border-primary-500/20 bg-dark-800/50 pr-14 text-sm focus:border-primary-500/40"
+                  placeholder="Ex.: deixe a imagem mais colorida, resuma o texto, mude o estilo visual..."
+                  value={feedback}
+                  onChange={(event) => setFeedback(event.target.value)}
+                  disabled={isProcessingFeedback}
+                />
+                <VoiceInputButton
+                  size="sm"
+                  className="absolute right-3 top-3"
+                  ariaLabel="Ditado para o feedback da IA"
+                  disabled={isProcessingFeedback}
+                  onTranscription={(text) =>
+                    setFeedback((prev) => mergeTranscript(prev, text))
+                  }
+                />
+              </div>
               <button
                 type="button"
                 onClick={handleFeedbackSubmit}
