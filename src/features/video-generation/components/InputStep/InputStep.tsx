@@ -2,6 +2,7 @@ import { useActionState, useEffect, useMemo, useState } from 'react';
 import {
   BookOpen,
   ChevronDown,
+  Key,
   LayoutTemplate,
   Monitor,
   Smartphone,
@@ -29,6 +30,8 @@ import {
   type PromptCategory,
 } from '@/content/prompts';
 import type { VideoGenerationPayload } from '@/features/video-generation/model/types';
+import { OpenAIKeyModal } from '@/shared/components/OpenAIKeyModal/OpenAIKeyModal';
+import { useOpenAIKey } from '@/shared/hooks/useOpenAIKey';
 import { VoiceInputButton } from '@/shared/components/VoiceInput/VoiceInputButton';
 
 const AUDIENCE_OPTIONS = [
@@ -72,6 +75,14 @@ type InputStepProps = {
 };
 
 export function InputStep({ onStart }: InputStepProps) {
+  const {
+    isKeyModalOpen,
+    saveApiKey,
+    closeKeyModal,
+    openKeyModal,
+    hasApiKey,
+  } = useOpenAIKey();
+
   const [topic, setTopic] = useState('');
   const [materials, setMaterials] = useState('');
   const [audience, setAudience] = useState(VIDEO_CONFIG.DEFAULT_AUDIENCE);
@@ -149,21 +160,38 @@ export function InputStep({ onStart }: InputStepProps) {
   );
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-2xl animate-slide-up">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary-500/10 px-4 py-2 text-sm font-medium text-primary-300">
-            <Sparkles size={16} className="animate-pulse" />
-            Powered by AI
+    <>
+      <OpenAIKeyModal
+        isOpen={isKeyModalOpen}
+        onSave={saveApiKey}
+        onClose={closeKeyModal}
+        canClose={hasApiKey}
+      />
+      <div className="flex min-h-screen w-full flex-col items-center justify-center p-4 md:p-8">
+        <div className="w-full max-w-2xl animate-slide-up">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary-500/10 px-4 py-2 text-sm font-medium text-primary-300">
+              <Sparkles size={16} className="animate-pulse" />
+              Powered by AI
+            </div>
+            <h1 className="mb-3 text-4xl font-extrabold tracking-tight md:text-5xl">
+              <span className="text-gradient">Grava</span>
+            </h1>
+            <p className="text-lg text-white/60">
+              Transforme suas anotações em videoaulas memoráveis
+            </p>
+            {hasApiKey && (
+              <button
+                type="button"
+                onClick={openKeyModal}
+                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white/80"
+              >
+                <Key size={14} />
+                Trocar chave OpenAI
+              </button>
+            )}
           </div>
-          <h1 className="mb-3 text-4xl font-extrabold tracking-tight md:text-5xl">
-            <span className="text-gradient">Grava</span>
-          </h1>
-          <p className="text-lg text-white/60">
-            Transforme suas anotações em videoaulas memoráveis
-          </p>
-        </div>
 
         {/* Main Card */}
         <div className="glass-card p-6 md:p-8">
@@ -393,6 +421,7 @@ export function InputStep({ onStart }: InputStepProps) {
         )}
       </div>
     </div>
+    </>
   );
 }
 

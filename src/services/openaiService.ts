@@ -25,25 +25,26 @@ import { appLogger } from '@/shared/logging/logger';
 // CONFIGURAÇÃO DOS CLIENTES
 // =====================================================
 const resolveApiKey = (): string => {
+  // Prioridade: localStorage > variável de ambiente do servidor
+  if (typeof window !== 'undefined') {
+    const storedKey = localStorage.getItem('grava:openai-api-key');
+    if (storedKey) {
+      return storedKey;
+    }
+  }
+
   const serverKey =
     typeof process !== 'undefined' ? process.env?.OPENAI_API_KEY : undefined;
-  const viteKey =
-    typeof import.meta !== 'undefined'
-      ? import.meta.env?.VITE_OPENAI_API_KEY
-      : undefined;
-  const apiKey = serverKey ?? viteKey;
 
-  if (!apiKey) {
+  if (!serverKey) {
     const message =
-      'OPENAI_API_KEY não configurada. Defina OPENAI_API_KEY ou VITE_OPENAI_API_KEY.';
+      'Chave OpenAI não configurada. Por favor, configure sua chave nas configurações.';
     appLogger.error(message);
     throw new Error(message);
   }
 
-  return apiKey;
+  return serverKey;
 };
-
-const apiKey = resolveApiKey();
 
 const scriptJsonSchema = {
   type: 'object',
@@ -184,12 +185,19 @@ const slideRefinementJsonSchema = {
   additionalProperties: false,
 } as const;
 
-const openai = new OpenAI({
-  apiKey,
-  timeout: 60_000,
-  maxRetries: 3,
-  dangerouslyAllowBrowser: true,
-});
+/**
+ * Cria e retorna uma instância do cliente OpenAI com a chave atual.
+ * Sempre obtém a chave mais recente do localStorage ou variáveis de ambiente.
+ */
+const getOpenAIClient = (): OpenAI => {
+  const apiKey = resolveApiKey();
+  return new OpenAI({
+    apiKey,
+    timeout: 60_000,
+    maxRetries: 3,
+    dangerouslyAllowBrowser: true,
+  });
+};
 
 // =====================================================
 // TIPOS DE ERRO CUSTOMIZADOS
@@ -316,7 +324,7 @@ ${materials}
 Respeite rigorosamente estas instruções e retorne JSON compatível com o schema.`;
 
   try {
-    const response = await openai.responses.create({
+    const response = await getOpenAIClient().responses.create({
       model: 'gpt-5.1-codex-max',
       instructions: systemPrompt,
       input: [
@@ -456,13 +464,14 @@ REQUISITOS OBRIGATÓRIOS:
       output_format: 'png' as const,
     };
 
+    const openaiClient = getOpenAIClient();
     const result = hasReferences
-      ? await openai.images.edit({
+      ? await openaiClient.images.edit({
           ...commonPayload,
           image: referenceFiles,
           input_fidelity: options.styleGuide?.inputFidelity ?? 'high',
         })
-      : await openai.images.generate({
+      : await openaiClient.images.generate({
           ...commonPayload,
           background: 'opaque',
         });
@@ -572,7 +581,7 @@ export async function transcribeAudioBlob(
         });
 
   try {
-    const transcription = await openai.audio.transcriptions.create({
+    const transcription = await getOpenAIClient().audio.transcriptions.create({
       file,
       model: 'gpt-4o-mini-transcribe',
       response_format: 'text',
@@ -632,7 +641,7 @@ ${goals}
 Retorne o texto refinado com lista de melhorias aplicadas.`;
 
   try {
-    const response = await openai.responses.create({
+    const response = await getOpenAIClient().responses.create({
       model: 'gpt-5.1-codex-max',
       instructions: systemPrompt,
       input: [
@@ -703,7 +712,7 @@ export async function refineSlideContentWithFeedback(
   visualPrompt: string;
 }> {
   try {
-    const response = await openai.responses.create({
+    const response = await getOpenAIClient().responses.create({
       model: 'gpt-5.1-codex-max',
       instructions:
         'Você é um roteirista educacional guiado pela Teoria da Carga Cognitiva, pelos princípios de Mayer e pelo framework de Gagné. Ajuste narração e prompt visual segundo o feedback, mantendo ganchos fortes, CTAs em três pontos, ritmo adequado e garantindo que o visual siga regra dos terços, safe zones, contraste ≥4.5:1 e ausência de texto.',
