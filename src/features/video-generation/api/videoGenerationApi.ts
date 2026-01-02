@@ -196,7 +196,7 @@ export async function generateSlideImage(
     description: visualPrompt,
     style,
     targetAudience: DEFAULT_AUDIENCE,
-    slideTitle: visualPrompt.slice(0, 80) || 'EduScript Slide',
+    slideTitle: visualPrompt.slice(0, 80) || 'Grava Slide',
     aspectRatio,
     styleGuide: {
       notes: styleGuide.notes,

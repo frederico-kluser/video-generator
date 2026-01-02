@@ -1,6 +1,6 @@
 <ultrathink># Wavesurfer.js Waveform UX
 
-> **AI Agent Prompt:** Deliver an interactive waveform visualization and timeline for EduScript AI recordings using `wavesurfer.js` v7 and `@wavesurfer/react`. Implement a React component that renders slide audio previews, integrates the Record plugin when needed, and mirrors the 2025 visual language (violet gradients). Ensure the component degrades gracefully when Web Audio is unavailable.
+> **AI Agent Prompt:** Deliver an interactive waveform visualization and timeline for Grava recordings using `wavesurfer.js` v7 and `@wavesurfer/react`. Implement a React component that renders slide audio previews, integrates the Record plugin when needed, and mirrors the 2025 visual language (violet gradients). Ensure the component degrades gracefully when Web Audio is unavailable.
 
 ## Objective
 

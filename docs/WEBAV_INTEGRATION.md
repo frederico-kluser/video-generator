@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-O **EduScript AI** agora utiliza o [WebAV](https://github.com/WebAV-Tech/WebAV) como engine principal de renderização de vídeo, proporcionando **20x mais performance** em comparação com FFmpeg.wasm através de aceleração de GPU via WebCodecs API.
+O **Grava** agora utiliza o [WebAV](https://github.com/WebAV-Tech/WebAV) como engine principal de renderização de vídeo, proporcionando **20x mais performance** em comparação com FFmpeg.wasm através de aceleração de GPU via WebCodecs API.
 
 ## Arquitetura
 

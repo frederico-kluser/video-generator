@@ -1,6 +1,6 @@
 <ultrathink># MediaRecorder Optimized Capture
 
-> **AI Agent Prompt:** Provide a resilient MediaRecorder abstraction for EduScript AI that auto-selects the best MIME type, sets tuned bitrates, and exposes lifecycle callbacks with structured logging. Ensure compatibility across Chrome, Firefox, and Safari while offering fallbacks to `extendable-media-recorder` when WAV output is required.
+> **AI Agent Prompt:** Provide a resilient MediaRecorder abstraction for Grava that auto-selects the best MIME type, sets tuned bitrates, and exposes lifecycle callbacks with structured logging. Ensure compatibility across Chrome, Firefox, and Safari while offering fallbacks to `extendable-media-recorder` when WAV output is required.
 
 ## Objective
 

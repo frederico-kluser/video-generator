@@ -1,6 +1,6 @@
 <ultrathink># MP4 Muxer Assembly
 
-> **AI Agent Prompt:** Build a reusable muxing utility for EduScript AI based on `mp4-muxer`. Accept video chunks from WebCodecs or other encoders plus optional audio tracks, then output a single MP4 blob with fast-start metadata.
+> **AI Agent Prompt:** Build a reusable muxing utility for Grava based on `mp4-muxer`. Accept video chunks from WebCodecs or other encoders plus optional audio tracks, then output a single MP4 blob with fast-start metadata.
 
 ## Objective
 

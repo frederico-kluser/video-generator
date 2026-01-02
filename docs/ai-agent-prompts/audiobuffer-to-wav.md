@@ -1,6 +1,6 @@
 <ultrathink># AudioBuffer to WAV Export
 
-> **AI Agent Prompt:** Add reliable WAV export support for EduScript AI using `audiobuffer-to-wav`. Build utilities that convert processed `AudioBuffer` objects (post normalization) to Blob outputs for download, preview, or FFmpeg ingestion.
+> **AI Agent Prompt:** Add reliable WAV export support for Grava using `audiobuffer-to-wav`. Build utilities that convert processed `AudioBuffer` objects (post normalization) to Blob outputs for download, preview, or FFmpeg ingestion.
 
 ## Objective
 

@@ -158,8 +158,7 @@ export function InputStep({ onStart }: InputStepProps) {
             Powered by AI
           </div>
           <h1 className="mb-3 text-4xl font-extrabold tracking-tight md:text-5xl">
-            <span className="text-gradient">EduScript</span>
-            <span className="text-white"> AI</span>
+            <span className="text-gradient">Grava</span>
           </h1>
           <p className="text-lg text-white/60">
             Transforme suas anotações em videoaulas memoráveis

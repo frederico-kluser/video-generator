@@ -1,6 +1,6 @@
 <ultrathink># FFmpeg.wasm Audio Toolkit
 
-> **AI Agent Prompt:** Integrate `@ffmpeg/ffmpeg` and `@ffmpeg/util` to normalize, convert, and trim EduScript AI audio recordings in-browser. Provide a service module with helpers for loudness normalization (EBU R128 presets), WebM to WAV/MP3 conversion, and shared worker lifecycle management. Ensure COOP/COEP headers configured in `vite.config.ts` and ship fallback messaging for Safari.
+> **AI Agent Prompt:** Integrate `@ffmpeg/ffmpeg` and `@ffmpeg/util` to normalize, convert, and trim Grava audio recordings in-browser. Provide a service module with helpers for loudness normalization (EBU R128 presets), WebM to WAV/MP3 conversion, and shared worker lifecycle management. Ensure COOP/COEP headers configured in `vite.config.ts` and ship fallback messaging for Safari.
 
 ## Objective
 

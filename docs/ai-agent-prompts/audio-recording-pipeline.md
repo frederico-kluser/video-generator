@@ -1,6 +1,6 @@
 <ultrathink># Audio Recording Pipeline
 
-> **AI Agent Prompt:** Build the full EduScript AI audio recording pipeline combining `getUserMedia`, RNNoise suppression, high-pass filter, compressor, limiter, and MediaRecorder capture. Provide a hook that orchestrates the chain, exposes recorder controls, and ensures cleanup plus fallbacks per browser constraints.
+> **AI Agent Prompt:** Build the full Grava audio recording pipeline combining `getUserMedia`, RNNoise suppression, high-pass filter, compressor, limiter, and MediaRecorder capture. Provide a hook that orchestrates the chain, exposes recorder controls, and ensures cleanup plus fallbacks per browser constraints.
 
 ## Objective
 

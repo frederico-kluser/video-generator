@@ -1,6 +1,6 @@
 <ultrathink># Clipping Detector Hook
 
-> **AI Agent Prompt:** Build a lightweight clipping detection hook for EduScript AI recordings using the Web Audio API. Provide real-time peak metering and clipping flags backed by `AnalyserNode.getFloatTimeDomainData`, with fallbacks for browsers lacking Float32 capture.
+> **AI Agent Prompt:** Build a lightweight clipping detection hook for Grava recordings using the Web Audio API. Provide real-time peak metering and clipping flags backed by `AnalyserNode.getFloatTimeDomainData`, with fallbacks for browsers lacking Float32 capture.
 
 ## Objective
 

@@ -1,6 +1,6 @@
 <ultrathink># Tone.js Audio Dynamics
 
-> **AI Agent Prompt:** Implement real-time voice dynamics processing for EduScript AI using Tone.js. Enable a reusable React hook that initializes compressor and limiter nodes, integrates with MediaRecorder-based capture, and exposes structured logging with emojis. Follow TypeScript strict mode, reuse existing logging utilities, and provide fallbacks when Tone.js cannot start.
+> **AI Agent Prompt:** Implement real-time voice dynamics processing for Grava using Tone.js. Enable a reusable React hook that initializes compressor and limiter nodes, integrates with MediaRecorder-based capture, and exposes structured logging with emojis. Follow TypeScript strict mode, reuse existing logging utilities, and provide fallbacks when Tone.js cannot start.
 
 ## Objective
 

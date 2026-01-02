@@ -1,6 +1,6 @@
 <ultrathink># Silero VAD React Integration
 
-> **AI Agent Prompt:** Implement automatic speech boundary detection for EduScript AI recordings using `@ricky0123/vad-react` plus `onnxruntime-web`. Build a hook/component combo that shows recording badges, segments narration per slide, and gracefully handles asset loading via Vite static copy.
+> **AI Agent Prompt:** Implement automatic speech boundary detection for Grava recordings using `@ricky0123/vad-react` plus `onnxruntime-web`. Build a hook/component combo that shows recording badges, segments narration per slide, and gracefully handles asset loading via Vite static copy.
 
 ## Objective
 

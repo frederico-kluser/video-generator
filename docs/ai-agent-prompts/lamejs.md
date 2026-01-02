@@ -1,6 +1,6 @@
 <ultrathink># LameJS MP3 Encoding
 
-> **AI Agent Prompt:** Provide optional MP3 export for EduScript AI by integrating the maintained `@breezystack/lamejs` fork. Implement a worker-driven encoder that converts normalized WAV data into MP3 while keeping the main thread responsive.
+> **AI Agent Prompt:** Provide optional MP3 export for Grava by integrating the maintained `@breezystack/lamejs` fork. Implement a worker-driven encoder that converts normalized WAV data into MP3 while keeping the main thread responsive.
 
 ## Objective
 

@@ -1,5 +1,5 @@
 /**
- * Tipos customizados para integração com WebAV no EduScript AI.
+ * Tipos customizados para integração com WebAV no Grava.
  * WebAV usa unidades de tempo em microsegundos (1s = 1_000_000µs).
  */
 

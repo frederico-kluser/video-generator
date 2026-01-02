@@ -16,12 +16,12 @@ export function getEnv() {
 
     cachedEnv.openAiApiKey = env.VITE_OPENAI_API_KEY ?? '';
     cachedEnv.apiUrl = env.VITE_API_URL ?? '';
-    cachedEnv.appTitle = env.VITE_APP_TITLE ?? 'EduScript AI';
+    cachedEnv.appTitle = env.VITE_APP_TITLE ?? 'Grava';
   }
 
   return {
     apiUrl: cachedEnv.apiUrl ?? '',
     openAiApiKey: cachedEnv.openAiApiKey ?? '',
-    appTitle: cachedEnv.appTitle ?? 'EduScript AI',
+    appTitle: cachedEnv.appTitle ?? 'Grava',
   } as const;
 }

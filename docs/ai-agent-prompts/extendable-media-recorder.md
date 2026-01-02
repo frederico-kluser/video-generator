@@ -1,6 +1,6 @@
 <ultrathink># Extendable MediaRecorder WAV Output
 
-> **AI Agent Prompt:** Guarantee cross-browser WAV recording support for EduScript AI by integrating `extendable-media-recorder` with the WAV encoder package. Provide initialization helpers that register the encoder once, create WAV-capable MediaRecorders, and fall back elegantly when unsupported.
+> **AI Agent Prompt:** Guarantee cross-browser WAV recording support for Grava by integrating `extendable-media-recorder` with the WAV encoder package. Provide initialization helpers that register the encoder once, create WAV-capable MediaRecorders, and fall back elegantly when unsupported.
 
 ## Objective
 

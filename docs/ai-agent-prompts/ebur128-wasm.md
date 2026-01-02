@@ -1,6 +1,6 @@
 <ultrathink># EBU R128 Loudness Measurement
 
-> **AI Agent Prompt:** Add precise loudness metering and normalization to EduScript AI slide narrations using `ebur128-wasm`. Build utilities that measure LUFS, Loudness Range, and True Peak for `AudioBuffer` inputs, then adjust gain to a target of -16 LUFS with safe clipping prevention.
+> **AI Agent Prompt:** Add precise loudness metering and normalization to Grava slide narrations using `ebur128-wasm`. Build utilities that measure LUFS, Loudness Range, and True Peak for `AudioBuffer` inputs, then adjust gain to a target of -16 LUFS with safe clipping prevention.
 
 ## Objective
 

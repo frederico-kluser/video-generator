@@ -2,7 +2,7 @@
   <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# EduScript AI — React 19 + Vite 6 + TypeScript 5.8
+# Grava — React 19 + Vite 6 + TypeScript 5.8
 
 Video generator otimizado para 2025 com arquitetura feature-based, React 19 e integrações com OpenAI (GPT-5.1-Codex-Max + GPT-image-1.5). O projeto segue as referências do Bulletproof React, Feature-Sliced Design e recomendações de especialistas como Matt Pocock.
 

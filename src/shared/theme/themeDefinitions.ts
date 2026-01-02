@@ -11,7 +11,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   {
     id: 'midnight',
     label: 'Midnight Studio',
-    description: 'Roxos profundos com glow violeta clássico do EduScript.',
+    description: 'Roxos profundos com glow violeta clássico do Grava.',
     accentGradient: 'from-primary-600 via-primary-500 to-accent-500',
   },
   {

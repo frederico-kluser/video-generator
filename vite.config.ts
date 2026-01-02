@@ -56,7 +56,7 @@ export default defineConfig(({ mode }) => {
       include: ['@webav/av-cliper', '@webav/av-canvas', '@webav/av-recorder'],
     },
     define: {
-      __APP_TITLE__: JSON.stringify(env.VITE_APP_TITLE ?? 'EduScript AI'),
+      __APP_TITLE__: JSON.stringify(env.VITE_APP_TITLE ?? 'Grava'),
     },
   };
 });
