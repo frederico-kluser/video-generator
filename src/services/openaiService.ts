@@ -216,6 +216,7 @@ export async function generateScriptFromMaterials(
     desiredDuration: number;
     style?: 'formal' | 'casual' | 'engaging';
     revisionInstructions?: string;
+    preferUserLength?: boolean;
   },
 ): Promise<Script> {
   const slideCountMin = Math.ceil(options.desiredDuration * 1.5);
@@ -259,12 +260,14 @@ export async function generateScriptWithResponsesAPI(
     slideCountMin?: number;
     slideCountMax?: number;
     revisionInstructions?: string;
+    preferUserLength?: boolean;
   },
 ): Promise<Script> {
   const slideCountMin =
     options.slideCountMin ?? Math.ceil(options.desiredDuration * 1.5);
   const slideCountMax =
     options.slideCountMax ?? Math.ceil(options.desiredDuration * 2);
+  const preferUserLength = options.preferUserLength ?? false;
 
   const systemPrompt = `Você é um diretor pedagógico especializado em vídeos educacionais guiados por ciência cognitiva.
 Siga rigorosamente o "Guia completo para criação de vídeos educacionais de alta qualidade (2025)" e aplique estes princípios:
@@ -288,12 +291,13 @@ Entregue roteiros prontos para gravação, com linguagem conversacional, precis�
 ESPECIFICAÇÕES DO PROJETO:
 - TÓPICO: ${options.topic}
 - PÚBLICO-ALVO: ${options.targetAudience}
-- DURAÇÃO DESEJADA: ${options.desiredDuration} minutos (indique quando exceder o limite ideal de 6 minutos)
+- ${preferUserLength ? `DURAÇÃO ESTIMADA: ~${options.desiredDuration} minutos (ajuste se o usuário especificar outro valor nas notas).` : `DURAÇÃO DESEJADA: ${options.desiredDuration} minutos (indique quando exceder o limite ideal de 6 minutos)`}
 - ESTILO: ${options.style ?? 'engaging'}
+- REFERÊNCIAS DE TAMANHO: Inspecione os materiais/notas e obedeça instruções explícitas sobre número de slides ou duração (ex.: "quero 6 slides em 5 minutos"). Quando nada for informado, escolha a combinação que maximize clareza e ritmo cognitivo.
 ${revisionBlock}
 
 REQUISITOS DIDÁTICOS E DE PRODUÇÃO:
-1. Estruture ${slideCountMin} a ${slideCountMax} slides cobrindo os 9 eventos de Gagné (ganhar atenção, informar objetivos, ativar conhecimento prévio, apresentar conteúdo, fornecer orientação, provocar desempenho, oferecer feedback, avaliar e promover retenção/transferência) e conecte cada objetivo ao nível correspondente da Taxonomia de Bloom.
+${preferUserLength ? `1. Determine a quantidade ideal de slides analisando o volume de conteúdo e quaisquer instruções nas notas, garantindo cobertura explícita dos 9 eventos de Gagné (ganhar atenção, informar objetivos, ativar conhecimento prévio, apresentar conteúdo, fornecer orientação, provocar desempenho, oferecer feedback, avaliar e promover retenção/transferência) e mapeando cada objetivo aos níveis da Taxonomia de Bloom.` : `1. Estruture ${slideCountMin} a ${slideCountMax} slides cobrindo os 9 eventos de Gagné (ganhar atenção, informar objetivos, ativar conhecimento prévio, apresentar conteúdo, fornecer orientação, provocar desempenho, oferecer feedback, avaliar e promover retenção/transferência) e conecte cada objetivo ao nível correspondente da Taxonomia de Bloom.`}
 2. Garanta narrativa problema → solução com ganchos PVSS/Open Loop nos primeiros 10 segundos, pattern interrupt até 30 segundos e CTAs em três pontos (hook, meio, final) alinhados ao objetivo pedagógico.
 3. Para cada slide forneça:
    - Layout apropriado (title, content, twoColumn, imageLeft ou imageRight).

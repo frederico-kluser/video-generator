@@ -81,16 +81,23 @@ export function VoiceInputButton({
       : 'h-10 w-10 text-base';
 
   const isBusy = isRecording || isTranscribing;
+  const statusMessage = isRecording
+    ? 'Gravando...'
+    : isTranscribing
+      ? 'Transcrevendo...'
+      : '';
 
   return (
-    <div className={className}>
+    <div
+      className={`flex w-12 shrink-0 flex-col items-center gap-1 text-center text-[11px] text-white/60 ${className}`.trim()}
+    >
       <button
         type="button"
         aria-label={ariaLabel}
         aria-pressed={isRecording}
         onClick={handleClick}
         disabled={disabled}
-        className={`btn-icon relative ${buttonSizeClasses} ${
+        className={`btn-icon relative inline-flex items-center justify-center ${buttonSizeClasses} ${
           isRecording
             ? 'border-danger-500/60 bg-danger-500/10 text-danger-200 animate-pulse'
             : 'border-white/10 bg-dark-800/80 text-white/60 hover:text-white'
@@ -109,11 +116,13 @@ export function VoiceInputButton({
             : 'Iniciar gravação para transcrever'}
         </span>
       </button>
-      {isBusy && (
-        <p className="mt-1 text-[11px] text-white/50" role="status">
-          {isRecording ? 'Gravando...' : 'Transcrevendo...'}
-        </p>
-      )}
+      <span
+        className="min-h-[0.75rem] text-[10px] text-white/60"
+        role={statusMessage ? 'status' : undefined}
+        aria-live="polite"
+      >
+        {statusMessage || ''}
+      </span>
       {(error || recorderError) && !isBusy && (
         <p className="mt-1 text-xs text-danger-300" role="alert">
           {error ?? recorderError}

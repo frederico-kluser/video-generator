@@ -118,16 +118,20 @@ export async function generateScriptFromMaterials(
   const targetAudience = normalizeAudience(audience);
   const blueprint = getPromptBlueprintById(promptId);
   const estimatedDuration = estimateDurationFromMaterials(materials);
-  const blueprintDuration = Math.round(
-    (blueprint.durationMinutes.min + blueprint.durationMinutes.max) / 2,
-  );
-  const blendedDuration = Math.round(
-    (estimatedDuration + blueprintDuration) / 2,
-  );
-  const desiredDuration = Math.min(
-    blueprint.durationMinutes.max,
-    Math.max(blueprint.durationMinutes.min, blendedDuration),
-  );
+  const durationRange = blueprint.durationMinutes ?? null;
+  const blueprintDuration = durationRange
+    ? Math.round((durationRange.min + durationRange.max) / 2)
+    : estimatedDuration;
+  const blendedDuration = durationRange
+    ? Math.round((estimatedDuration + blueprintDuration) / 2)
+    : estimatedDuration;
+  const desiredDuration = durationRange
+    ? Math.min(
+        durationRange.max,
+        Math.max(durationRange.min, blendedDuration),
+      )
+    : blendedDuration;
+  const preferUserLength = !(durationRange && blueprint.slidesRange);
 
   appLogger.info('🧠 Iniciando geração de roteiro pedagógico com OpenAI.', {
     topic,
@@ -142,6 +146,7 @@ export async function generateScriptFromMaterials(
     desiredDuration,
     style: blueprint.defaultStyle,
     revisionInstructions,
+    preferUserLength,
   });
 
   const slides: RawSlide[] = script.slides.map((slide) => {

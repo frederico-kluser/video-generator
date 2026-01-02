@@ -31,8 +31,8 @@ export type PromptBlueprint = {
   summary: string;
   icon: string;
   docFile: string;
-  slidesRange: { min: number; max: number };
-  durationMinutes: { min: number; max: number };
+  slidesRange?: { min: number; max: number } | null;
+  durationMinutes?: { min: number; max: number } | null;
   defaultStyle: ScriptStyle;
   tags: string[];
 };
@@ -74,12 +74,12 @@ export const PROMPT_BLUEPRINTS: PromptBlueprint[] = [
     category: 'educational',
     title: 'Introduzir conceito novo',
     summary:
-      'Slides 8 com storytelling problema → solução e scaffolding explícito.',
+      'Storytelling problema → solução com scaffolding completo; a duração e o nº de slides são definidos pelas notas do usuário.',
     icon: '📘',
     docFile:
       'compass_artifact_wf-f802b3a9-6a9b-42ea-93e6-d0b950aa9f5c_text_markdown.md',
-    slidesRange: { min: 8, max: 8 },
-    durationMinutes: { min: 4, max: 7 },
+    slidesRange: null,
+    durationMinutes: null,
     defaultStyle: 'engaging',
     tags: ['scaffolding', 'diagramas', 'gancho forte'],
   },
@@ -87,12 +87,13 @@ export const PROMPT_BLUEPRINTS: PromptBlueprint[] = [
     id: 'educational-reinforce-knowledge',
     category: 'educational',
     title: 'Reforçar conhecimento',
-    summary: 'Slides 6 focados em quizzes visuais e comparações rápidas.',
+    summary:
+      'Foco em quizzes visuais e comparações rápidas, ajustando quantidade e duração conforme o briefing.',
     icon: '🔁',
     docFile:
       'compass_artifact_wf-71fcea04-a94a-48c9-b907-59c52136d0d2_text_markdown.md',
-    slidesRange: { min: 6, max: 6 },
-    durationMinutes: { min: 3, max: 4 },
+    slidesRange: null,
+    durationMinutes: null,
     defaultStyle: 'engaging',
     tags: ['retrieval', 'spaced practice', 'microlearning'],
   },
@@ -100,12 +101,13 @@ export const PROMPT_BLUEPRINTS: PromptBlueprint[] = [
     id: 'educational-assessment-prep',
     category: 'educational',
     title: 'Preparar avaliação',
-    summary: '10+ slides com checklists, rubricas e redução de ansiedade.',
+    summary:
+      'Checklists, rubricas e redução de ansiedade com duração adaptada ao pedido do usuário.',
     icon: '✅',
     docFile:
       'compass_artifact_wf-9c8d339a-dc43-4f11-ac5d-6cff16db51ef_text_markdown.md',
-    slidesRange: { min: 10, max: 12 },
-    durationMinutes: { min: 7, max: 10 },
+    slidesRange: null,
+    durationMinutes: null,
     defaultStyle: 'formal',
     tags: ['rubricas', 'ansiedade', 'checklists'],
   },

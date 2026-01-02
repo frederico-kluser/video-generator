@@ -284,7 +284,7 @@ export function InputStep({ onStart }: InputStepProps) {
                   id="materials"
                   name="materials"
                   className="input min-h-[140px] flex-1 resize-none"
-                  placeholder="Cole textos, tópicos, transcrições ou qualquer material que sirva de base para o roteiro..."
+                  placeholder="Cole materiais, tópicos ou transcrições. Se quiser, especifique quantos slides ou quanto tempo espera (ex.: 'aprox. 6 slides em 5 min')."
                   value={materials}
                   onChange={(event) => setMaterials(event.target.value)}
                   required
@@ -408,8 +408,16 @@ function PromptBlueprintCard({
   isSelected,
   onSelect,
 }: PromptBlueprintCardProps) {
-  const formatRange = (range: { min: number; max: number }): string =>
-    range.min === range.max ? `${range.min}` : `${range.min}–${range.max}`;
+  const formatRange = (
+    range?: { min: number; max: number } | null,
+  ): string | null => {
+    if (!range) {
+      return null;
+    }
+    return range.min === range.max ? `${range.min}` : `${range.min}–${range.max}`;
+  };
+  const slidesLabel = formatRange(blueprint.slidesRange);
+  const durationLabel = formatRange(blueprint.durationMinutes);
 
   return (
     <button
@@ -436,14 +444,20 @@ function PromptBlueprintCard({
         {blueprint.title}
       </div>
       <p className="mt-1 text-sm text-white/70">{blueprint.summary}</p>
-      <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
-        <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
-          Slides: {formatRange(blueprint.slidesRange)}
-        </span>
-        <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
-          Duração: {formatRange(blueprint.durationMinutes)} min
-        </span>
-      </div>
+      {(slidesLabel || durationLabel) && (
+        <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
+          {slidesLabel && (
+            <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
+              Slides: {slidesLabel}
+            </span>
+          )}
+          {durationLabel && (
+            <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
+              Duração: {durationLabel} min
+            </span>
+          )}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/60">
         {blueprint.tags.map((tag) => (
           <span
