@@ -3,6 +3,7 @@ import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } f
 import {
   AlertTriangle,
   ArrowLeft,
+  AudioWaveform,
   Download,
   Gauge,
   Mic,
@@ -13,7 +14,6 @@ import {
   Square,
   Trash2,
   UploadCloud,
-  Waveform,
 } from 'lucide-react';
 
 import {
@@ -385,7 +385,7 @@ export function AudioEqualizerLab() {
           Apple ou EBU sem sair do browser.
         </p>
         <ul className="grid gap-2 text-sm text-white/70 md:grid-cols-2">
-          <li className="flex items-center gap-2"><Waveform size={14} /> Crossfade equal-power (10–300 ms)</li>
+          <li className="flex items-center gap-2"><AudioWaveform size={14} /> Crossfade equal-power (10–300 ms)</li>
           <li className="flex items-center gap-2"><ShieldCheck size={14} /> Auto gain matching por LUFS</li>
           <li className="flex items-center gap-2"><Gauge size={14} /> Targets -14 / -16 / -23 LUFS</li>
           <li className="flex items-center gap-2"><RefreshCw size={14} /> Normalização final com true peak guard</li>
