@@ -1,14 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   AlertTriangle,
   ArrowLeft,
+  AudioWaveform,
+  Download,
+  Gauge,
   Mic,
+  RefreshCw,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Square,
   Trash2,
-  Waves,
+  UploadCloud,
 } from 'lucide-react';
 
 import {
@@ -18,93 +23,75 @@ import {
   safeStopRecorder,
   useObjectUrl,
 } from '@/features/audio-lab/lib/mediaUtils';
+import { type LoudnessMetrics, useLoudnessWorker } from '@/shared/audio/hooks/useLoudnessWorker';
+import { AudioBufferProcessor, preventClipping, removeDCOffset } from '@/shared/audio/processors/AudioBufferProcessor';
+import {
+  audioBufferToWaveBlob,
+  cloneAudioBuffer,
+  convertToMono,
+  decodeBlobToAudioBuffer,
+  resampleBuffer,
+} from '@/shared/audio/utils/audioBuffer';
+import {
+  applyGain,
+  normalizeToTarget,
+  PLATFORM_TARGETS,
+  type PlatformTargetKey,
+} from '@/shared/audio/utils/loudness';
 import { appLogger } from '@/shared/logging/logger';
 
-const TAKE_COUNT = 3;
+const MAX_SEGMENTS = 4;
 const TARGET_SAMPLE_RATE = 48_000;
-const DEFAULT_EQ_SETTINGS: EqSettings = {
-  low: 3,
-  mid: 0,
-  high: 2,
-};
 
-const AUDIO_CONTEXT_ERROR =
-  'API de áudio não suportada neste navegador. Utilize Chrome, Edge ou Firefox.';
+type Phase = 'idle' | 'preparing' | 'recording' | 'mixing';
 
-const SHOULD_VALIDATE_BUFFERS =
-  typeof import.meta !== 'undefined' && Boolean(import.meta.env?.DEV);
-const OFFLINE_RENDER_TIMEOUT_MS = 30_000;
-const SILENCE_THRESHOLD = 0.0001;
-const MAX_EQ_GAIN_DB = 24;
-const EQ_CHUNK_DURATION_SECONDS = 60;
-
-type TakeState = {
-  index: number;
+type Segment = {
+  id: string;
   label: string;
   blob: Blob | null;
+  source: 'mic' | 'upload';
   status: 'idle' | 'recording' | 'ready';
+  lufs?: number;
+  truePeakDb?: number;
 };
 
-type EqSettings = {
-  low: number;
-  mid: number;
-  high: number;
+type MixDiagnostics = {
+  raw: LoudnessMetrics;
+  normalized: LoudnessMetrics;
+  appliedGainDb: number;
+  crossfadeMs: number;
+  segmentCount: number;
 };
 
-type MixResult = {
-  raw: Blob;
-  equalized: Blob;
-};
-
-const sanitizeEqSettings = (settings: EqSettings): EqSettings => ({
-  low: clampEqGain(settings.low),
-  mid: clampEqGain(settings.mid),
-  high: clampEqGain(settings.high),
-});
-
-const clampEqGain = (value: number): number => {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.max(-MAX_EQ_GAIN_DB, Math.min(MAX_EQ_GAIN_DB, value));
-};
+let segmentCounter = 0;
+function createEmptySegment(): Segment {
+  segmentCounter += 1;
+  return {
+    id: `segment-${segmentCounter}`,
+    label: `Clip ${segmentCounter}`,
+    blob: null,
+    source: 'upload',
+    status: 'idle',
+  };
+}
 
 export function AudioEqualizerLab() {
-  const [takes, setTakes] = useState<TakeState[]>(() =>
-    Array.from({ length: TAKE_COUNT }, (_, index) => ({
-      index,
-      label: `Take ${index + 1}`,
-      blob: null,
-      status: 'idle',
-    })),
+  const { measureBuffer } = useLoudnessWorker();
+  const [segments, setSegments] = useState<Segment[]>(() =>
+    Array.from({ length: 3 }, () => createEmptySegment()),
   );
-  const [recordingIndex, setRecordingIndex] = useState<number | null>(null);
-  const [phase, setPhase] = useState<
-    'idle' | 'preparing' | 'recording' | 'mixing'
-  >('idle');
-  const [mixError, setMixError] = useState<string | null>(null);
+  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [crossfadeMs, setCrossfadeMs] = useState(80);
+  const [autoGainMatching, setAutoGainMatching] = useState(true);
+  const [selectedTarget, setSelectedTarget] = useState<PlatformTargetKey>('spotify');
   const [rawMix, setRawMix] = useState<Blob | null>(null);
-  const [equalizedMix, setEqualizedMix] = useState<Blob | null>(null);
-  const [eqSettings, setEqSettings] = useState<EqSettings>(DEFAULT_EQ_SETTINGS);
-
-  const preferredMimeTypeRef = useRef<string | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const completionRef = useRef<Promise<Blob> | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-
-  useEffect(() => {
-    preferredMimeTypeRef.current = getPreferredMimeType();
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      safeStopRecorder(recorderRef.current);
-      cleanupActiveCapture();
-    };
-  }, []);
+  const [normalizedMix, setNormalizedMix] = useState<Blob | null>(null);
+  const [mixDiagnostics, setMixDiagnostics] = useState<MixDiagnostics | null>(null);
+  const [mixError, setMixError] = useState<string | null>(null);
 
   const rawMixUrl = useObjectUrl(rawMix);
-  const equalizedMixUrl = useObjectUrl(equalizedMix);
+  const normalizedMixUrl = useObjectUrl(normalizedMix);
 
   const supportsRecording = useMemo(
     () =>
@@ -115,170 +102,272 @@ export function AudioEqualizerLab() {
     [],
   );
 
-  const allTakesReady = takes.every((take) => Boolean(take.blob));
-  const isBusy = phase === 'preparing' || phase === 'mixing';
+  const preferredMimeRef = useRef<string | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const completionRef = useRef<Promise<Blob> | null>(null);
 
-  const handleToggleRecording = async (takeIndex: number) => {
-    if (!supportsRecording || isBusy) {
-      return;
-    }
+  useEffect(() => {
+    preferredMimeRef.current = getPreferredMimeType();
+  }, []);
 
-    if (recordingIndex === takeIndex) {
-      await stopActiveRecording();
-      return;
-    }
-
-    await startRecording(takeIndex);
-  };
-
-  const startRecording = async (takeIndex: number) => {
-    if (!supportsRecording) {
-      setMixError('Seu navegador não suporta MediaRecorder.');
-      return;
-    }
-
-    try {
-      setPhase('preparing');
-      setMixError(null);
-      setRawMix(null);
-      setEqualizedMix(null);
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: getVoiceMediaConstraints(),
-      });
-      mediaStreamRef.current = stream;
-
-      const bundle = createRecorderBundle(stream, preferredMimeTypeRef.current);
-      recorderRef.current = bundle.recorder;
-      completionRef.current = bundle.completion;
-
-      setRecordingIndex(takeIndex);
-      setPhase('recording');
-      setTakes((prev) =>
-        prev.map((take) =>
-          take.index === takeIndex
-            ? { ...take, status: 'recording', blob: null }
-            : take,
-        ),
-      );
-
-      appLogger.info('🎛️ Iniciando take no Equalizer Lab.', {
-        take: takeIndex + 1,
-      });
-    } catch (error) {
-      setPhase('idle');
-      setMixError(
-        'Não foi possível acessar o microfone. Verifique permissões.',
-      );
-      appLogger.error('💥 Falha ao iniciar take no Equalizer Lab.', { error });
-      cleanupActiveCapture();
-    }
-  };
-
-  const stopActiveRecording = async () => {
-    if (recordingIndex === null) {
-      return;
-    }
-
-    setPhase('recording');
-
-    const currentIndex = recordingIndex;
-    safeStopRecorder(recorderRef.current);
-
-    const completion = completionRef.current;
-    if (!completion) {
-      setMixError('Não encontramos o buffer da gravação atual.');
-      cleanupActiveCapture();
-      recorderRef.current = null;
-      setRecordingIndex(null);
-      setPhase('idle');
-      return;
-    }
-
-    try {
-      const blob = await completion;
-      setTakes((prev) =>
-        prev.map((take) =>
-          take.index === currentIndex
-            ? { ...take, blob: blob ?? null, status: blob ? 'ready' : 'idle' }
-            : take,
-        ),
-      );
-      if (blob) {
-        appLogger.info('✅ Take gravado no Equalizer Lab.', {
-          take: currentIndex + 1,
-        });
-      }
-    } catch (error) {
-      setMixError('Erro ao finalizar a gravação. Tente novamente.');
-      appLogger.error('💥 Falha ao finalizar take no Equalizer Lab.', {
-        error,
-      });
-    } finally {
-      cleanupActiveCapture();
-      recorderRef.current = null;
-      completionRef.current = null;
-      setRecordingIndex(null);
-      setPhase('idle');
-    }
-  };
-
-  const cleanupActiveCapture = () => {
+  const cleanupActiveCapture = useCallback(() => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
     }
-  };
+  }, []);
 
-  const handleRemoveTake = (takeIndex: number) => {
-    if (recordingIndex === takeIndex) {
+  useEffect(() => {
+    return () => {
+      cleanupActiveCapture();
+      recorderRef.current = null;
+      completionRef.current = null;
+    };
+  }, [cleanupActiveCapture]);
+
+  const readySegments = useMemo(
+    () => segments.filter((segment) => Boolean(segment.blob)),
+    [segments],
+  );
+
+  const updateSegmentMetrics = useCallback(
+    async (segmentId: string, blob: Blob) => {
+      try {
+        const decoded = await decodeBlobToAudioBuffer(blob, {
+          sampleRate: TARGET_SAMPLE_RATE,
+        });
+        const mono = convertToMono(decoded);
+        const resampled = await resampleBuffer(mono, TARGET_SAMPLE_RATE);
+        removeDCOffset(resampled);
+        preventClipping(resampled);
+        const metrics = await measureBuffer(resampled);
+        setSegments((prev) =>
+          prev.map((segment) =>
+            segment.id === segmentId
+              ? {
+                  ...segment,
+                  lufs: metrics.integratedLufs,
+                  truePeakDb: metrics.truePeakDb,
+                }
+              : segment,
+          ),
+        );
+      } catch (error) {
+        appLogger.warn('⚠️ Falha ao analisar clip individual.', {
+          segmentId,
+          error,
+        });
+      }
+    },
+    [measureBuffer],
+  );
+
+  const handleUploadSegment = useCallback(
+    async (segmentId: string, event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      event.target.value = '';
+
+      setSegments((prev) =>
+        prev.map((segment) =>
+          segment.id === segmentId
+            ? { ...segment, blob: file, source: 'upload', status: 'ready' }
+            : segment,
+        ),
+      );
+      await updateSegmentMetrics(segmentId, file);
+    },
+    [updateSegmentMetrics],
+  );
+
+  const handleRemoveSegment = useCallback(
+    (segmentId: string) => {
+      if (activeSegmentId === segmentId || phase === 'recording') {
+        return;
+      }
+      setSegments((prev) => {
+        const next = prev.filter((segment) => segment.id !== segmentId);
+        if (next.length === 0) {
+          return [createEmptySegment()];
+        }
+        return next;
+      });
+    },
+    [activeSegmentId, phase],
+  );
+
+  const handleAddSegment = useCallback(() => {
+    setSegments((prev) => (prev.length >= MAX_SEGMENTS ? prev : [...prev, createEmptySegment()]));
+  }, []);
+
+  const startRecordingSegment = useCallback(
+    async (segmentId: string) => {
+      if (!supportsRecording || phase === 'recording' || phase === 'preparing') {
+        return;
+      }
+      setPhase('preparing');
+      setMixError(null);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: getVoiceMediaConstraints(),
+        });
+        mediaStreamRef.current = stream;
+        const bundle = createRecorderBundle(stream, preferredMimeRef.current);
+        recorderRef.current = bundle.recorder;
+        completionRef.current = bundle.completion;
+        setActiveSegmentId(segmentId);
+        setSegments((prev) =>
+          prev.map((segment) =>
+            segment.id === segmentId
+              ? { ...segment, status: 'recording', blob: null }
+              : segment,
+          ),
+        );
+        setPhase('recording');
+        appLogger.info('🎤 Gravando clip no Equalizer Lab.', { segmentId });
+      } catch (error) {
+        setPhase('idle');
+        setMixError('Não foi possível acessar o microfone para este clip.');
+        appLogger.error('💥 Falha ao gravar clip.', { error, segmentId });
+        cleanupActiveCapture();
+      }
+    },
+    [cleanupActiveCapture, phase, supportsRecording],
+  );
+
+  const stopRecordingSegment = useCallback(async () => {
+    if (!activeSegmentId) {
       return;
     }
 
-    setTakes((prev) =>
-      prev.map((take) =>
-        take.index === takeIndex
-          ? { ...take, blob: null, status: 'idle' }
-          : take,
-      ),
-    );
-  };
+    setPhase('recording');
+    const currentId = activeSegmentId;
+    safeStopRecorder(recorderRef.current);
 
-  const handleMix = async () => {
-    if (!allTakesReady || phase === 'mixing') {
-      return;
+    try {
+      const completion = completionRef.current;
+      const blob = await (completion ?? Promise.resolve<Blob | null>(null));
+      setSegments((prev) =>
+        prev.map((segment) =>
+          segment.id === currentId
+            ? {
+                ...segment,
+                blob: blob ?? null,
+                status: blob ? 'ready' : 'idle',
+                source: 'mic',
+              }
+            : segment,
+        ),
+      );
+      if (blob) {
+        await updateSegmentMetrics(currentId, blob);
+        appLogger.info('✅ Clip gravado com sucesso.', { currentId });
+      }
+    } catch (error) {
+      setMixError('Erro ao finalizar a gravação. Tente novamente.');
+      appLogger.error('💥 Falha ao finalizar clip.', { error });
+    } finally {
+      cleanupActiveCapture();
+      recorderRef.current = null;
+      completionRef.current = null;
+      setActiveSegmentId(null);
+      setPhase('idle');
     }
+  }, [activeSegmentId, cleanupActiveCapture, updateSegmentMetrics]);
 
-    const blobs = takes.map((take) => take.blob).filter(Boolean) as Blob[];
-    if (blobs.length !== TAKE_COUNT) {
-      setMixError('Grave os três takes antes de gerar a mix.');
+  const handleMix = useCallback(async () => {
+    if (readySegments.length < 2) {
+      setMixError('Adicione pelo menos dois clips para gerar a mix.');
       return;
     }
 
     setPhase('mixing');
     setMixError(null);
     setRawMix(null);
-    setEqualizedMix(null);
+    setNormalizedMix(null);
+    setMixDiagnostics(null);
 
     try {
-      const result = await mixRecordings(blobs, eqSettings);
-      setRawMix(result.raw);
-      setEqualizedMix(result.equalized);
-      appLogger.info('🎚️ Mix gerada com sucesso no Equalizer Lab.', {
-        takes: blobs.length,
-        eq: eqSettings,
+      const buffers: AudioBuffer[] = [];
+      for (const segment of readySegments) {
+        const blob = segment.blob as Blob;
+        const decoded = await decodeBlobToAudioBuffer(blob, {
+          sampleRate: TARGET_SAMPLE_RATE,
+        });
+        const mono = convertToMono(decoded);
+        const resampled = await resampleBuffer(mono, TARGET_SAMPLE_RATE);
+        removeDCOffset(resampled);
+        preventClipping(resampled);
+        let working = cloneAudioBuffer(resampled);
+
+        if (autoGainMatching) {
+          const metrics = await measureBuffer(working);
+          const desired = PLATFORM_TARGETS[selectedTarget].lufs;
+          const gainDb = desired - metrics.integratedLufs;
+          const peakRoom = PLATFORM_TARGETS[selectedTarget].truePeak - metrics.truePeakDb;
+          const safeGainDb = Math.min(gainDb, peakRoom);
+          if (Number.isFinite(safeGainDb) && safeGainDb !== 0) {
+            working = applyGain(working, safeGainDb);
+          }
+        }
+
+        buffers.push(working);
+      }
+
+      const processor = new AudioBufferProcessor(TARGET_SAMPLE_RATE);
+      const concatenated = await processor.concatenateWithCrossfade(
+        buffers,
+        Math.max(10, crossfadeMs) / 1000,
+      );
+
+      if (!concatenated) {
+        throw new Error('Não foi possível concatenar os áudios.');
+      }
+
+      const rawMetrics = await measureBuffer(concatenated);
+      const rawBlob = audioBufferToWaveBlob(concatenated, { bitDepth: 24 });
+      setRawMix(rawBlob);
+
+      const normalized = await normalizeToTarget(
+        cloneAudioBuffer(concatenated),
+        PLATFORM_TARGETS[selectedTarget],
+        measureBuffer,
+      );
+      const normalizedBlob = audioBufferToWaveBlob(normalized.buffer, { bitDepth: 24 });
+      setNormalizedMix(normalizedBlob);
+      setMixDiagnostics({
+        raw: rawMetrics,
+        normalized: normalized.metrics,
+        appliedGainDb: normalized.appliedGainDb,
+        crossfadeMs,
+        segmentCount: buffers.length,
+      });
+
+      appLogger.info('🎚️ Mix gerada localmente.', {
+        clips: buffers.length,
+        crossfadeMs,
+        target: selectedTarget,
       });
     } catch (error) {
       setMixError('Não foi possível gerar a mix. Consulte o console.');
-      appLogger.error('💥 Falha ao mixar takes no Equalizer Lab.', { error });
+      appLogger.error('💥 Falha ao mixar clips.', { error });
     } finally {
       setPhase('idle');
     }
-  };
+  }, [autoGainMatching, crossfadeMs, measureBuffer, readySegments, selectedTarget]);
 
-  const handleEqChange = (band: keyof EqSettings, value: number) => {
-    setEqSettings((prev) => ({ ...prev, [band]: value }));
-  };
+  const handleDownload = useCallback(() => {
+    if (!normalizedMix) {
+      return;
+    }
+    downloadBlob(normalizedMix, `mix-${selectedTarget}.wav`);
+  }, [normalizedMix, selectedTarget]);
+
+  const isBusy = phase === 'mixing' || phase === 'recording' || phase === 'preparing';
+  const canMix = readySegments.length >= 2 && !isBusy;
 
   return (
     <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-16">
@@ -289,16 +378,18 @@ export function AudioEqualizerLab() {
             Audio Equalizer Lab
           </span>
         </div>
-        <h1 className="text-3xl font-bold text-white">
-          Empilhe 3 takes e teste o EQ
-        </h1>
+        <h1 className="text-3xl font-bold text-white">Concatene, faça crossfade e normalize</h1>
         <p className="text-base text-white/70">
-          Grave três takes rápidos e gere duas mixagens: a soma bruta e a soma
-          equalizada com filtros shelves/peaking baseados em BiquadFilterNode
-          (referência MDN). Ajuste o ganho de cada faixa e valide se o
-          equilíbrio tonal está confortável antes de voltar para o fluxo
-          principal.
+          Combine até quatro clips, aplique crossfade equal-power calculado no OfflineAudioContext,
+          alinhe LUFS de cada segmento com um Worker (ebur128-wasm) e normalize o master para Spotify,
+          Apple ou EBU sem sair do browser.
         </p>
+        <ul className="grid gap-2 text-sm text-white/70 md:grid-cols-2">
+          <li className="flex items-center gap-2"><AudioWaveform size={14} /> Crossfade equal-power (10–300 ms)</li>
+          <li className="flex items-center gap-2"><ShieldCheck size={14} /> Auto gain matching por LUFS</li>
+          <li className="flex items-center gap-2"><Gauge size={14} /> Targets -14 / -16 / -23 LUFS</li>
+          <li className="flex items-center gap-2"><RefreshCw size={14} /> Normalização final com true peak guard</li>
+        </ul>
         <a
           href="/"
           className="inline-flex items-center gap-2 text-sm text-primary-300 transition hover:text-primary-200"
@@ -311,110 +402,189 @@ export function AudioEqualizerLab() {
         <div className="glass-card flex flex-col gap-4 rounded-3xl border border-white/5 bg-dark-900/80 p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-white/40">
-                Equalizador
-              </p>
-              <h2 className="text-2xl font-semibold text-white">
-                Ganho por banda
-              </h2>
+              <p className="text-sm uppercase tracking-[0.3em] text-white/40">Controles da mix</p>
+              <h2 className="text-2xl font-semibold text-white">Configuração</h2>
             </div>
-            <Sparkles size={20} className="text-primary-300" />
+            <Sparkles className="text-primary-300" size={20} />
           </div>
-          <EqSlider
-            label="Baixas (120 Hz)"
-            value={eqSettings.low}
-            onChange={(value) => handleEqChange('low', value)}
-          />
-          <EqSlider
-            label="Médias (1 kHz)"
-            value={eqSettings.mid}
-            onChange={(value) => handleEqChange('mid', value)}
-          />
-          <EqSlider
-            label="Altas (6 kHz)"
-            value={eqSettings.high}
-            onChange={(value) => handleEqChange('high', value)}
-          />
-          <p className="text-xs text-white/50">
-            Cada slider aplica filtros `lowshelf`, `peaking` e `highshelf` via
-            Web Audio API. Valores em dB variam entre -12 e +12, conforme
-            recomenda a documentação do BiquadFilterNode.
-          </p>
+
+          <label className="text-sm text-white/70">
+            Crossfade ({crossfadeMs} ms)
+            <input
+              type="range"
+              min={10}
+              max={300}
+              step={5}
+              value={crossfadeMs}
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                setCrossfadeMs(Number(event.currentTarget.value))
+              }
+              className="mt-2 w-full accent-primary-400"
+            />
+          </label>
+
+          <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm">
+            <div>
+              <p className="font-semibold text-white">Auto gain matching</p>
+              <p className="text-white/60">Ajusta cada clip para o target antes do crossfade.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAutoGainMatching((prev) => !prev)}
+              className={`relative h-8 w-14 rounded-full transition ${
+                autoGainMatching ? 'bg-primary-500' : 'bg-white/20'
+              }`}
+            >
+              <span
+                className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
+                  autoGainMatching ? 'right-1' : 'left-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Object.entries(PLATFORM_TARGETS).map(([key, target]) => (
+              <TargetChip
+                key={key}
+                label={target.label}
+                description={target.description}
+                active={selectedTarget === key}
+                onClick={() => setSelectedTarget(key as PlatformTargetKey)}
+              />
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              void handleMix();
+            }}
+            disabled={!canMix}
+            className={`btn-primary w-full ${!canMix ? 'cursor-not-allowed opacity-50' : ''}`}
+          >
+            Gerar mix com crossfade
+          </button>
         </div>
 
         <div className="glass-card flex flex-col gap-4 rounded-3xl border border-white/5 bg-dark-900/80 p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-white/40">
-                Status
-              </p>
+              <p className="text-sm uppercase tracking-[0.3em] text-white/40">Status</p>
               <h2 className="text-2xl font-semibold text-white">
                 {phase === 'mixing'
-                  ? 'Gerando mix…'
-                  : recordingIndex !== null
-                    ? `Gravando ${takes[recordingIndex]?.label}`
-                    : 'Aguardando ações'}
+                  ? 'Mixando...'
+                  : phase === 'recording'
+                    ? 'Gravando clip'
+                    : 'Tudo pronto'}
               </h2>
             </div>
-            <Waves size={20} className="text-primary-300" />
+            <ShieldCheck className="text-primary-300" size={20} />
           </div>
-          <div className="flex flex-wrap gap-3 text-sm text-white/60">
-            <StatusChip
-              label="MediaRecorder"
-              value={supportsRecording ? 'Disponível' : 'Indisponível'}
-            />
-            <StatusChip
-              label="Takes"
-              value={`${takes.filter((take) => take.blob).length}/${TAKE_COUNT}`}
-            />
-            <StatusChip
-              label="Pipeline"
-              value={phase === 'mixing' ? 'Mixando' : 'Pronto'}
-            />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <MetricChip label="Clips prontos" value={`${readySegments.length}/${segments.length}`} />
+            <MetricChip label="Crossfade" value={`${crossfadeMs} ms`} />
+            <MetricChip label="Target" value={PLATFORM_TARGETS[selectedTarget].label} />
           </div>
-          <button
-            type="button"
-            onClick={handleMix}
-            disabled={!allTakesReady || isBusy}
-            className={`btn-primary mt-auto w-full ${
-              (!allTakesReady || isBusy) && 'cursor-not-allowed opacity-60'
-            }`}
-          >
-            Gerar mix com equalização
-          </button>
+          <p className="text-xs text-white/60">
+            A mix roda 100% localmente usando OfflineAudioContext + Worker, então você pode iterar quantas vezes quiser sem subir arquivos.
+          </p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {takes.map((take) => (
-          <TakeCard
-            key={take.index}
-            take={take}
-            isRecording={recordingIndex === take.index}
-            onToggleRecording={() => handleToggleRecording(take.index)}
-            onRemove={() => handleRemoveTake(take.index)}
-            disabled={!supportsRecording || isBusy}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl font-semibold text-white">Clips individuais</h2>
+        <button
+          type="button"
+          onClick={handleAddSegment}
+          disabled={segments.length >= MAX_SEGMENTS}
+          className={`rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white transition ${
+            segments.length >= MAX_SEGMENTS ? 'cursor-not-allowed opacity-40' : 'hover:border-primary-400'
+          }`}
+        >
+          + Adicionar clip
+        </button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {segments.map((segment) => (
+          <SegmentCard
+            key={segment.id}
+            segment={segment}
+            ready={Boolean(segment.blob)}
+            supportsRecording={supportsRecording}
+            isActive={activeSegmentId === segment.id}
+            isBusy={isBusy}
+            onRecord={() => {
+              void startRecordingSegment(segment.id);
+            }}
+            onStop={() => {
+              void stopRecordingSegment();
+            }}
+            onUpload={(event) => {
+              void handleUploadSegment(segment.id, event);
+            }}
+            onRemove={() => handleRemoveSegment(segment.id)}
           />
         ))}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <MixPanel
-          title="Mix bruta"
-          subtitle="3 takes concatenados"
-          badge="Sem EQ"
-          color="from-accent-500/40 to-accent-700/30"
+          title="Concatenação bruta"
+          subtitle="Crossfade equal-power"
+          badge="Pré-normalização"
+          color="from-accent-500/30 to-accent-700/30"
           audioUrl={rawMixUrl}
-          emptyText="Grave e gere a mix para ouvir o resultado bruto."
+          emptyText="Monte a cadeia e clique em Gerar mix para ouvir aqui."
         />
         <MixPanel
-          title="Mix equalizada"
-          subtitle="Filtros shelves + peaking"
-          badge="Com EQ"
-          color="from-primary-500/40 to-primary-700/30"
-          audioUrl={equalizedMixUrl}
-          emptyText="Use o botão Gerar mix para aplicar a equalização."
+          title="Master normalizado"
+          subtitle={PLATFORM_TARGETS[selectedTarget].label}
+          badge="Master"
+          color="from-primary-500/30 to-primary-700/30"
+          audioUrl={normalizedMixUrl}
+          emptyText="Após gerar a mix, o master target aparece neste painel."
         />
+      </div>
+
+      <div className="glass-card flex flex-col gap-4 rounded-3xl border border-white/5 bg-dark-900/80 p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.3em] text-white/40">Diagnósticos</p>
+            <h2 className="text-2xl font-semibold text-white">LUFS e true peak</h2>
+          </div>
+          <Gauge className="text-primary-300" size={20} />
+        </div>
+        {mixDiagnostics ? (
+          <div className="grid gap-3 md:grid-cols-3">
+            <DiagCard label="Raw" value={formatLufs(mixDiagnostics.raw.integratedLufs)} helper="Integrated" />
+            <DiagCard label="Master" value={formatLufs(mixDiagnostics.normalized.integratedLufs)} helper="Integrated" />
+            <DiagCard label="True Peak" value={formatDb(mixDiagnostics.normalized.truePeakDb, ' dBTP')} helper="Protegido" />
+            <DiagCard label="Clips" value={`${mixDiagnostics.segmentCount}`} helper="Participantes" />
+            <DiagCard label="Crossfade" value={`${mixDiagnostics.crossfadeMs} ms`} helper="Equal-power" />
+            <DiagCard label="Gain" value={formatDb(mixDiagnostics.appliedGainDb)} helper="Master" />
+          </div>
+        ) : (
+          <p className="text-sm text-white/60">Sem diagnósticos ainda. Gere uma mix para ver os números.</p>
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={!normalizedMix || isBusy}
+            className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+              !normalizedMix || isBusy
+                ? 'cursor-not-allowed opacity-50'
+                : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white'
+            }`}
+          >
+            <Download size={16} /> Baixar master WAV
+          </button>
+          <span className="text-xs text-white/50">
+            Exportamos em 24-bit PCM com dithering e proteção -1 dBTP.
+          </span>
+        </div>
       </div>
 
       {mixError && (
@@ -427,121 +597,122 @@ export function AudioEqualizerLab() {
   );
 }
 
-type EqSliderProps = {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-};
-
-function EqSlider({ label, value, onChange }: EqSliderProps) {
-  return (
-    <div>
-      <div className="flex items-center justify-between text-sm text-white/70">
-        <span>{label}</span>
-        <span>{value.toFixed(1)} dB</span>
-      </div>
-      <input
-        type="range"
-        min={-12}
-        max={12}
-        step={0.5}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="mt-2 w-full accent-primary-400"
-      />
-    </div>
-  );
-}
-
-type StatusChipProps = {
-  label: string;
-  value: string;
-};
-
-function StatusChip({ label, value }: StatusChipProps) {
-  return (
-    <div className="rounded-full border border-white/10 px-3 py-1 text-xs">
-      <span className="text-white/40">{label}: </span>
-      <span className="text-white">{value}</span>
-    </div>
-  );
-}
-
-type TakeCardProps = {
-  take: TakeState;
-  isRecording: boolean;
-  onToggleRecording: () => void;
+type SegmentCardProps = {
+  segment: Segment;
+  ready: boolean;
+  supportsRecording: boolean;
+  isActive: boolean;
+  isBusy: boolean;
+  onRecord: () => void;
+  onStop: () => void;
+  onUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   onRemove: () => void;
-  disabled: boolean;
 };
 
-function TakeCard({
-  take,
-  isRecording,
-  onToggleRecording,
+function SegmentCard({
+  segment,
+  ready,
+  supportsRecording,
+  isActive,
+  isBusy,
+  onRecord,
+  onStop,
+  onUpload,
   onRemove,
-  disabled,
-}: TakeCardProps) {
-  const audioUrl = useObjectUrl(take.blob);
+}: SegmentCardProps) {
+  const previewUrl = useObjectUrl(segment.blob);
+  const recording = segment.status === 'recording' && isActive;
 
   return (
     <div className="glass-card flex flex-col gap-3 rounded-3xl border border-white/5 bg-dark-900/80 p-5 text-white">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.3em] text-white/40">
-            Take
-          </p>
-          <h3 className="text-xl font-semibold text-white">{take.label}</h3>
+          <p className="text-sm uppercase tracking-[0.3em] text-white/40">Clip</p>
+          <h3 className="text-xl font-semibold text-white">{segment.label}</h3>
         </div>
-        <StatusChip
-          label="Status"
-          value={take.status === 'ready' ? 'OK' : take.status}
-        />
-      </div>
-
-      {audioUrl ? (
-        <audio controls className="w-full">
-          <source src={audioUrl} />
-        </audio>
-      ) : (
-        <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-4 text-center text-sm text-white/60">
-          <p>Ainda sem gravação.</p>
-        </div>
-      )}
-
-      <div className="mt-auto flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onToggleRecording}
-          disabled={disabled}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
-            disabled
-              ? 'cursor-not-allowed opacity-40'
-              : isRecording
-                ? 'bg-gradient-to-r from-danger-500 to-danger-600 text-white'
-                : 'bg-gradient-to-r from-primary-500 to-primary-600 text-white'
-          }`}
-        >
-          {isRecording ? (
-            <>
-              <Square size={16} /> Parar
-            </>
-          ) : (
-            <>
-              <Mic size={16} /> Gravar
-            </>
-          )}
-        </button>
         <button
           type="button"
           onClick={onRemove}
-          disabled={isRecording || disabled}
-          className="btn-icon h-11 w-11 border-white/10 text-white/60 hover:text-danger-400"
+          disabled={recording || isBusy}
+          className="btn-icon h-10 w-10 border-white/10 text-white/70"
         >
           <Trash2 size={16} />
         </button>
       </div>
+
+      {previewUrl ? (
+        <audio controls className="w-full">
+          <source src={previewUrl} />
+        </audio>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-4 text-center text-sm text-white/60">
+          <p>Aguardando áudio.</p>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 text-xs text-white/60">
+        <span className="rounded-full border border-white/10 px-3 py-1">
+          {ready ? 'Pronto' : segment.status === 'recording' ? 'Gravando' : 'Vazio'}
+        </span>
+        {segment.lufs !== undefined && (
+          <span className="rounded-full border border-white/10 px-3 py-1">{formatLufs(segment.lufs)}</span>
+        )}
+        {segment.truePeakDb !== undefined && (
+          <span className="rounded-full border border-white/10 px-3 py-1">{formatDb(segment.truePeakDb, ' dBTP')}</span>
+        )}
+      </div>
+
+      <div className="mt-auto flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={recording ? onStop : onRecord}
+          disabled={!supportsRecording || isBusy}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+            !supportsRecording || isBusy
+              ? 'cursor-not-allowed opacity-40'
+              : recording
+                ? 'bg-gradient-to-r from-danger-500 to-danger-600'
+                : 'bg-gradient-to-r from-primary-500 to-primary-600'
+          }`}
+        >
+          {recording ? <Square size={16} /> : <Mic size={16} />}
+          {recording ? 'Parar' : 'Gravar'}
+        </button>
+        <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-white/80 transition hover:border-white/30">
+          <UploadCloud size={16} /> Upload
+          <input
+            type="file"
+            accept="audio/*"
+            className="sr-only"
+            onChange={onUpload}
+          />
+        </label>
+      </div>
     </div>
+  );
+}
+
+type TargetChipProps = {
+  label: string;
+  description: string;
+  active: boolean;
+  onClick: () => void;
+};
+
+function TargetChip({ label, description, active, onClick }: TargetChipProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col rounded-2xl border px-4 py-3 text-left transition ${
+        active
+          ? 'border-primary-400/60 bg-primary-500/10 text-white'
+          : 'border-white/10 bg-white/5 text-white/70 hover:border-white/30'
+      }`}
+    >
+      <h3 className="text-lg font-semibold text-white">{label}</h3>
+      <p className="text-sm text-white/60">{description}</p>
+    </button>
   );
 }
 
@@ -554,14 +725,7 @@ type MixPanelProps = {
   emptyText: string;
 };
 
-function MixPanel({
-  title,
-  subtitle,
-  badge,
-  color,
-  audioUrl,
-  emptyText,
-}: MixPanelProps) {
+function MixPanel({ title, subtitle, badge, color, audioUrl, emptyText }: MixPanelProps) {
   return (
     <div className="glass-card flex flex-col gap-4 rounded-3xl border border-white/5 bg-dark-900/80 p-6 text-white">
       <div className="flex items-center justify-between">
@@ -588,534 +752,56 @@ function MixPanel({
   );
 }
 
-function ensureBlobHasAudio(blob: Blob | null, index: number) {
-  if (!blob || blob.size === 0) {
-    throw new Error(`Take ${index + 1} está vazio ou corrompido.`);
-  }
-}
-
-async function decodeBlobToBuffer(
-  blob: Blob,
-  context: AudioContext,
-  stageName: string,
-): Promise<AudioBuffer> {
-  const arrayBuffer = await blob.arrayBuffer();
-  const buffer = await context.decodeAudioData(arrayBuffer.slice(0));
-  debugValidateBuffer(buffer, stageName);
-  ensureBufferHasSignal(buffer, stageName);
-  return buffer;
-}
-
-function debugValidateBuffer(buffer: AudioBuffer, stageName: string): boolean {
-  if (!buffer || buffer.length === 0) {
-    appLogger.warn('⚠️ Buffer vazio detectado.', { stage: stageName });
-    return false;
-  }
-
-  if (!SHOULD_VALIDATE_BUFFERS) {
-    return true;
-  }
-
-  console.group(`[AudioEqualizerLab] ${stageName}`);
-  console.log('Channels:', buffer.numberOfChannels);
-  console.log('Length:', buffer.length, 'frames');
-  console.log('Duration:', buffer.duration.toFixed(3), 's');
-  console.log('Sample Rate:', buffer.sampleRate);
-
-  let isSilent = true;
-
-  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-    const data = buffer.getChannelData(channel);
-    let peak = 0;
-    let sumSquares = 0;
-    let hasNaN = false;
-
-    for (let index = 0; index < data.length; index += 1) {
-      const rawValue = data[index];
-      const value = typeof rawValue === 'number' ? rawValue : 0;
-      if (Number.isNaN(value)) {
-        hasNaN = true;
-        break;
-      }
-      const abs = Math.abs(value);
-      if (abs > peak) {
-        peak = abs;
-      }
-      sumSquares += value * value;
-    }
-
-    const rms = Math.sqrt(sumSquares / Math.max(1, data.length));
-    if (peak > SILENCE_THRESHOLD) {
-      isSilent = false;
-    }
-
-    console.log(
-      `Ch${channel}: peak=${peak.toFixed(4)}, RMS=${rms.toFixed(4)}, NaN=${hasNaN}`,
-    );
-  }
-
-  if (isSilent) {
-    console.error('⚠️ BUFFER IS SILENT');
-    appLogger.warn('⚠️ Buffer silencioso detectado no pipeline.', {
-      stage: stageName,
-    });
-  }
-
-  console.groupEnd();
-  return !isSilent;
-}
-
-function ensureBufferHasSignal(
-  buffer: AudioBuffer | null,
-  stageName: string,
-): asserts buffer is AudioBuffer {
-  if (!buffer || buffer.length === 0) {
-    const error = new Error(
-      `${stageName} retornou um buffer vazio ou inexistente.`,
-    );
-    appLogger.error('💥 Buffer inválido detectado.', {
-      stage: stageName,
-      error,
-    });
-    throw error;
-  }
-
-  let hasSignal = false;
-
-  outer: for (
-    let channel = 0;
-    channel < buffer.numberOfChannels;
-    channel += 1
-  ) {
-    const data = buffer.getChannelData(channel);
-    for (let index = 0; index < data.length; index += 1) {
-      const value = data[index];
-      if (!Number.isFinite(value)) {
-        const error = new Error(
-          `${stageName} contém valores inválidos no canal ${channel}.`,
-        );
-        appLogger.error('💥 Buffer contém NaN/Infinity.', {
-          stage: stageName,
-          channel,
-          sampleIndex: index,
-        });
-        throw error;
-      }
-
-      if (Math.abs(value) > SILENCE_THRESHOLD) {
-        hasSignal = true;
-        break outer;
-      }
-    }
-  }
-
-  if (!hasSignal) {
-    const error = new Error(
-      `${stageName} resultou em silêncio detectável (peak <= ${SILENCE_THRESHOLD}).`,
-    );
-    appLogger.warn('🔇 Buffer silencioso bloqueado.', {
-      stage: stageName,
-      threshold: SILENCE_THRESHOLD,
-    });
-    throw error;
-  }
-}
-
-async function renderOfflineWithTimeout(
-  offlineCtx: OfflineAudioContext,
-  stageName: string,
-  timeoutMs = OFFLINE_RENDER_TIMEOUT_MS,
-): Promise<AudioBuffer> {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(`${stageName} excedeu ${timeoutMs}ms`));
-    }, timeoutMs);
-  });
-
-  try {
-    const renderPromise = offlineCtx.startRendering();
-    const buffer = await Promise.race([renderPromise, timeoutPromise]);
-    return buffer;
-  } catch (error) {
-    appLogger.error('💥 Renderização offline falhou.', {
-      stage: stageName,
-      error,
-    });
-    throw error;
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-}
-
-function verifyGraphBeforeRender(
-  source: AudioBufferSourceNode,
-  filters: AudioNode[],
-  destination: AudioNode,
-) {
-  if (!source.buffer || source.buffer.length === 0) {
-    throw new Error('Source buffer ausente antes da renderização offline.');
-  }
-
-  if (!destination) {
-    throw new Error('Destino não conectado ao OfflineAudioContext.');
-  }
-
-  if (destination.context !== source.context) {
-    throw new Error('Source e destino pertencem a contextos diferentes.');
-  }
-
-  if (SHOULD_VALIDATE_BUFFERS) {
-    filters.forEach((filter, index) => {
-      if (filter instanceof BiquadFilterNode) {
-        console.log(`[AudioEqualizerLab] Filter ${index + 1}`, {
-          type: filter.type,
-          freq: filter.frequency.value,
-          Q: filter.Q.value,
-          gain: filter.gain.value,
-        });
-      }
-    });
-  }
-
-  filters.forEach((filter) => {
-    if (filter instanceof BiquadFilterNode) {
-      const nyquist = filter.context.sampleRate / 2;
-      const freq = filter.frequency.value;
-      if (freq <= 0 || freq >= nyquist) {
-        throw new Error(
-          `Filtro com frequência fora do intervalo seguro: ${freq}Hz.`,
-        );
-      }
-      if (filter.type === 'peaking' && filter.Q.value <= 0) {
-        filter.Q.value = 0.0001;
-      }
-    }
-  });
-}
-
-async function mixRecordings(
-  blobs: Blob[],
-  eqSettings: EqSettings,
-): Promise<MixResult> {
-  const AudioContextCtor = getAudioContextCtor();
-
-  if (!AudioContextCtor) {
-    throw new Error(AUDIO_CONTEXT_ERROR);
-  }
-
-  const decodeContext = new AudioContextCtor({
-    sampleRate: TARGET_SAMPLE_RATE,
-  });
-  try {
-    const normalizedEqSettings = sanitizeEqSettings(eqSettings);
-    const processedBuffers: AudioBuffer[] = [];
-    for (const [index, blob] of blobs.entries()) {
-      ensureBlobHasAudio(blob, index);
-      const decoded = await decodeBlobToBuffer(
-        blob,
-        decodeContext,
-        `Take ${index + 1} · decode`,
-      );
-      const mono = convertToMono(decoded);
-      debugValidateBuffer(mono, `Take ${index + 1} · mono`);
-      ensureBufferHasSignal(mono, `Take ${index + 1} · mono`);
-      const resampled = await resampleBuffer(
-        mono,
-        TARGET_SAMPLE_RATE,
-        `Take ${index + 1}`,
-      );
-      debugValidateBuffer(resampled, `Take ${index + 1} · resampled`);
-      ensureBufferHasSignal(resampled, `Take ${index + 1} · resampled`);
-      processedBuffers.push(resampled);
-    }
-
-    const combined = concatenateBuffers(processedBuffers, TARGET_SAMPLE_RATE);
-    debugValidateBuffer(combined, 'After concatenate');
-
-    ensureBufferHasSignal(combined, 'After concatenate');
-
-    const equalized = await applyEqualizer(combined, normalizedEqSettings);
-    debugValidateBuffer(equalized, 'After applyEqualizer');
-    ensureBufferHasSignal(equalized, 'After applyEqualizer');
-
-    return {
-      raw: audioBufferToWaveBlob(combined),
-      equalized: audioBufferToWaveBlob(equalized),
-    };
-  } finally {
-    await decodeContext.close().catch(() => undefined);
-  }
-}
-
-function convertToMono(buffer: AudioBuffer): AudioBuffer {
-  if (buffer.numberOfChannels === 1) {
-    return buffer;
-  }
-
-  const monoBuffer = new AudioBuffer({
-    length: buffer.length,
-    numberOfChannels: 1,
-    sampleRate: buffer.sampleRate,
-  });
-
-  const output = monoBuffer.getChannelData(0);
-  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-    const input = buffer.getChannelData(channel);
-    for (let i = 0; i < input.length; i += 1) {
-      const rawSample = input[i];
-      const sample = typeof rawSample === 'number' ? rawSample : 0;
-      const current = output[i] ?? 0;
-      output[i] = current + sample / Math.max(1, buffer.numberOfChannels);
-    }
-  }
-
-  return monoBuffer;
-}
-
-async function resampleBuffer(
-  buffer: AudioBuffer,
-  targetSampleRate: number,
-  stageLabel = 'Resample',
-): Promise<AudioBuffer> {
-  if (buffer.sampleRate === targetSampleRate) {
-    return buffer;
-  }
-
-  const OfflineAudioContextCtor = getOfflineAudioContextCtor();
-
-  if (!OfflineAudioContextCtor) {
-    appLogger.warn(
-      'ℹ️ OfflineAudioContext indisponível; mantendo sample rate original.',
-    );
-    debugValidateBuffer(buffer, `${stageLabel} · resample fallback`);
-    return buffer;
-  }
-
-  const frameCount = Math.ceil(buffer.duration * targetSampleRate);
-  const offline = new OfflineAudioContextCtor(1, frameCount, targetSampleRate);
-  const source = offline.createBufferSource();
-  source.buffer = buffer;
-  source.connect(offline.destination);
-  verifyGraphBeforeRender(source, [], offline.destination);
-  source.start(0);
-
-  const rendered = await renderOfflineWithTimeout(
-    offline,
-    `${stageLabel} · resample`,
-  );
-  debugValidateBuffer(rendered, `${stageLabel} · resampled`);
-  return rendered;
-}
-
-function concatenateBuffers(
-  buffers: AudioBuffer[],
-  sampleRate: number,
-): AudioBuffer {
-  if (buffers.length === 0) {
-    return new AudioBuffer({
-      length: 0,
-      numberOfChannels: 1,
-      sampleRate,
-    });
-  }
-
-  const totalLength = buffers.reduce((sum, buffer) => sum + buffer.length, 0);
-  const numberOfChannels = buffers[0].numberOfChannels;
-  const output = new AudioBuffer({
-    length: totalLength,
-    numberOfChannels,
-    sampleRate,
-  });
-
-  let offset = 0;
-  for (const buffer of buffers) {
-    if (buffer.sampleRate !== sampleRate) {
-      throw new Error(
-        'Buffers com sample rates diferentes não podem ser concatenados.',
-      );
-    }
-
-    if (buffer.numberOfChannels !== numberOfChannels) {
-      throw new Error(
-        'Buffers com número de canais diferentes não podem ser concatenados.',
-      );
-    }
-
-    for (let channel = 0; channel < numberOfChannels; channel += 1) {
-      const target = output.getChannelData(channel);
-      target.set(buffer.getChannelData(channel), offset);
-    }
-    offset += buffer.length;
-  }
-  return output;
-}
-
-async function applyEqualizer(
-  buffer: AudioBuffer,
-  settings: EqSettings,
-): Promise<AudioBuffer> {
-  const OfflineAudioContextCtor = getOfflineAudioContextCtor();
-
-  if (!OfflineAudioContextCtor) {
-    appLogger.warn(
-      '🎚️ OfflineAudioContext indisponível; retornando mix sem EQ.',
-    );
-    return buffer;
-  }
-
-  const normalizedSettings = sanitizeEqSettings(settings);
-
-  const renderChunk = async (
-    chunkBuffer: AudioBuffer,
-    label: string,
-  ): Promise<AudioBuffer> => {
-    const offline = new OfflineAudioContextCtor(
-      chunkBuffer.numberOfChannels,
-      chunkBuffer.length,
-      chunkBuffer.sampleRate,
-    );
-    const source = offline.createBufferSource();
-    source.buffer = chunkBuffer;
-
-    const low = offline.createBiquadFilter();
-    low.type = 'lowshelf';
-    low.frequency.value = 120;
-    low.gain.value = normalizedSettings.low;
-
-    const mid = offline.createBiquadFilter();
-    mid.type = 'peaking';
-    mid.frequency.value = 1_000;
-    mid.Q.value = 1;
-    mid.gain.value = normalizedSettings.mid;
-
-    const high = offline.createBiquadFilter();
-    high.type = 'highshelf';
-    high.frequency.value = 6_000;
-    high.gain.value = normalizedSettings.high;
-
-    source.connect(low).connect(mid).connect(high).connect(offline.destination);
-    verifyGraphBeforeRender(source, [low, mid, high], offline.destination);
-    source.start(0);
-
-    const rendered = await renderOfflineWithTimeout(offline, label);
-    debugValidateBuffer(rendered, `${label} · output`);
-    ensureBufferHasSignal(rendered, `${label} · output`);
-    return rendered;
-  };
-
-  if (buffer.duration <= EQ_CHUNK_DURATION_SECONDS) {
-    return renderChunk(buffer, 'Equalizer render');
-  }
-
-  const chunkLength = Math.ceil(EQ_CHUNK_DURATION_SECONDS * buffer.sampleRate);
-  const chunks: AudioBuffer[] = [];
-  let offset = 0;
-  let chunkIndex = 0;
-
-  while (offset < buffer.length) {
-    const length = Math.min(chunkLength, buffer.length - offset);
-    const chunkBuffer = new AudioBuffer({
-      length,
-      numberOfChannels: buffer.numberOfChannels,
-      sampleRate: buffer.sampleRate,
-    });
-
-    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-      const sourceData = buffer
-        .getChannelData(channel)
-        .subarray(offset, offset + length);
-      chunkBuffer.copyToChannel(sourceData, channel);
-    }
-
-    chunkIndex += 1;
-    const processedChunk = await renderChunk(
-      chunkBuffer,
-      `Equalizer chunk #${chunkIndex}`,
-    );
-    chunks.push(processedChunk);
-    offset += length;
-  }
-
-  const stitched = concatenateBuffers(chunks, buffer.sampleRate);
-  debugValidateBuffer(stitched, 'After applyEqualizer (chunked)');
-  ensureBufferHasSignal(stitched, 'After applyEqualizer (chunked)');
-  return stitched;
-}
-
-function audioBufferToWaveBlob(buffer: AudioBuffer): Blob {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-  const format = 1; // PCM
-  const bitDepth = 16;
-  const bytesPerSample = bitDepth / 8;
-  const blockAlign = numChannels * bytesPerSample;
-  const dataLength = buffer.length * blockAlign;
-  const bufferLength = 44 + dataLength;
-  const arrayBuffer = new ArrayBuffer(bufferLength);
-  const view = new DataView(arrayBuffer);
-
-  writeString(view, 0, 'RIFF');
-  view.setUint32(4, 36 + dataLength, true);
-  writeString(view, 8, 'WAVE');
-  writeString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, format, true);
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * blockAlign, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bitDepth, true);
-  writeString(view, 36, 'data');
-  view.setUint32(40, dataLength, true);
-
-  let offset = 44;
-  for (let sampleIndex = 0; sampleIndex < buffer.length; sampleIndex += 1) {
-    for (let channel = 0; channel < numChannels; channel += 1) {
-      const channelData = buffer.getChannelData(channel);
-      const rawSample = channelData[sampleIndex];
-      const sample = typeof rawSample === 'number' ? rawSample : 0;
-      const clamped = Math.max(-1, Math.min(1, sample));
-      view.setInt16(
-        offset,
-        clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff,
-        true,
-      );
-      offset += 2;
-    }
-  }
-
-  return new Blob([arrayBuffer], { type: 'audio/wav' });
-}
-
-function writeString(view: DataView, offset: number, text: string) {
-  for (let i = 0; i < text.length; i += 1) {
-    view.setUint8(offset + i, text.charCodeAt(i));
-  }
-}
-
-type WebkitAudioWindow = Window & {
-  webkitAudioContext?: typeof AudioContext;
-  webkitOfflineAudioContext?: typeof OfflineAudioContext;
+type MetricChipProps = {
+  label: string;
+  value: string;
 };
 
-function getAudioContextCtor(): typeof AudioContext | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  const candidate =
-    window.AudioContext || (window as WebkitAudioWindow).webkitAudioContext;
-  return candidate ?? null;
+function MetricChip({ label, value }: MetricChipProps) {
+  return (
+    <div className="rounded-2xl border border-white/5 bg-white/5 p-4 text-white">
+      <p className="text-xs uppercase tracking-[0.3em] text-white/40">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-white">{value}</p>
+    </div>
+  );
 }
 
-function getOfflineAudioContextCtor(): typeof OfflineAudioContext | null {
-  if (typeof window === 'undefined') {
-    return null;
+type DiagCardProps = {
+  label: string;
+  value: string;
+  helper?: string;
+};
+
+function DiagCard({ label, value, helper }: DiagCardProps) {
+  return (
+    <div className="rounded-2xl border border-white/5 bg-white/5 p-4 text-white">
+      <p className="text-xs uppercase tracking-[0.3em] text-white/40">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
+      {helper && <p className="text-xs text-white/50">{helper}</p>}
+    </div>
+  );
+}
+
+function formatLufs(value?: number): string {
+  if (value === undefined || !Number.isFinite(value)) {
+    return '--';
   }
-  const candidate =
-    window.OfflineAudioContext ||
-    (window as WebkitAudioWindow).webkitOfflineAudioContext;
-  return candidate ?? null;
+  return `${value.toFixed(1)} LUFS`;
+}
+
+function formatDb(value?: number, suffix = ' dB'): string {
+  if (value === undefined || !Number.isFinite(value)) {
+    return '--';
+  }
+  const sign = value >= 0 ? '+' : '';
+  return `${sign}${value.toFixed(1)}${suffix}`;
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

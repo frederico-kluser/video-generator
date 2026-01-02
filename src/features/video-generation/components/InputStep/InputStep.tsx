@@ -29,6 +29,7 @@ import {
   type PromptCategory,
 } from '@/content/prompts';
 import type { VideoGenerationPayload } from '@/features/video-generation/model/types';
+import { VoiceInputButton } from '@/shared/components/VoiceInput/VoiceInputButton';
 
 const AUDIENCE_OPTIONS = [
   { value: 'Elementary School (K-5)', label: 'Ensino Fundamental', icon: '🎒' },
@@ -183,16 +184,23 @@ export function InputStep({ onStart }: InputStepProps) {
                 <BookOpen size={16} className="text-primary-400" />
                 Qual é o tópico principal?
               </label>
-              <input
-                id="topic"
-                name="topic"
-                type="text"
-                className="input"
-                placeholder="Ex.: Teorema de Pitágoras, Fotossíntese, Segunda Guerra Mundial..."
-                value={topic}
-                onChange={(event) => setTopic(event.target.value)}
-                required
-              />
+              <div className="flex items-center gap-3">
+                <input
+                  id="topic"
+                  name="topic"
+                  type="text"
+                  className="input flex-1"
+                  placeholder="Ex.: Teorema de Pitágoras, Fotossíntese, Segunda Guerra Mundial..."
+                  value={topic}
+                  onChange={(event) => setTopic(event.target.value)}
+                  required
+                />
+                <VoiceInputButton
+                  size="sm"
+                  ariaLabel="Ditado para o campo de tópico"
+                  onTranscription={(text) => setTopic(text)}
+                />
+              </div>
             </div>
 
             {/* Audience Select */}
@@ -271,15 +279,22 @@ export function InputStep({ onStart }: InputStepProps) {
                 <Wand2 size={16} className="text-primary-400" />
                 Materiais ou notas de referência
               </label>
-              <textarea
-                id="materials"
-                name="materials"
-                className="input min-h-[140px] resize-none"
-                placeholder="Cole textos, tópicos, transcrições ou qualquer material que sirva de base para o roteiro..."
-                value={materials}
-                onChange={(event) => setMaterials(event.target.value)}
-                required
-              />
+              <div className="flex items-start gap-3">
+                <textarea
+                  id="materials"
+                  name="materials"
+                  className="input min-h-[140px] flex-1 resize-none"
+                  placeholder="Cole materiais, tópicos ou transcrições. Se quiser, especifique quantos slides ou quanto tempo espera (ex.: 'aprox. 6 slides em 5 min')."
+                  value={materials}
+                  onChange={(event) => setMaterials(event.target.value)}
+                  required
+                />
+                <VoiceInputButton
+                  ariaLabel="Ditado para materiais de referência"
+                  className="mt-1 shrink-0"
+                  onTranscription={(text) => setMaterials(text)}
+                />
+              </div>
             </div>
 
             {/* Format Selection */}
@@ -393,8 +408,16 @@ function PromptBlueprintCard({
   isSelected,
   onSelect,
 }: PromptBlueprintCardProps) {
-  const formatRange = (range: { min: number; max: number }): string =>
-    range.min === range.max ? `${range.min}` : `${range.min}–${range.max}`;
+  const formatRange = (
+    range?: { min: number; max: number } | null,
+  ): string | null => {
+    if (!range) {
+      return null;
+    }
+    return range.min === range.max ? `${range.min}` : `${range.min}–${range.max}`;
+  };
+  const slidesLabel = formatRange(blueprint.slidesRange);
+  const durationLabel = formatRange(blueprint.durationMinutes);
 
   return (
     <button
@@ -421,14 +444,20 @@ function PromptBlueprintCard({
         {blueprint.title}
       </div>
       <p className="mt-1 text-sm text-white/70">{blueprint.summary}</p>
-      <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
-        <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
-          Slides: {formatRange(blueprint.slidesRange)}
-        </span>
-        <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
-          Duração: {formatRange(blueprint.durationMinutes)} min
-        </span>
-      </div>
+      {(slidesLabel || durationLabel) && (
+        <div className="mt-3 flex flex-wrap gap-3 text-xs text-white/60">
+          {slidesLabel && (
+            <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
+              Slides: {slidesLabel}
+            </span>
+          )}
+          {durationLabel && (
+            <span className="rounded-full bg-white/5 px-2 py-1 font-mono">
+              Duração: {durationLabel} min
+            </span>
+          )}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/60">
         {blueprint.tags.map((tag) => (
           <span

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Film, Loader2 } from 'lucide-react';
 import { useWebAVRenderer } from '@/shared/hooks/useWebAVRenderer';
 import type {
+  Microseconds,
   WebAVRendererSlideInput,
   WebAVSlideConfig,
 } from '@/shared/types/webav.types';
@@ -133,6 +134,49 @@ export function WebAVRenderer({
     [getAudioContextCtor],
   );
 
+  const resolveSlideDurationPlan = (
+    slide: WebAVRendererSlideInput,
+    audioDurationSeconds: number | null,
+  ): { durationSeconds: number; videoPlayback?: { videoDuration: Microseconds; freezeFrameFor?: Microseconds } } => {
+    const fallbackSeconds =
+      slide.fallbackDurationSeconds ?? FALLBACK_DURATION_SECONDS;
+    const videoDurationSeconds =
+      slide.visualAsset?.kind === 'video'
+        ? slide.visualAsset.durationSeconds ?? null
+        : null;
+
+    let durationSeconds =
+      audioDurationSeconds ?? videoDurationSeconds ?? fallbackSeconds;
+
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+      durationSeconds = fallbackSeconds;
+    }
+
+    if (slide.visualAsset?.kind === 'video' && videoDurationSeconds) {
+      if (audioDurationSeconds && audioDurationSeconds > videoDurationSeconds) {
+        durationSeconds = audioDurationSeconds;
+      } else {
+        durationSeconds = Math.max(durationSeconds, videoDurationSeconds);
+      }
+
+      const totalDuration = toMicroseconds(durationSeconds);
+      const videoDuration = toMicroseconds(
+        Math.min(durationSeconds, videoDurationSeconds),
+      );
+
+      return {
+        durationSeconds,
+        videoPlayback: {
+          videoDuration,
+          freezeFrameFor:
+            totalDuration > videoDuration ? totalDuration - videoDuration : undefined,
+        },
+      };
+    }
+
+    return { durationSeconds, videoPlayback: undefined };
+  };
+
   const convertSlidesToWebAVConfig = useCallback(
     async (
       inputSlides: WebAVRendererSlideInput[],
@@ -153,12 +197,11 @@ export function WebAVRenderer({
           cleanupUrls.push(audioUrl);
         }
 
-        const durationSeconds =
-          (await measureAudioDuration(slide, audioUrl)) ??
-          slide.fallbackDurationSeconds ??
-          FALLBACK_DURATION_SECONDS;
-
-        const duration = toMicroseconds(durationSeconds);
+        const durationPlan = resolveSlideDurationPlan(
+          slide,
+          await measureAudioDuration(slide, audioUrl),
+        );
+        const duration = toMicroseconds(durationPlan.durationSeconds);
 
         configs.push({
           id: slide.id,
@@ -167,6 +210,8 @@ export function WebAVRenderer({
           duration,
           offset,
           zIndex: slide.zIndex ?? 1,
+          visualAsset: slide.visualAsset,
+          videoPlayback: durationPlan.videoPlayback,
         });
 
         offset += duration;

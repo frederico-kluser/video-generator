@@ -4,7 +4,13 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import { Combinator, OffscreenSprite, ImgClip, AudioClip } from '@webav/av-cliper';
+import {
+  AudioClip,
+  Combinator,
+  ImgClip,
+  MP4Clip,
+  OffscreenSprite,
+} from '@webav/av-cliper';
 import type {
   WebAVSlideConfig,
   WebAVRenderConfig,
@@ -138,12 +144,217 @@ export function useWebAVRenderer({
     [],
   );
 
+  const captureLastFrameFromBlob = useCallback(
+    async (blob: Blob, slideId: string): Promise<ImageBitmap | null> => {
+      if (typeof document === 'undefined' || typeof window === 'undefined') {
+        return null;
+      }
+
+      return await new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.preload = 'auto';
+        video.muted = true;
+        video.playsInline = true;
+        video.crossOrigin = 'anonymous';
+
+        const objectUrl = URL.createObjectURL(blob);
+        let settled = false;
+        let timeoutId: number | undefined;
+
+        const finalize = (bitmap: ImageBitmap | null) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          if (typeof timeoutId === 'number') {
+            window.clearTimeout(timeoutId);
+          }
+          video.pause();
+          video.src = '';
+          video.remove();
+          URL.revokeObjectURL(objectUrl);
+          resolve(bitmap);
+        };
+
+        const fail = (reason: unknown) => {
+          appLogger.warn('⚠️ Falha ao capturar frame final do vídeo.', {
+            slideId,
+            reason,
+          });
+          finalize(null);
+        };
+
+        timeoutId = window.setTimeout(() => fail('timeout'), 8000);
+
+        video.onloadedmetadata = () => {
+          const duration = Number.isFinite(video.duration)
+            ? Math.max(0, video.duration - 0.05)
+            : 0;
+          video.currentTime = duration;
+        };
+
+        video.onseeked = async () => {
+          try {
+            const targetWidth = video.videoWidth || config.width;
+            const targetHeight = video.videoHeight || config.height;
+
+            if (targetWidth <= 0 || targetHeight <= 0) {
+              throw new Error('invalid-video-dimensions');
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              throw new Error('canvas-context-missing');
+            }
+            ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+            const canvasBlob: Blob = await new Promise((resolveBlob, rejectBlob) => {
+              canvas.toBlob(
+                (blobResult) => {
+                  if (blobResult) {
+                    resolveBlob(blobResult);
+                  } else {
+                    rejectBlob(new Error('toBlob-failed'));
+                  }
+                },
+                'image/png',
+              );
+            });
+
+            const bitmap = await createImageBitmap(canvasBlob);
+            finalize(bitmap);
+          } catch (error) {
+            fail(error);
+          }
+        };
+
+        video.onerror = () => fail('video-error');
+        video.src = objectUrl;
+        video.load();
+      });
+    },
+    [config.height, config.width],
+  );
+
+  const createVideoVisualSprites = useCallback(
+    async (slide: WebAVSlideConfig): Promise<EnrichedSprite[] | null> => {
+      if (!slide.visualAsset || slide.visualAsset.kind !== 'video') {
+        return null;
+      }
+
+      try {
+        let blobSource: Blob | null = null;
+
+        if (slide.visualAsset.file instanceof Blob) {
+          blobSource = slide.visualAsset.file;
+        } else if (slide.visualAsset.url) {
+          const response = await fetch(slide.visualAsset.url);
+          if (!response.ok) {
+            throw new Error(
+              `Failed to carregar vídeo personalizado (${response.status}).`,
+            );
+          }
+          blobSource = await response.blob();
+        }
+
+        if (!blobSource) {
+          throw new Error('Slide sem referência para vídeo personalizado.');
+        }
+
+        const clip = new MP4Clip(blobSource.stream(), { audio: false });
+        await clip.ready;
+
+        appLogger.info('🎞️ Vídeo personalizado preparado para renderização.', {
+          slideId: slide.id,
+          duration: clip.meta.duration,
+          width: clip.meta.width,
+          height: clip.meta.height,
+        });
+
+        const videoDuration = slide.videoPlayback?.videoDuration ?? slide.duration;
+        const freezeDuration = Math.max(0, slide.videoPlayback?.freezeFrameFor ?? 0);
+
+        const sprites: EnrichedSprite[] = [];
+        const videoSprite = new OffscreenSprite(clip);
+        videoSprite.time = {
+          offset: slide.offset,
+          duration: videoDuration,
+        };
+        videoSprite.rect.x = 0;
+        videoSprite.rect.y = 0;
+        videoSprite.rect.w = Math.max(1, config.width);
+        videoSprite.rect.h = Math.max(1, config.height);
+        videoSprite.zIndex = slide.zIndex ?? 1;
+
+        sprites.push({
+          sprite: videoSprite,
+          clip,
+          slideId: `${slide.id}::video`,
+          metadata: {
+            duration: videoDuration,
+            width: clip.meta.width || config.width,
+            height: clip.meta.height || config.height,
+            hasAudio: false,
+            hasVideo: true,
+          },
+        });
+
+        if (freezeDuration > 0) {
+          const freezeBitmap = await captureLastFrameFromBlob(blobSource, slide.id);
+          if (freezeBitmap) {
+            const freezeClip = new ImgClip(freezeBitmap);
+            await freezeClip.ready;
+            const freezeSprite = new OffscreenSprite(freezeClip);
+            freezeSprite.time = {
+              offset: slide.offset + videoDuration,
+              duration: freezeDuration,
+            };
+            freezeSprite.rect.x = 0;
+            freezeSprite.rect.y = 0;
+            freezeSprite.rect.w = Math.max(1, config.width);
+            freezeSprite.rect.h = Math.max(1, config.height);
+            freezeSprite.zIndex = videoSprite.zIndex;
+
+            sprites.push({
+              sprite: freezeSprite,
+              clip: freezeClip,
+              slideId: `${slide.id}::freeze`,
+              metadata: {
+                duration: freezeDuration,
+                width: config.width,
+                height: config.height,
+                hasAudio: false,
+                hasVideo: true,
+              },
+            });
+          } else {
+            appLogger.warn('⚠️ Freeze frame indisponível para vídeo customizado.', {
+              slideId: slide.id,
+            });
+          }
+        }
+
+        return sprites;
+      } catch (error) {
+        appLogger.error('💥 Falha ao preparar vídeo personalizado para WebAV.', {
+          slideId: slide.id,
+          error,
+        });
+        return null;
+      }
+    },
+    [captureLastFrameFromBlob, config.height, config.width],
+  );
+
   const createSlideSprites = useCallback(
     async (slide: WebAVSlideConfig): Promise<{
-      imageSprite: EnrichedSprite;
+      slideId: string;
+      visualSprites: EnrichedSprite[];
       audioSprite?: EnrichedSprite;
     }> => {
-      // Validar valores de entrada
       if (slide.duration <= 0) {
         throw new WebAVError(
           `Invalid duration for slide ${slide.id}: ${slide.duration}`,
@@ -164,53 +375,61 @@ export function useWebAVRenderer({
         offset: slide.offset,
       });
 
-      const [imageClip, audioClip] = await Promise.all([
-        createImageClip(slide.imageUrl, slide.id),
+      const [videoSprites, audioClip] = await Promise.all([
+        slide.visualAsset?.kind === 'video'
+          ? createVideoVisualSprites(slide)
+          : null,
         createAudioClip(slide.audioUrl, slide.id),
       ]);
 
-      // Image sprite (visual)
-      const imageSprite = new OffscreenSprite(imageClip);
-      imageSprite.time = {
-        offset: slide.offset,
-        duration: slide.duration,
-      };
-      // Configurar propriedades rect individualmente (Rect é uma classe, não objeto simples)
-      imageSprite.rect.x = 0;
-      imageSprite.rect.y = 0;
-      imageSprite.rect.w = Math.max(1, config.width);
-      imageSprite.rect.h = Math.max(1, config.height);
-      imageSprite.zIndex = slide.zIndex ?? 1;
+      let visualSprites =
+        videoSprites && videoSprites.length > 0 ? videoSprites : undefined;
 
-      const result: {
-        imageSprite: EnrichedSprite;
-        audioSprite?: EnrichedSprite;
-      } = {
-        imageSprite: {
-          sprite: imageSprite,
-          clip: imageClip,
-          slideId: slide.id,
-          metadata: {
-            duration: slide.duration,
-            width: config.width,
-            height: config.height,
-            hasAudio: Boolean(audioClip),
-            hasVideo: true,
+      if (!visualSprites) {
+        const preferredImageUrl =
+          slide.visualAsset?.kind === 'image'
+            ? slide.visualAsset.url
+            : slide.imageUrl;
+        const imageClip = await createImageClip(preferredImageUrl, slide.id);
+        const imageSprite = new OffscreenSprite(imageClip);
+        imageSprite.time = {
+          offset: slide.offset,
+          duration: slide.duration,
+        };
+        imageSprite.rect.x = 0;
+        imageSprite.rect.y = 0;
+        imageSprite.rect.w = Math.max(1, config.width);
+        imageSprite.rect.h = Math.max(1, config.height);
+        imageSprite.zIndex = slide.zIndex ?? 1;
+
+        visualSprites = [
+          {
+            sprite: imageSprite,
+            clip: imageClip,
+            slideId: `${slide.id}::image`,
+            metadata: {
+              duration: slide.duration,
+              width: config.width,
+              height: config.height,
+              hasAudio: Boolean(audioClip),
+              hasVideo: true,
+            },
           },
-        },
-      };
+        ];
+      }
 
+      let audioSprite: EnrichedSprite | undefined;
       if (audioClip) {
-        const audioSprite = new OffscreenSprite(audioClip);
-        audioSprite.time = {
+        const audioSpriteInstance = new OffscreenSprite(audioClip);
+        audioSpriteInstance.time = {
           offset: slide.offset,
           duration: slide.duration,
         };
 
-        result.audioSprite = {
-          sprite: audioSprite,
+        audioSprite = {
+          sprite: audioSpriteInstance,
           clip: audioClip,
-          slideId: slide.id,
+          slideId: `${slide.id}::audio`,
           metadata: {
             duration: audioClip.meta.duration,
             width: 0,
@@ -221,9 +440,19 @@ export function useWebAVRenderer({
         };
       }
 
-      return result;
+      return {
+        slideId: slide.id,
+        visualSprites,
+        audioSprite,
+      };
     },
-    [config.width, config.height, createImageClip, createAudioClip],
+    [
+      config.width,
+      config.height,
+      createAudioClip,
+      createImageClip,
+      createVideoVisualSprites,
+    ],
   );
 
   const render = useCallback(
@@ -280,37 +509,49 @@ export function useWebAVRenderer({
 
         // Adicionar sprites ao combinator
         let addedCount = 0;
-        for (const { imageSprite, audioSprite } of allSprites) {
+        for (const { slideId, visualSprites, audioSprite } of allSprites) {
           if (abortControllerRef.current?.signal.aborted) {
             throw new WebAVError('Render cancelled by user', 'RENDER_ERROR');
           }
 
-          try {
-            appLogger.info(`Adding sprite to combinator`, {
-              slideId: imageSprite.slideId,
-              rect: {
-                x: imageSprite.sprite.rect.x,
-                y: imageSprite.sprite.rect.y,
-                w: imageSprite.sprite.rect.w,
-                h: imageSprite.sprite.rect.h,
-              },
-              time: imageSprite.sprite.time,
-              zIndex: imageSprite.sprite.zIndex,
-            });
+          for (const visual of visualSprites) {
+            try {
+              appLogger.info(`Adding sprite to combinator`, {
+                slideId: visual.slideId ?? slideId,
+                rect: {
+                  x: visual.sprite.rect.x,
+                  y: visual.sprite.rect.y,
+                  w: visual.sprite.rect.w,
+                  h: visual.sprite.rect.h,
+                },
+                time: visual.sprite.time,
+                zIndex: visual.sprite.zIndex,
+              });
 
-            await combinator.addSprite(imageSprite.sprite);
-
-            if (audioSprite) {
-              await combinator.addSprite(audioSprite.sprite);
+              await combinator.addSprite(visual.sprite);
+            } catch (error) {
+              const webavError = new WebAVError(
+                `Failed to add sprite for slide ${slideId}`,
+                'COMBINATOR_ERROR',
+                { error, slideId },
+              );
+              appLogger.error(webavError.message, { error, slideId });
+              throw webavError;
             }
-          } catch (error) {
-            const webavError = new WebAVError(
-              `Failed to add sprite for slide ${imageSprite.slideId}`,
-              'COMBINATOR_ERROR',
-              { error, slideId: imageSprite.slideId },
-            );
-            appLogger.error(webavError.message, { error, slideId: imageSprite.slideId });
-            throw webavError;
+          }
+
+          if (audioSprite) {
+            try {
+              await combinator.addSprite(audioSprite.sprite);
+            } catch (error) {
+              const webavError = new WebAVError(
+                `Failed to add audio sprite for slide ${slideId}`,
+                'COMBINATOR_ERROR',
+                { error, slideId },
+              );
+              appLogger.error(webavError.message, { error, slideId });
+              throw webavError;
+            }
           }
 
           addedCount++;

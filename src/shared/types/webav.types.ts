@@ -16,6 +16,25 @@ export const toMicroseconds = (seconds: number): Microseconds =>
 export const toSeconds = (microseconds: Microseconds): number =>
   microseconds / 1_000_000;
 
+export type WebAVImageAsset = {
+  kind: 'image';
+  url: string;
+};
+
+export type WebAVVideoAsset = {
+  kind: 'video';
+  url: string;
+  file?: File | Blob;
+  durationSeconds?: number;
+};
+
+export type WebAVVisualAsset = WebAVImageAsset | WebAVVideoAsset;
+
+export type WebAVVideoPlayback = {
+  videoDuration: Microseconds;
+  freezeFrameFor?: Microseconds;
+};
+
 /** Configuração de um slide para renderização com WebAV */
 export interface WebAVSlideConfig {
   /** ID único do slide */
@@ -30,6 +49,10 @@ export interface WebAVSlideConfig {
   offset: Microseconds;
   /** Índice de z-order (maior = frente) */
   zIndex?: number;
+  /** Asset visual associado (imagem ou vídeo) */
+  visualAsset?: WebAVVisualAsset;
+  /** Instruções de playback para vídeos customizados */
+  videoPlayback?: WebAVVideoPlayback;
 }
 
 /** Entrada genérica usada pelo componente WebAVRenderer */
@@ -50,6 +73,8 @@ export interface WebAVRendererSlideInput {
   fallbackDurationSeconds?: number;
   /** Profundidade opcional no canvas */
   zIndex?: number;
+  /** Asset visual associado (imagem ou vídeo) */
+  visualAsset?: WebAVVisualAsset;
 }
 
 /** Configuração de renderização do vídeo final */

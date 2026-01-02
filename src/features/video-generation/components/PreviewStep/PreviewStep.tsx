@@ -203,6 +203,14 @@ export function PreviewStep({
       slides: slides.length,
       aspectRatio,
     });
+
+    if (hasVideoAssets) {
+      window.alert(
+        'O exportador via MediaRecorder não suporta slides com vídeos enviados. Utilize o renderizador WebAV.',
+      );
+      return;
+    }
+
     const startedAt = performance.now();
     setIsFallbackRendering(true);
     setRenderProgress(0);
@@ -383,6 +391,7 @@ export function PreviewStep({
       const zip = new JSZip();
       const imagesDir = zip.folder('assets/images');
       const audioDir = zip.folder('assets/audio');
+      const customDir = zip.folder('assets/custom');
 
       const manifest: RenderBundleManifest = {
         schemaVersion: 1,
@@ -401,6 +410,7 @@ export function PreviewStep({
         const slide = slides[index];
         let imageFileName: string | null = null;
         let audioFileName: string | null = null;
+        let assetFileName: string | null = null;
 
         if (slide.imageUrl) {
           try {
@@ -416,9 +426,33 @@ export function PreviewStep({
           }
         }
 
+        if (slide.customAsset?.type === 'image') {
+          assetFileName = imageFileName;
+        }
+
         if (slide.audioBlob) {
           audioFileName = `slide-${formatSlideIndex(index)}.${inferExtensionFromMime(slide.audioBlob.type, 'webm')}`;
           audioDir?.file(audioFileName, slide.audioBlob, { binary: true });
+        }
+
+        if (slide.customAsset?.type === 'video') {
+          try {
+            const videoBlob =
+              slide.customAsset.file ??
+              (slide.customAsset.sourceUrl
+                ? await fetch(slide.customAsset.sourceUrl).then((response) => response.blob())
+                : null);
+            if (videoBlob) {
+              const extension = inferExtensionFromMime(videoBlob.type, 'mp4');
+              assetFileName = `slide-${formatSlideIndex(index)}.${extension}`;
+              customDir?.file(assetFileName, videoBlob, { binary: true });
+            }
+          } catch (error) {
+            appLogger.error('🎞️ Falha ao anexar vídeo personalizado ao bundle.', {
+              error,
+              slideId: slide.id,
+            });
+          }
         }
 
         manifest.slides.push({
@@ -429,6 +463,9 @@ export function PreviewStep({
           visualPrompt: slide.visualPrompt,
           imageFile: imageFileName,
           audioFile: audioFileName,
+          assetFile: assetFileName,
+          assetType: slide.customAsset?.type ?? null,
+          assetDurationMs: slide.customAsset?.durationMs ?? null,
         });
       }
 
@@ -450,16 +487,66 @@ export function PreviewStep({
   };
 
   const webAvSlides = useMemo<WebAVRendererSlideInput[]>(() => {
-    return slides.map((slide, index) => ({
-      id: slide.id,
-      order: slide.order ?? index,
-      imageUrl: slide.imageUrl ?? undefined,
-      audioBlob: slide.audioBlob ?? undefined,
-      zIndex: 1,
-    }));
+    return slides.map((slide, index) => {
+      const asset = slide.customAsset;
+      const visualAsset = (() => {
+        if (!asset) {
+          return undefined;
+        }
+
+        const baseUrl = asset.sourceUrl ?? asset.previewUrl;
+        if (!baseUrl) {
+          return undefined;
+        }
+
+        if (asset.type === 'video') {
+          return {
+            kind: 'video' as const,
+            url: baseUrl,
+            file: asset.file,
+            durationSeconds:
+              typeof asset.durationMs === 'number'
+                ? asset.durationMs / 1000
+                : undefined,
+          };
+        }
+
+        return {
+          kind: 'image' as const,
+          url: baseUrl,
+        };
+      })();
+
+      return {
+        id: slide.id,
+        order: slide.order ?? index,
+        imageUrl: slide.imageUrl ?? undefined,
+        audioBlob: slide.audioBlob ?? undefined,
+        zIndex: 1,
+        visualAsset,
+      };
+    });
   }, [slides]);
 
   const currentSlide = slides[currentSlideIndex];
+  const hasVideoAssets = useMemo(
+    () => slides.some((slide) => slide.customAsset?.type === 'video'),
+    [slides],
+  );
+
+  const resolveSlideVisual = (slide: Slide) => {
+    const asset = slide.customAsset;
+    if (asset?.type === 'video' && asset.previewUrl) {
+      return { type: 'video' as const, url: asset.previewUrl };
+    }
+    if (asset?.type === 'image' && asset.previewUrl) {
+      return { type: 'image' as const, url: asset.previewUrl };
+    }
+    if (slide.imageUrl) {
+      return { type: 'image' as const, url: slide.imageUrl };
+    }
+    return null;
+  };
 
   if (!currentSlide) {
     return null;
@@ -522,18 +609,39 @@ export function PreviewStep({
       <div
         className={`relative overflow-hidden rounded-2xl border border-dark-700 bg-dark-900 shadow-2xl ${arClass}`}
       >
-        {currentSlide.imageUrl ? (
-          <img
-            src={currentSlide.imageUrl}
-            alt="Slide atual"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/40">
-            <ImageIcon size={40} />
-            <span className="text-sm">Sem imagem</span>
-          </div>
-        )}
+        {(() => {
+          const visual = resolveSlideVisual(currentSlide);
+          if (!visual) {
+            return (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/40">
+                <ImageIcon size={40} />
+                <span className="text-sm">Sem visual</span>
+              </div>
+            );
+          }
+
+          if (visual.type === 'video') {
+            return (
+              <video
+                key={visual.url}
+                src={visual.url}
+                className="h-full w-full object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+            );
+          }
+
+          return (
+            <img
+              src={visual.url}
+              alt="Slide atual"
+              className="h-full w-full object-cover"
+            />
+          );
+        })()}
 
         {/* Subtitle */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
@@ -570,13 +678,32 @@ export function PreviewStep({
             }`}
           >
             <div className="h-10 w-14 bg-dark-800">
-              {slide.imageUrl && (
-                <img
-                  src={slide.imageUrl}
-                  alt={`Slide ${index + 1}`}
-                  className="h-full w-full object-cover"
-                />
-              )}
+              {(() => {
+                const visual = resolveSlideVisual(slide);
+                if (!visual) {
+                  return null;
+                }
+                if (visual.type === 'video') {
+                  return (
+                    <video
+                      key={visual.url}
+                      src={visual.url}
+                      className="h-full w-full object-cover"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                  );
+                }
+                return (
+                  <img
+                    src={visual.url}
+                    alt={`Slide ${index + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                );
+              })()}
             </div>
           </button>
         ))}
@@ -626,11 +753,20 @@ export function PreviewStep({
         <button
           type="button"
           onClick={handleDownloadVideo}
-          disabled={isAnyRendering}
-          className="btn-secondary px-6"
-          title="Exportar com MediaRecorder (fallback)"
+          disabled={isAnyRendering || hasVideoAssets}
+          className="btn-secondary px-6 disabled:cursor-not-allowed"
+          title={
+            hasVideoAssets
+              ? 'Slides com vídeo enviado devem usar o renderizador WebAV.'
+              : 'Exportar com MediaRecorder (fallback)'
+          }
         >
-          {isFallbackRendering ? (
+          {hasVideoAssets ? (
+            <>
+              <Film size={20} />
+              Indisponível para vídeos
+            </>
+          ) : isFallbackRendering ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
               Exportando...
