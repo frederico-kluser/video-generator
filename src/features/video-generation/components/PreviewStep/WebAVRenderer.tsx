@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Film, Loader2 } from 'lucide-react';
 import { useWebAVRenderer } from '@/shared/hooks/useWebAVRenderer';
 import type {
+  Microseconds,
   WebAVRendererSlideInput,
   WebAVSlideConfig,
 } from '@/shared/types/webav.types';
@@ -138,7 +139,7 @@ export function WebAVRenderer({
     audioDurationSeconds: number | null,
   ): { durationSeconds: number; videoPlayback?: { videoDuration: Microseconds; freezeFrameFor?: Microseconds } } => {
     const fallbackSeconds =
-      slide.fallbackDurationSeconds ?? FALLBACK_DURATION_MS / 1000;
+      slide.fallbackDurationSeconds ?? FALLBACK_DURATION_SECONDS;
     const videoDurationSeconds =
       slide.visualAsset?.kind === 'video'
         ? slide.visualAsset.durationSeconds ?? null
