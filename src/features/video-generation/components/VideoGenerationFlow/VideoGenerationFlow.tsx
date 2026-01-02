@@ -17,7 +17,7 @@ import { ScriptReviewStep } from '@/features/video-generation/components/ScriptR
 import { useVideoGeneration } from '@/features/video-generation/hooks/useVideoGeneration';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
 import { AudioLabsCta } from '@/shared/components/AudioLabsCta/AudioLabsCta';
-import { useDebugMode } from '@/shared/hooks/useDebugMode';
+import { useDebugMode, useUrlOnlyDebugMode } from '@/shared/hooks/useDebugMode';
 
 const STEP_LABELS: Record<VideoGenerationStep, string> = {
   [VIDEO_GENERATION_STEP.INPUT]: 'Briefing',
@@ -42,6 +42,7 @@ const STEP_ORDER = [
 export function VideoGenerationFlow() {
   const { step, slides, projectData, progress, actions } = useVideoGeneration();
   const isDebugMode = useDebugMode();
+  const isUrlDebugMode = useUrlOnlyDebugMode();
   const aspectRatio =
     projectData.aspectRatio ?? VIDEO_CONFIG.DEFAULT_ASPECT_RATIO;
   const blueprint = projectData.promptId
@@ -51,7 +52,7 @@ export function VideoGenerationFlow() {
 
   return (
     <div className="relative min-h-screen animate-fade-in">
-      {isDebugMode && (
+      {isUrlDebugMode && (
         <div className="pointer-events-none absolute bottom-4 left-4 z-50">
           <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-amber-400/40 bg-dark-900/70 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-200">
             <span className="h-2 w-2 rounded-full bg-amber-300 animate-pulse" />
@@ -98,7 +99,7 @@ export function VideoGenerationFlow() {
       {step === VIDEO_GENERATION_STEP.INPUT && (
         <>
           <InputStep onStart={actions.startGeneration} />
-          {isDebugMode && (
+          {isUrlDebugMode && (
             <div className="px-4 pb-16">
               <AudioLabsCta />
             </div>
