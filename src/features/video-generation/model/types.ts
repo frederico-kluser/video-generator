@@ -47,6 +47,20 @@ export type Slide = {
   customAsset?: SlideCustomAsset | null;
 };
 
+export type SlideContentPatch = {
+  scriptText: string;
+  narrationText: string;
+  visualPrompt: string;
+};
+
+export type SlideEditOperation = {
+  action: 'insert' | 'update' | 'delete';
+  targetIndex: number;
+  slideId?: string;
+  slide?: SlideContentPatch;
+  reason?: string;
+};
+
 export type ProjectData = {
   topic: string;
   materials: string;

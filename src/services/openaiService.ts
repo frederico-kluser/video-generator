@@ -19,6 +19,7 @@ import {
   type Slide,
   SlideSchema,
 } from '@/schemas/eduScriptSchemas';
+import type { SlideEditOperation } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 
 // =====================================================
@@ -44,6 +45,13 @@ const resolveApiKey = (): string => {
   }
 
   return serverKey;
+};
+
+const truncateForPrompt = (text: string, maxLength = 900): string => {
+  if (!text) {
+    return '';
+  }
+  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
 };
 
 const scriptJsonSchema = {
@@ -182,6 +190,41 @@ const slideRefinementJsonSchema = {
     visualPrompt: { type: 'string' },
   },
   required: ['scriptText', 'narrationText', 'visualPrompt'],
+  additionalProperties: false,
+} as const;
+
+const slideEditOperationJsonSchema = {
+  type: 'object',
+  properties: {
+    action: { type: 'string', enum: ['insert', 'update', 'delete'] },
+    targetIndex: { type: 'number', minimum: 0 },
+    slideId: { type: 'string' },
+    reason: { type: 'string' },
+    slide: {
+      type: 'object',
+      properties: {
+        scriptText: { type: 'string' },
+        narrationText: { type: 'string' },
+        visualPrompt: { type: 'string' },
+      },
+      required: ['scriptText', 'narrationText', 'visualPrompt'],
+      additionalProperties: false,
+    },
+  },
+  required: ['action', 'targetIndex'],
+  additionalProperties: false,
+} as const;
+
+const slideEditPlanJsonSchema = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    operations: {
+      type: 'array',
+      items: slideEditOperationJsonSchema,
+    },
+  },
+  required: ['summary', 'operations'],
   additionalProperties: false,
 } as const;
 
@@ -697,6 +740,25 @@ const SlideRefinementSchema = z.object({
   visualPrompt: z.string(),
 });
 
+const SlideEditOperationSchema = z.object({
+  action: z.enum(['insert', 'update', 'delete']),
+  targetIndex: z.number().int().nonnegative(),
+  slideId: z.string().optional(),
+  reason: z.string().optional(),
+  slide: z
+    .object({
+      scriptText: z.string(),
+      narrationText: z.string(),
+      visualPrompt: z.string(),
+    })
+    .optional(),
+});
+
+const SlideEditPlanSchema = z.object({
+  summary: z.string(),
+  operations: SlideEditOperationSchema.array(),
+});
+
 export async function refineSlideContentWithFeedback(
   slide: {
     scriptText: string;
@@ -742,9 +804,109 @@ export async function refineSlideContentWithFeedback(
   }
 }
 
-// =====================================================
-// TRATAMENTO DE ERROS
-// =====================================================
+export async function editSlidesWithInstructions(params: {
+  slides: Array<{
+    id: string;
+    order: number;
+    scriptText: string;
+    narrationText: string;
+    visualPrompt: string;
+  }>;
+  instructions: string;
+  topic: string;
+  materials: string;
+  targetAudience: Script['targetAudience'];
+}): Promise<{ summary: string; operations: SlideEditOperation[] }> {
+  const trimmedInstructions = params.instructions.trim();
+  if (!trimmedInstructions) {
+    return { summary: 'Nenhuma instrução fornecida.', operations: [] };
+  }
+
+  const slidesOverview = params.slides
+    .sort((a, b) => a.order - b.order)
+    .map((slide, index) => ({
+      index,
+      id: slide.id,
+      scriptText: truncateForPrompt(slide.scriptText, 900),
+      narrationText: truncateForPrompt(slide.narrationText, 600),
+      visualPrompt: truncateForPrompt(slide.visualPrompt, 400),
+    }));
+
+  const slidesBlock = slidesOverview
+    .map(
+      (slide) =>
+        `Slide ${slide.index + 1} (id: ${slide.id})
+SCRIPT:
+${slide.scriptText || '[vazio]'}
+NARRAÇÃO:
+${slide.narrationText || '[vazio]'}
+VISUAL:
+${slide.visualPrompt || '[vazio]'}`,
+    )
+    .join('\n\n');
+
+  const systemPrompt = `Você é um lead writer educacional. Faça edições cirúrgicas em roteiros existentes seguindo o guia de ciência cognitiva 2025. Preserve tudo que não for citado e detalhe apenas o necessário.`;
+  const materialsExcerpt = truncateForPrompt(params.materials, 2000);
+
+  const userPrompt = `CONTEXTO DO PROJETO:
+- Tópico: ${params.topic}
+- Público-alvo: ${params.targetAudience}
+
+MATERIAIS BASE (trecho):
+${materialsExcerpt}
+
+ROTEIRO ATUAL (ordem e IDs fixos):
+${slidesBlock}
+
+PEDIDO DO USUÁRIO:
+${trimmedInstructions}
+
+INSTRUÇÕES DE EDIÇÃO:
+1. Responda apenas com JSON válido no formato slide_edit_plan.
+2. Use targetIndex zero-based considerando a ordem após aplicar operações anteriores.
+3. Sempre inclua slideId para delete/update.
+4. Operações insert DEVEM incluir o campo "slide" completo (scriptText, narrationText, visualPrompt).
+5. Priorize edições mínimas; só reconstrua tudo se o usuário pedir explicitamente.
+6. Inclua uma "summary" curta explicando o resultado.`;
+
+  try {
+    const response = await getOpenAIClient().responses.create({
+      model: 'gpt-5.1-codex-max',
+      instructions: systemPrompt,
+      input: [
+        {
+          role: 'user',
+          content: userPrompt,
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'slide_edit_plan',
+          strict: true,
+          schema: slideEditPlanJsonSchema,
+        },
+      },
+    });
+
+    const outputText = response.output_text?.trim();
+    if (!outputText) {
+      throw new OpenAIServiceError(
+        'Resposta vazia ao gerar plano de edição',
+        'EMPTY_RESPONSE',
+      );
+    }
+
+    const parsed = SlideEditPlanSchema.parse(JSON.parse(outputText));
+    appLogger.info('🧩 Plano de edição de slides gerado.', {
+      operations: parsed.operations.length,
+    });
+    return parsed;
+  } catch (error) {
+    handleOpenAIError(error, 'editSlidesWithInstructions');
+  }
+}
+
 function normalizeOpenAIError(
   error: unknown,
   functionName: string,
