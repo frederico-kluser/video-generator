@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react';
+import { ChangeEvent, useMemo, useState } from 'react';
 
 import {
   ArrowDown,
   ArrowUp,
   CheckCircle2,
   LayoutList,
+  Palette,
   Plus,
   Sparkles,
   Trash2,
+  UploadCloud,
   Wand2,
 } from 'lucide-react';
 
@@ -16,6 +18,7 @@ import type {
   Slide,
 } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
+import { uuidv4 } from '@/shared/utils/uuid';
 
 type ScriptReviewStepProps = {
   slides: Slide[];
@@ -41,10 +44,14 @@ export function ScriptReviewStep({
   onContinue,
 }: ScriptReviewStepProps) {
   const [instructions, setInstructions] = useState('');
+  const [styleUploadErrors, setStyleUploadErrors] = useState<
+    Record<string, string | null>
+  >({});
   const orderedSlides = useMemo(
     () => [...slides].sort((a, b) => a.order - b.order),
     [slides],
   );
+  const MAX_STYLE_REFERENCES = 5;
 
   const handleApplyInstructions = async () => {
     if (!instructions.trim()) {
@@ -71,6 +78,99 @@ export function ScriptReviewStep({
       );
     }
   };
+
+  const setSlideUploadError = (slideId: string, message: string | null) => {
+    setStyleUploadErrors((prev) => ({ ...prev, [slideId]: message }));
+  };
+
+  const handleStyleUpload = (
+    slide: Slide,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const availableSlots =
+      MAX_STYLE_REFERENCES - slide.styleGuide.references.length;
+    if (availableSlots <= 0) {
+      setSlideUploadError(
+        slide.id,
+        'Limite de 5 referências atingido. Remova alguma antes de adicionar novas.',
+      );
+      event.target.value = '';
+      return;
+    }
+
+    const acceptedFiles = Array.from(files)
+      .filter((file) => /image\/(png|jpe?g|webp)/i.test(file.type))
+      .slice(0, availableSlots);
+
+    if (acceptedFiles.length === 0) {
+      setSlideUploadError(slide.id, 'Use apenas imagens PNG, JPG ou WebP.');
+      event.target.value = '';
+      return;
+    }
+
+    const references = acceptedFiles.map((file) => ({
+      id: uuidv4(),
+      name: file.name,
+      previewUrl: URL.createObjectURL(file),
+      file,
+    }));
+
+    onSlideChange(slide.id, {
+      styleGuide: {
+        ...slide.styleGuide,
+        references: [...slide.styleGuide.references, ...references],
+      },
+    });
+
+    setSlideUploadError(slide.id, null);
+    event.target.value = '';
+  };
+
+  const handleRemoveStyleReference = (slide: Slide, referenceId: string) => {
+    const reference = slide.styleGuide.references.find(
+      (ref) => ref.id === referenceId,
+    );
+    if (reference?.previewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(reference.previewUrl);
+    }
+
+    onSlideChange(slide.id, {
+      styleGuide: {
+        ...slide.styleGuide,
+        references: slide.styleGuide.references.filter(
+          (ref) => ref.id !== referenceId,
+        ),
+      },
+    });
+  };
+
+  const handleStyleNotesChange = (slide: Slide, notes: string) => {
+    onSlideChange(slide.id, {
+      styleGuide: {
+        ...slide.styleGuide,
+        notes,
+      },
+    });
+  };
+
+  const handleFidelityChange = (slide: Slide, value: 'high' | 'low') => {
+    if (slide.styleGuide.inputFidelity === value) {
+      return;
+    }
+
+    onSlideChange(slide.id, {
+      styleGuide: {
+        ...slide.styleGuide,
+        inputFidelity: value,
+      },
+    });
+  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-dark-950 via-dark-900 to-dark-950 px-6 py-10">
@@ -201,6 +301,118 @@ export function ScriptReviewStep({
                       }
                       className="mb-4 min-h-[80px] w-full rounded-xl border border-dark-700 bg-dark-900/80 p-3 text-sm text-white outline-none transition focus:border-primary-400"
                     />
+
+                    {slide.styleGuide && (
+                      <div className="mb-4 rounded-xl border border-white/10 bg-dark-900/60 p-4">
+                        <div className="mb-2 flex items-center justify-between text-sm font-semibold text-white">
+                          <div className="flex items-center gap-2">
+                            <Palette size={16} className="text-primary-300" />
+                            Referência visual (opcional)
+                          </div>
+                          <span className="text-xs text-white/50">
+                            {slide.styleGuide.references.length}/{MAX_STYLE_REFERENCES}
+                          </span>
+                        </div>
+                        <p className="text-xs text-white/60">
+                          Anexe imagens inspiração antes de gerar os visuais. Caso envie algo aqui,
+                          inserimos a referência em cada prompt automaticamente.
+                        </p>
+                        {styleUploadErrors[slide.id] && (
+                          <div className="mt-3 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-xs text-danger-200">
+                            {styleUploadErrors[slide.id]}
+                          </div>
+                        )}
+                        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+                          {slide.styleGuide.references.map((reference) => (
+                            <div
+                              key={reference.id}
+                              className="group relative overflow-hidden rounded-lg border border-white/10 bg-dark-800/60"
+                            >
+                              <img
+                                src={reference.previewUrl}
+                                alt={reference.name}
+                                className="h-24 w-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                className="absolute right-1 top-1 rounded-full bg-dark-900/80 p-1 text-white/70 transition hover:text-danger-400"
+                                onClick={() => handleRemoveStyleReference(slide, reference.id)}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                              <div className="truncate px-2 py-1 text-center text-[11px] text-white/60">
+                                {reference.name}
+                              </div>
+                            </div>
+                          ))}
+                          {slide.styleGuide.references.length < MAX_STYLE_REFERENCES && (
+                            <label className="flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40">
+                              <UploadCloud size={18} className="text-primary-300" />
+                              <span>Enviar referência</span>
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                multiple
+                                className="sr-only"
+                                onChange={(event) => handleStyleUpload(slide, event)}
+                              />
+                            </label>
+                          )}
+                        </div>
+                        <div className="mt-4 space-y-2">
+                          <label
+                            className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50"
+                            htmlFor={`style-notes-${slide.id}`}
+                          >
+                            Observações de estilo
+                          </label>
+                          <textarea
+                            id={`style-notes-${slide.id}`}
+                            className="input min-h-[80px] resize-none text-xs"
+                            placeholder="Ex.: manter iluminação neon vaporwave, fundo gradiente azul-magenta."
+                            value={slide.styleGuide.notes}
+                            onChange={(event) =>
+                              handleStyleNotesChange(slide, event.target.value)
+                            }
+                          />
+                        </div>
+                        <div className="mt-4 space-y-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/40">
+                            Fidelidade da referência
+                          </span>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <button
+                              type="button"
+                              className={`rounded-lg border px-3 py-2 text-left transition ${
+                                slide.styleGuide.inputFidelity === 'high'
+                                  ? 'border-primary-400 bg-primary-500/10 text-primary-200'
+                                  : 'border-white/10 text-white/60 hover:border-white/30'
+                              }`}
+                              onClick={() => handleFidelityChange(slide, 'high')}
+                            >
+                              Alta (preserva traços)
+                              <span className="block text-[10px] text-white/50">
+                                Mantém cores, textura e rostos da referência.
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className={`rounded-lg border px-3 py-2 text-left transition ${
+                                slide.styleGuide.inputFidelity === 'low'
+                                  ? 'border-primary-400 bg-primary-500/10 text-primary-200'
+                                  : 'border-white/10 text-white/60 hover:border-white/30'
+                              }`}
+                              onClick={() => handleFidelityChange(slide, 'low')}
+                            >
+                              Baixa (mais liberdade)
+                              <span className="block text-[10px] text-white/50">
+                                Usa só parte da estética, permite variações.
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap gap-2">
                       <button

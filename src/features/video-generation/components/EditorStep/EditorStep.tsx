@@ -1,4 +1,4 @@
-import { type ChangeEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -7,11 +7,8 @@ import {
   Loader2,
   MessageSquare,
   Mic,
-  Palette,
   Send,
   Sparkles,
-  Trash2,
-  UploadCloud,
 } from 'lucide-react';
 
 import { type AspectRatio } from '@/config/constants/video';
@@ -21,7 +18,6 @@ import {
 } from '@/features/video-generation/api/videoGenerationApi';
 import type { Slide } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
-import { uuidv4 } from '@/shared/utils/uuid';
 
 type EditorStepProps = {
   slides: Slide[];
@@ -39,11 +35,8 @@ export function EditorStep({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [isProcessingFeedback, setIsProcessingFeedback] = useState(false);
-  const [styleUploadError, setStyleUploadError] = useState<string | null>(null);
 
   const currentSlide = slides[currentIndex];
-  const styleGuide = currentSlide?.styleGuide;
-  const MAX_STYLE_REFERENCES = 5;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -120,99 +113,6 @@ export function EditorStep({
     }
   };
 
-  const handleStyleNotesChange = (notes: string) => {
-    if (!styleGuide) {
-      return;
-    }
-    onUpdateSlide(currentSlide.id, {
-      styleGuide: {
-        ...styleGuide,
-        notes,
-      },
-    });
-  };
-
-  const handleStyleUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    if (!styleGuide) {
-      return;
-    }
-
-    const files = event.target.files;
-    if (!files || files.length === 0) {
-      return;
-    }
-
-    const availableSlots = MAX_STYLE_REFERENCES - styleGuide.references.length;
-    if (availableSlots <= 0) {
-      setStyleUploadError(
-        'Limite de 5 referências atingido. Remova alguma antes de adicionar novas.',
-      );
-      event.target.value = '';
-      return;
-    }
-
-    const acceptedFiles = Array.from(files)
-      .filter((file) => /image\/(png|jpe?g|webp)/i.test(file.type))
-      .slice(0, availableSlots);
-
-    if (acceptedFiles.length === 0) {
-      setStyleUploadError('Use apenas imagens PNG, JPG ou WebP.');
-      event.target.value = '';
-      return;
-    }
-
-    const references = acceptedFiles.map((file) => ({
-      id: uuidv4(),
-      name: file.name,
-      previewUrl: URL.createObjectURL(file),
-      file,
-    }));
-
-    onUpdateSlide(currentSlide.id, {
-      styleGuide: {
-        ...styleGuide,
-        references: [...styleGuide.references, ...references],
-      },
-    });
-
-    setStyleUploadError(null);
-    event.target.value = '';
-  };
-
-  const handleRemoveStyleReference = (referenceId: string) => {
-    if (!styleGuide) {
-      return;
-    }
-
-    const reference = styleGuide.references.find(
-      (ref) => ref.id === referenceId,
-    );
-    if (reference?.previewUrl?.startsWith('blob:')) {
-      URL.revokeObjectURL(reference.previewUrl);
-    }
-
-    onUpdateSlide(currentSlide.id, {
-      styleGuide: {
-        ...styleGuide,
-        references: styleGuide.references.filter(
-          (ref) => ref.id !== referenceId,
-        ),
-      },
-    });
-  };
-
-  const handleFidelityChange = (value: 'high' | 'low') => {
-    if (!styleGuide || styleGuide.inputFidelity === value) {
-      return;
-    }
-
-    onUpdateSlide(currentSlide.id, {
-      styleGuide: {
-        ...styleGuide,
-        inputFidelity: value,
-      },
-    });
-  };
 
   return (
     <div className="flex min-h-screen flex-col pt-14">
@@ -403,121 +303,6 @@ export function EditorStep({
                 )}
               </button>
             </div>
-
-            {/* Style guide */}
-            {styleGuide && (
-              <div className="rounded-xl border border-white/10 bg-dark-900/60 p-4">
-                <div className="mb-3 flex items-center justify-between text-sm font-semibold text-white">
-                  <div className="flex items-center gap-2">
-                    <Palette size={16} className="text-primary-300" />
-                    Biblioteca de estilo
-                  </div>
-                  <span className="text-xs text-white/50">
-                    {styleGuide.references.length}/{MAX_STYLE_REFERENCES}
-                  </span>
-                </div>
-                <p className="text-xs text-white/60">
-                  Inspire o gpt-image-1.5 anexando imagens com a paleta e
-                  textura desejadas. Elas viram "Image 1...N" no prompt e usamos{' '}
-                  <code>input_fidelity</code> alto para preservar detalhes,
-                  seguindo as recomendações do guia de controle de estilo.
-                </p>
-                {styleUploadError && (
-                  <div className="mt-3 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-xs text-danger-200">
-                    {styleUploadError}
-                  </div>
-                )}
-                <div className="mt-3 grid grid-cols-3 gap-3">
-                  {styleGuide.references.map((reference) => (
-                    <div
-                      key={reference.id}
-                      className="group relative overflow-hidden rounded-lg border border-white/10 bg-dark-800/60"
-                    >
-                      <img
-                        src={reference.previewUrl}
-                        alt={reference.name}
-                        className="h-24 w-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        className="absolute right-1 top-1 rounded-full bg-dark-900/80 p-1 text-white/70 transition hover:text-danger-400"
-                        onClick={() => handleRemoveStyleReference(reference.id)}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                      <div className="truncate px-2 py-1 text-center text-[11px] text-white/60">
-                        {reference.name}
-                      </div>
-                    </div>
-                  ))}
-                  {styleGuide.references.length < MAX_STYLE_REFERENCES && (
-                    <label className="flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40">
-                      <UploadCloud size={18} className="text-primary-300" />
-                      <span>Adicionar referências</span>
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        multiple
-                        className="sr-only"
-                        onChange={handleStyleUpload}
-                      />
-                    </label>
-                  )}
-                </div>
-                <div className="mt-4 space-y-2">
-                  <label
-                    className="label text-xs text-white/60"
-                    htmlFor="style-notes"
-                  >
-                    Invariantes de estilo / paleta desejada
-                  </label>
-                  <textarea
-                    id="style-notes"
-                    className="input min-h-[90px] resize-none text-xs"
-                    placeholder="Ex.: manter iluminação neon vaporwave, personagens com outline suave, fundo gradiente azul-magenta, sem tipografia."
-                    value={styleGuide.notes}
-                    onChange={(event) =>
-                      handleStyleNotesChange(event.target.value)
-                    }
-                  />
-                </div>
-                <div className="mt-4 space-y-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
-                    Fidelidade das referências
-                  </span>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <button
-                      type="button"
-                      className={`rounded-lg border px-3 py-2 text-left transition ${
-                        styleGuide.inputFidelity === 'high'
-                          ? 'border-primary-400 bg-primary-500/10 text-primary-200'
-                          : 'border-white/10 text-white/60 hover:border-white/30'
-                      }`}
-                      onClick={() => handleFidelityChange('high')}
-                    >
-                      Alta (preserva traços)
-                      <span className="block text-[10px] text-white/50">
-                        Mantém cores, textura e rostos da referência.
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`rounded-lg border px-3 py-2 text-left transition ${
-                        styleGuide.inputFidelity === 'low'
-                          ? 'border-primary-400 bg-primary-500/10 text-primary-200'
-                          : 'border-white/10 text-white/60 hover:border-white/30'
-                      }`}
-                      onClick={() => handleFidelityChange('low')}
-                    >
-                      Baixa (mais liberdade)
-                      <span className="block text-[10px] text-white/50">
-                        Usa só parte da estética, permite variações.
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Visual prompt info */}
             <div className="rounded-lg bg-dark-800/50 p-3">
