@@ -9,11 +9,13 @@ import {
 import {
   generateScriptFromMaterials,
   generateSlideImage,
+  applyScriptInstructionsToSlides,
 } from '@/features/video-generation/api/videoGenerationApi';
 import type {
   GenerationProgress,
   ProjectData,
   Slide,
+  SlideEditOperation,
   VideoGenerationPayload,
 } from '@/features/video-generation/model/types';
 import { createDefaultStyleGuide } from '@/features/video-generation/model/types';
@@ -43,6 +45,103 @@ const createBlankSlide = (order: number): Slide => ({
 
 const normalizeSlideOrder = (slideList: Slide[]): Slide[] =>
   slideList.map((slide, index) => ({ ...slide, order: index }));
+
+const applySlideOperations = (
+  baseSlides: Slide[],
+  operations: SlideEditOperation[],
+): Slide[] => {
+  let next = [...baseSlides];
+
+  const resolveIndex = (list: Slide[], op: SlideEditOperation): number => {
+    if (list.length === 0) {
+      return -1;
+    }
+    if (op.slideId) {
+      const byId = list.findIndex((slide) => slide.id === op.slideId);
+      if (byId !== -1) {
+        return byId;
+      }
+    }
+    const clamped = Math.max(0, Math.min(op.targetIndex, list.length - 1));
+    return clamped;
+  };
+
+  operations.forEach((operation) => {
+    switch (operation.action) {
+      case 'delete': {
+        const index = resolveIndex(next, operation);
+        if (index === -1) {
+          appLogger.warn('⚠️ Não foi possível remover o slide solicitado.', {
+            operation,
+          });
+          return;
+        }
+        next = next.filter((_, idx) => idx !== index);
+        break;
+      }
+      case 'update': {
+        if (!operation.slide) {
+          appLogger.warn('⚠️ Operação de update sem conteúdo ignorada.', {
+            operation,
+          });
+          return;
+        }
+        const index = resolveIndex(next, operation);
+        if (index === -1) {
+          appLogger.warn('⚠️ Não foi possível atualizar o slide solicitado.', {
+            operation,
+          });
+          return;
+        }
+        next = next.map((slide, idx) =>
+          idx === index
+            ? {
+                ...slide,
+                scriptText: operation.slide!.scriptText,
+                narrationText: operation.slide!.narrationText,
+                visualPrompt: operation.slide!.visualPrompt,
+              }
+            : slide,
+        );
+        break;
+      }
+      case 'insert': {
+        if (!operation.slide) {
+          appLogger.warn('⚠️ Operação de insert sem conteúdo ignorada.', {
+            operation,
+          });
+          return;
+        }
+        const insertIndex = Math.min(
+          Math.max(operation.targetIndex, 0),
+          next.length,
+        );
+        const blank = createBlankSlide(insertIndex);
+        const newSlide: Slide = {
+          ...blank,
+          scriptText: operation.slide.scriptText,
+          narrationText: operation.slide.narrationText,
+          visualPrompt: operation.slide.visualPrompt,
+          isRegeneratingImage: false,
+          styleGuide: createDefaultStyleGuide(),
+          customAsset: null,
+        };
+        next = [
+          ...next.slice(0, insertIndex),
+          newSlide,
+          ...next.slice(insertIndex),
+        ];
+        break;
+      }
+      default:
+        appLogger.warn('⚠️ Ação de edição desconhecida ignorada.', {
+          operation,
+        });
+    }
+  });
+
+  return normalizeSlideOrder(next);
+};
 
 export function useVideoGeneration() {
   const [step, setStep] = useState<VideoGenerationStep>(
@@ -103,8 +202,11 @@ export function useVideoGeneration() {
         return prev;
       }
       const next = [...prev];
-      const [slide] = next.splice(currentIndex, 1);
-      next.splice(targetIndex, 0, slide);
+      const [slideToMove] = next.splice(currentIndex, 1);
+      if (!slideToMove) {
+        return prev;
+      }
+      next.splice(targetIndex, 0, slideToMove);
       appLogger.info('🔀 Slides reordenados.', {
         from: currentIndex + 1,
         to: targetIndex + 1,
@@ -279,6 +381,9 @@ export function useVideoGeneration() {
         throw new Error(message);
       }
 
+      const targetAudience =
+        projectData.targetAudience ?? VIDEO_CONFIG.DEFAULT_AUDIENCE;
+
       try {
         setStep(VIDEO_GENERATION_STEP.GENERATING_SCRIPT);
         setProgress({
@@ -287,10 +392,46 @@ export function useVideoGeneration() {
           currentAction: 'Ajustando roteiro com suas instruções...',
         });
 
+        if (slides.length > 0) {
+          const plan = await applyScriptInstructionsToSlides({
+            slides,
+            instructions,
+            topic: projectData.topic,
+            materials: projectData.materials,
+            targetAudience,
+          });
+
+          if (plan.operations.length === 0) {
+            appLogger.info('ℹ️ Nenhuma alteração retornada para o roteiro.', {
+              summary: plan.summary,
+            });
+            setProgress({
+              total: slides.length,
+              completed: slides.length,
+              currentAction: 'Nenhuma alteração aplicada.',
+            });
+            setStep(VIDEO_GENERATION_STEP.SCRIPT_REVIEW);
+            return;
+          }
+
+          setSlides((prev) => applySlideOperations(prev, plan.operations));
+          setProgress({
+            total: slides.length,
+            completed: slides.length,
+            currentAction: 'Roteiro atualizado com sucesso.',
+          });
+          appLogger.info('📝 Roteiro ajustado com instruções pontuais.', {
+            summary: plan.summary,
+            operations: plan.operations.length,
+          });
+          setStep(VIDEO_GENERATION_STEP.SCRIPT_REVIEW);
+          return;
+        }
+
         const rawSlides = await generateScriptFromMaterials(
           projectData.topic,
           projectData.materials,
-          projectData.targetAudience ?? VIDEO_CONFIG.DEFAULT_AUDIENCE,
+          targetAudience,
           projectData.promptId,
           instructions,
         );
@@ -322,7 +463,7 @@ export function useVideoGeneration() {
         throw error;
       }
     },
-    [projectData],
+    [projectData, slides],
   );
 
   const startRecording = useCallback(() => {

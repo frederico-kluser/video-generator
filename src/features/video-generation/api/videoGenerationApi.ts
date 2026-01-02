@@ -5,12 +5,16 @@ import {
   getPromptBlueprintById,
   type PromptBlueprintId,
 } from '@/content/prompts';
-import type { Slide } from '@/features/video-generation/model/types';
+import type {
+  Slide,
+  SlideEditOperation,
+} from '@/features/video-generation/model/types';
 import { createDefaultStyleGuide } from '@/features/video-generation/model/types';
 import {
   generateScriptFromMaterials as generateStructuredScript,
   generateSlideImage as generateOpenAiSlideImage,
   refineSlideContentWithFeedback,
+  editSlidesWithInstructions,
   type Script,
   type ContentBlock,
 } from '@/services/openaiService';
@@ -226,4 +230,28 @@ export async function refineSlideContent(
   );
 
   return result;
+}
+
+export async function applyScriptInstructionsToSlides(params: {
+  slides: Slide[];
+  instructions: string;
+  topic: string;
+  materials: string;
+  targetAudience: string;
+}): Promise<{ summary: string; operations: SlideEditOperation[] }> {
+  const normalizedAudience = normalizeAudience(params.targetAudience);
+
+  return editSlidesWithInstructions({
+    slides: params.slides.map((slide) => ({
+      id: slide.id,
+      order: slide.order,
+      scriptText: slide.scriptText,
+      narrationText: slide.narrationText,
+      visualPrompt: slide.visualPrompt,
+    })),
+    instructions: params.instructions,
+    topic: params.topic,
+    materials: params.materials,
+    targetAudience: normalizedAudience,
+  });
 }
