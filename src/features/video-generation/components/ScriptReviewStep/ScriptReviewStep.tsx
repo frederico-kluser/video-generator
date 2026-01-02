@@ -404,7 +404,7 @@ export function ScriptReviewStep({
                     <label className="mb-2 block text-sm font-semibold text-white/80">
                       Texto orientativo
                     </label>
-                    <div className="relative mb-4">
+                    <div className="mb-4 flex items-start gap-3">
                       <textarea
                         value={slide.scriptText}
                         onChange={(event) =>
@@ -412,11 +412,11 @@ export function ScriptReviewStep({
                             scriptText: event.target.value,
                           })
                         }
-                        className="min-h-[120px] w-full rounded-xl border border-dark-700 bg-dark-900/80 p-3 pr-14 text-sm text-white outline-none transition focus:border-primary-400"
+                        className="min-h-[120px] w-full flex-1 rounded-xl border border-dark-700 bg-dark-900/80 p-3 text-sm text-white outline-none transition focus:border-primary-400"
                       />
                       <VoiceInputButton
                         size="sm"
-                        className="absolute right-3 top-3"
+                        className="mt-1 shrink-0"
                         ariaLabel="Ditado para o texto orientativo"
                         onTranscription={(text) =>
                           onSlideChange(slide.id, {
@@ -429,7 +429,7 @@ export function ScriptReviewStep({
                     <label className="mb-2 block text-sm font-semibold text-white/80">
                       Narração literal
                     </label>
-                    <div className="relative mb-4">
+                    <div className="mb-4 flex items-start gap-3">
                       <textarea
                         value={slide.narrationText}
                         onChange={(event) =>
@@ -437,11 +437,11 @@ export function ScriptReviewStep({
                             narrationText: event.target.value,
                           })
                         }
-                        className="min-h-[90px] w-full rounded-xl border border-dark-700 bg-dark-900/80 p-3 pr-14 text-sm text-white outline-none transition focus:border-primary-400"
+                        className="min-h-[90px] w-full flex-1 rounded-xl border border-dark-700 bg-dark-900/80 p-3 text-sm text-white outline-none transition focus:border-primary-400"
                       />
                       <VoiceInputButton
                         size="sm"
-                        className="absolute right-3 top-3"
+                        className="mt-1 shrink-0"
                         ariaLabel="Ditado para a narração literal"
                         onTranscription={(text) =>
                           onSlideChange(slide.id, {
@@ -457,7 +457,7 @@ export function ScriptReviewStep({
                     <label className="mb-2 block text-sm font-semibold text-white/80">
                       Prompt visual sugerido
                     </label>
-                    <div className="relative mb-4">
+                    <div className="mb-4 flex items-start gap-3">
                       <textarea
                         value={slide.visualPrompt}
                         onChange={(event) =>
@@ -465,11 +465,11 @@ export function ScriptReviewStep({
                             visualPrompt: event.target.value,
                           })
                         }
-                        className="min-h-[80px] w-full rounded-xl border border-dark-700 bg-dark-900/80 p-3 pr-14 text-sm text-white outline-none transition focus:border-primary-400"
+                        className="min-h-[80px] w-full flex-1 rounded-xl border border-dark-700 bg-dark-900/80 p-3 text-sm text-white outline-none transition focus:border-primary-400"
                       />
                       <VoiceInputButton
                         size="sm"
-                        className="absolute right-3 top-3"
+                        className="mt-1 shrink-0"
                         ariaLabel="Ditado para o prompt visual"
                         onTranscription={(text) =>
                           onSlideChange(slide.id, {
@@ -636,10 +636,10 @@ export function ScriptReviewStep({
                           >
                             Observações de estilo
                           </label>
-                          <div className="relative">
+                          <div className="flex items-start gap-3">
                             <textarea
                               id={`style-notes-${slide.id}`}
-                              className="input min-h-[80px] resize-none pr-14 text-xs"
+                              className="input min-h-[80px] flex-1 resize-none text-xs"
                               placeholder="Ex.: manter iluminação neon vaporwave, fundo gradiente azul-magenta."
                               value={slide.styleGuide.notes}
                               onChange={(event) =>
@@ -648,7 +648,7 @@ export function ScriptReviewStep({
                             />
                             <VoiceInputButton
                               size="sm"
-                              className="absolute right-3 top-3"
+                              className="mt-1 shrink-0"
                               ariaLabel="Ditado para observações de estilo"
                               onTranscription={(text) =>
                                 handleStyleNotesChange(
@@ -731,19 +731,17 @@ export function ScriptReviewStep({
                 tom e deixe a IA reescrever tudo de uma vez.
               </p>
             </div>
-            <div className="relative">
+            <div className="flex items-start gap-3">
               <textarea
                 value={instructions}
                 onChange={(event) => setInstructions(event.target.value)}
                 placeholder="Ex: quero 6 slides, tom motivacional e foco em exemplos práticos."
-                className="min-h-[180px] rounded-2xl border border-dark-700 bg-dark-900/80 p-4 pr-14 text-sm text-white outline-none transition focus:border-primary-400"
+                className="min-h-[180px] flex-1 rounded-2xl border border-dark-700 bg-dark-900/80 p-4 text-sm text-white outline-none transition focus:border-primary-400"
               />
               <VoiceInputButton
-                className="absolute right-3 top-3"
+                className="mt-1 shrink-0"
                 ariaLabel="Ditado para instruções globais"
-                onTranscription={(text) =>
-                  setInstructions((prev) => mergeTranscript(prev, text))
-                }
+                onTranscription={(text) => setInstructions(text)}
               />
             </div>
             <button

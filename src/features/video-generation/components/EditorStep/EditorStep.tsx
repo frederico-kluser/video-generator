@@ -277,10 +277,10 @@ export function EditorStep({
                 <label className="label" htmlFor="scriptText">
                   Briefing / instruções do slide
                 </label>
-                <div className="relative">
+                <div className="flex items-start gap-3">
                   <textarea
                     id="scriptText"
-                    className="input min-h-[120px] resize-none pr-14 text-sm"
+                    className="input min-h-[120px] flex-1 resize-none text-sm"
                     value={currentSlide.scriptText}
                     onChange={(event) =>
                       onUpdateSlide(currentSlide.id, {
@@ -290,7 +290,7 @@ export function EditorStep({
                   />
                   <VoiceInputButton
                     size="sm"
-                    className="absolute right-3 top-3"
+                    className="mt-1 shrink-0"
                     ariaLabel="Ditado para o briefing do slide"
                     onTranscription={(text) =>
                       onUpdateSlide(currentSlide.id, {
@@ -305,10 +305,10 @@ export function EditorStep({
                 <label className="label" htmlFor="narrationText">
                   Texto literal para narrar
                 </label>
-                <div className="relative">
+                <div className="flex items-start gap-3">
                   <textarea
                     id="narrationText"
-                    className="input min-h-[100px] resize-none pr-14 text-sm"
+                    className="input min-h-[100px] flex-1 resize-none text-sm"
                     value={currentSlide.narrationText}
                     onChange={(event) =>
                       onUpdateSlide(currentSlide.id, {
@@ -318,7 +318,7 @@ export function EditorStep({
                   />
                   <VoiceInputButton
                     size="sm"
-                    className="absolute right-3 top-3"
+                    className="mt-1 shrink-0"
                     ariaLabel="Ditado para o texto literal"
                     onTranscription={(text) =>
                       onUpdateSlide(currentSlide.id, {
@@ -339,9 +339,9 @@ export function EditorStep({
                 <Sparkles size={16} className="animate-pulse" />
                 Revisão com IA
               </label>
-              <div className="relative">
+              <div className="flex items-start gap-3">
                 <textarea
-                  className="input min-h-[100px] resize-none border-primary-500/20 bg-dark-800/50 pr-14 text-sm focus:border-primary-500/40"
+                  className="input min-h-[100px] flex-1 resize-none border-primary-500/20 bg-dark-800/50 text-sm focus:border-primary-500/40"
                   placeholder="Ex.: deixe a imagem mais colorida, resuma o texto, mude o estilo visual..."
                   value={feedback}
                   onChange={(event) => setFeedback(event.target.value)}
@@ -349,12 +349,10 @@ export function EditorStep({
                 />
                 <VoiceInputButton
                   size="sm"
-                  className="absolute right-3 top-3"
+                  className="mt-1 shrink-0"
                   ariaLabel="Ditado para o feedback da IA"
                   disabled={isProcessingFeedback}
-                  onTranscription={(text) =>
-                    setFeedback((prev) => mergeTranscript(prev, text))
-                  }
+                  onTranscription={(text) => setFeedback(text)}
                 />
               </div>
               <button
