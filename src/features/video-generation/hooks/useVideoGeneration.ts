@@ -38,6 +38,7 @@ const createBlankSlide = (order: number): Slide => ({
   audioBlob: undefined,
   isRegeneratingImage: false,
   styleGuide: createDefaultStyleGuide(),
+  customAsset: null,
 });
 
 const normalizeSlideOrder = (slideList: Slide[]): Slide[] =>
@@ -119,15 +120,60 @@ export function useVideoGeneration() {
       }
 
       setStep(VIDEO_GENERATION_STEP.GENERATING_VISUALS);
+
+      const totalSlides = slidesToProcess.length;
+      const slidesWithCustomAsset = slidesToProcess.filter(
+        (slide) => Boolean(slide.customAsset),
+      );
+      const slidesNeedingGeneration = slidesToProcess.filter(
+        (slide) => !slide.customAsset,
+      );
+
+      if (slidesWithCustomAsset.length > 0) {
+        const customAssetMap = new Map(
+          slidesWithCustomAsset.map((slide) => [slide.id, slide.customAsset]),
+        );
+
+        setSlides((prev) =>
+          prev.map((current) => {
+            if (!customAssetMap.has(current.id)) {
+              return current;
+            }
+
+            const asset = customAssetMap.get(current.id);
+            return {
+              ...current,
+              imageUrl:
+                asset?.type === 'image' ? asset.previewUrl : current.imageUrl,
+              isRegeneratingImage: false,
+            };
+          }),
+        );
+
+        appLogger.info('🖼️ Aplicando assets enviados pelo usuário.', {
+          slides: slidesWithCustomAsset.length,
+        });
+      }
+
+      let completed = slidesWithCustomAsset.length;
+
       setProgress({
-        total: slidesToProcess.length,
-        completed: 0,
-        currentAction: 'Renderizando visuais...',
+        total: totalSlides,
+        completed,
+        currentAction: `Renderizando visuais (${completed}/${totalSlides})...`,
       });
 
-      let completed = 0;
+      if (slidesNeedingGeneration.length === 0) {
+        setProgress({
+          total: totalSlides,
+          completed,
+          currentAction: 'Visuais prontos.',
+        });
+        return;
+      }
+
       await runWithConcurrency(
-        slidesToProcess,
+        slidesNeedingGeneration,
         VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT,
         async (slide) => {
           try {
@@ -161,9 +207,9 @@ export function useVideoGeneration() {
           } finally {
             completed += 1;
             setProgress({
-              total: slidesToProcess.length,
+              total: totalSlides,
               completed,
-              currentAction: `Renderizando visuais (${completed}/${slidesToProcess.length})...`,
+              currentAction: `Renderizando visuais (${completed}/${totalSlides})...`,
             });
           }
         },
@@ -197,6 +243,7 @@ export function useVideoGeneration() {
             order: index,
             isRegeneratingImage: false,
             styleGuide: slide.styleGuide ?? createDefaultStyleGuide(),
+            customAsset: null,
           })),
         );
 
@@ -255,6 +302,7 @@ export function useVideoGeneration() {
             order: index,
             isRegeneratingImage: false,
             styleGuide: slide.styleGuide ?? createDefaultStyleGuide(),
+            customAsset: null,
           })),
         );
 
@@ -292,7 +340,7 @@ export function useVideoGeneration() {
       slides.map((slide, index) => ({
         ...slide,
         order: index,
-        isRegeneratingImage: true,
+        isRegeneratingImage: !slide.customAsset,
       })),
     );
 

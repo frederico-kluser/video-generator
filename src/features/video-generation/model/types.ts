@@ -23,6 +23,16 @@ export const createDefaultStyleGuide = (): SlideStyleGuide => ({
   references: [],
 });
 
+export type SlideCustomAsset = {
+  id: string;
+  type: 'image' | 'video';
+  name: string;
+  previewUrl: string;
+  sourceUrl: string;
+  file?: File;
+  durationMs?: number;
+};
+
 export type Slide = {
   id: string;
   order: number;
@@ -34,6 +44,7 @@ export type Slide = {
   audioBlob?: Blob;
   isRegeneratingImage: boolean;
   styleGuide: SlideStyleGuide;
+  customAsset?: SlideCustomAsset | null;
 };
 
 export type ProjectData = {

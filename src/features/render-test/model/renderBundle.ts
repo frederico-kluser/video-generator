@@ -8,6 +8,9 @@ export type RenderBundleSlide = {
   visualPrompt: string;
   imageFile: string | null;
   audioFile: string | null;
+  assetFile?: string | null;
+  assetType?: 'image' | 'video' | null;
+  assetDurationMs?: number | null;
 };
 
 export type RenderBundleManifest = {

@@ -120,6 +120,20 @@ export function RecordingStep({
     }
   };
 
+  const resolveSlideVisual = (slide: Slide) => {
+    const asset = slide.customAsset;
+    if (asset?.type === 'video' && asset.previewUrl) {
+      return { type: 'video' as const, url: asset.previewUrl };
+    }
+    if (asset?.type === 'image' && asset.previewUrl) {
+      return { type: 'image' as const, url: asset.previewUrl };
+    }
+    if (slide.imageUrl) {
+      return { type: 'image' as const, url: slide.imageUrl };
+    }
+    return null;
+  };
+
   const progress = Math.round(((currentIndex + 1) / slides.length) * 100);
 
   const arClass =
@@ -160,18 +174,40 @@ export function RecordingStep({
         <div
           className={`relative flex-shrink-0 overflow-hidden rounded-2xl border border-dark-700 bg-dark-900 shadow-2xl ${arClass}`}
         >
-          {currentSlide.imageUrl ? (
-            <img
-              src={currentSlide.imageUrl}
-              alt="Visual do slide"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/40">
-              <ImageIcon size={40} />
-              <span className="text-sm">Sem imagem</span>
-            </div>
-          )}
+          {(() => {
+            const visual = resolveSlideVisual(currentSlide);
+ 
+            if (!visual) {
+              return (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/40">
+                  <ImageIcon size={40} />
+                  <span className="text-sm">Sem visual</span>
+                </div>
+              );
+            }
+ 
+            if (visual.type === 'video') {
+              return (
+                <video
+                  key={visual.url}
+                  src={visual.url}
+                  className="h-full w-full object-cover"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+              );
+            }
+ 
+            return (
+              <img
+                src={visual.url}
+                alt="Visual do slide"
+                className="h-full w-full object-cover"
+              />
+            );
+          })()}
 
           {/* Recording indicator */}
           {currentSlide.audioBlob && (
@@ -305,13 +341,32 @@ export function RecordingStep({
               }`}
             >
               <div className="h-12 w-16 bg-dark-800">
-                {slide.imageUrl && (
-                  <img
-                    src={slide.imageUrl}
-                    alt={`Slide ${index + 1}`}
-                    className="h-full w-full object-cover"
-                  />
-                )}
+                {(() => {
+                  const visual = resolveSlideVisual(slide);
+                  if (!visual) {
+                    return null;
+                  }
+                  if (visual.type === 'video') {
+                    return (
+                      <video
+                        key={visual.url}
+                        src={visual.url}
+                        className="h-full w-full object-cover"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                      />
+                    );
+                  }
+                  return (
+                    <img
+                      src={visual.url}
+                      alt={`Slide ${index + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  );
+                })()}
               </div>
               {slide.audioBlob && (
                 <div className="absolute bottom-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-success-500">

@@ -11,11 +11,14 @@ import {
   Trash2,
   UploadCloud,
   Wand2,
+  Film,
+  ImageIcon,
 } from 'lucide-react';
 
 import type {
   ProjectData,
   Slide,
+  SlideCustomAsset,
 } from '@/features/video-generation/model/types';
 import { appLogger } from '@/shared/logging/logger';
 import { uuidv4 } from '@/shared/utils/uuid';
@@ -47,11 +50,16 @@ export function ScriptReviewStep({
   const [styleUploadErrors, setStyleUploadErrors] = useState<
     Record<string, string | null>
   >({});
+  const [assetUploadErrors, setAssetUploadErrors] = useState<
+    Record<string, string | null>
+  >({});
   const orderedSlides = useMemo(
     () => [...slides].sort((a, b) => a.order - b.order),
     [slides],
   );
   const MAX_STYLE_REFERENCES = 5;
+  const SUPPORTED_IMAGE_TYPES = /image\/(png|jpe?g|webp)/i;
+  const SUPPORTED_VIDEO_TYPES = /video\/(mp4|webm|quicktime)/i;
 
   const handleApplyInstructions = async () => {
     if (!instructions.trim()) {
@@ -104,7 +112,7 @@ export function ScriptReviewStep({
     }
 
     const acceptedFiles = Array.from(files)
-      .filter((file) => /image\/(png|jpe?g|webp)/i.test(file.type))
+      .filter((file) => SUPPORTED_IMAGE_TYPES.test(file.type))
       .slice(0, availableSlots);
 
     if (acceptedFiles.length === 0) {
@@ -129,6 +137,129 @@ export function ScriptReviewStep({
 
     setSlideUploadError(slide.id, null);
     event.target.value = '';
+  };
+
+  const readVideoDurationMs = (assetUrl: string): Promise<number | null> =>
+    new Promise((resolve) => {
+      const video = document.createElement('video');
+      let settled = false;
+
+      const finalize = (duration: number | null) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        video.src = '';
+        video.remove();
+        resolve(duration);
+      };
+
+      video.preload = 'metadata';
+      video.muted = true;
+      video.src = assetUrl;
+
+      const timeoutId = window.setTimeout(() => finalize(null), 5000);
+
+      video.onloadedmetadata = () => {
+        window.clearTimeout(timeoutId);
+        const duration = Number.isFinite(video.duration)
+          ? Math.max(0, Math.round(video.duration * 1000))
+          : null;
+        finalize(duration);
+      };
+
+      video.onerror = () => {
+        window.clearTimeout(timeoutId);
+        finalize(null);
+      };
+    });
+
+  const handleAssetUpload = async (
+    slide: Slide,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const [file] = event.target.files ?? [];
+    if (!file) {
+      return;
+    }
+
+    const isImage = SUPPORTED_IMAGE_TYPES.test(file.type);
+    const isVideo = SUPPORTED_VIDEO_TYPES.test(file.type);
+
+    if (!isImage && !isVideo) {
+      setAssetUploadErrors((prev) => ({
+        ...prev,
+        [slide.id]: 'Use imagens PNG/JPG/WebP ou vídeos MP4/WebM/MOV.',
+      }));
+      event.target.value = '';
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+
+    try {
+      let asset: SlideCustomAsset = {
+        id: uuidv4(),
+        type: isVideo ? 'video' : 'image',
+        name: file.name,
+        previewUrl: objectUrl,
+        sourceUrl: objectUrl,
+        file,
+      };
+
+      if (isVideo) {
+        const durationMs = await readVideoDurationMs(objectUrl);
+        asset = {
+          ...asset,
+          durationMs: durationMs ?? undefined,
+        };
+      }
+
+      onSlideChange(slide.id, {
+        customAsset: asset,
+        imageUrl: asset.type === 'image' ? asset.previewUrl : slide.imageUrl,
+        isRegeneratingImage: false,
+      });
+      setAssetUploadErrors((prev) => ({ ...prev, [slide.id]: null }));
+    } catch (error) {
+      appLogger.error('💥 Falha ao processar asset personalizado.', {
+        error,
+      });
+      URL.revokeObjectURL(objectUrl);
+      setAssetUploadErrors((prev) => ({
+        ...prev,
+        [slide.id]: 'Não foi possível processar o arquivo enviado.',
+      }));
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  const handleRemoveCustomAsset = (slide: Slide) => {
+    const asset = slide.customAsset;
+    if (!asset) {
+      return;
+    }
+
+    if (asset.previewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(asset.previewUrl);
+    }
+    if (
+      asset.sourceUrl &&
+      asset.sourceUrl !== asset.previewUrl &&
+      asset.sourceUrl.startsWith('blob:')
+    ) {
+      URL.revokeObjectURL(asset.sourceUrl);
+    }
+
+    const updates: Partial<Slide> = {
+      customAsset: null,
+    };
+    if (asset.type === 'image' && slide.imageUrl === asset.previewUrl) {
+      updates.imageUrl = undefined;
+    }
+
+    onSlideChange(slide.id, updates);
   };
 
   const handleRemoveStyleReference = (slide: Slide, referenceId: string) => {
@@ -219,8 +350,13 @@ export function ScriptReviewStep({
               </div>
             ) : (
               <div className="space-y-4">
-                {orderedSlides.map((slide, index) => (
-                  <article
+                {orderedSlides.map((slide, index) => {
+                  const customAsset = slide.customAsset;
+                  const referencesDisabled = Boolean(customAsset);
+                  const assetError = assetUploadErrors[slide.id];
+
+                  return (
+                    <article
                     key={slide.id}
                     className="rounded-2xl border border-dark-700/70 bg-dark-950/60 p-5"
                   >
@@ -314,9 +450,93 @@ export function ScriptReviewStep({
                           </span>
                         </div>
                         <p className="text-xs text-white/60">
-                          Anexe imagens inspiração antes de gerar os visuais. Caso envie algo aqui,
-                          inserimos a referência em cada prompt automaticamente.
+                          {referencesDisabled
+                            ? 'Referências visuais são ignoradas porque este slide utilizará o asset final enviado abaixo.'
+                            : 'Anexe imagens inspiração antes de gerar os visuais. Caso envie algo aqui, inserimos a referência em cada prompt automaticamente.'}
                         </p>
+
+                        <div className="mt-4 rounded-xl border border-white/10 bg-dark-950/40 p-4">
+                          <div className="flex items-center justify-between text-sm font-semibold text-white">
+                            <div className="flex items-center gap-2">
+                              {customAsset?.type === 'video' ? (
+                                <Film size={16} className="text-primary-300" />
+                              ) : (
+                                <ImageIcon size={16} className="text-primary-300" />
+                              )}
+                              Asset final (imagem ou vídeo)
+                            </div>
+                            <span className="text-xs text-white/50">
+                              {customAsset ? '1/1 anexado' : 'opcional'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-white/60">
+                            Envie o visual definitivo. Ajustaremos automaticamente para o aspect ratio escolhido e sincronizaremos com sua narração.
+                          </p>
+                          {customAsset ? (
+                            <div className="mt-3 flex flex-col gap-3 rounded-lg border border-white/10 bg-dark-900/60 p-3 md:flex-row">
+                              <div className="relative w-full overflow-hidden rounded-lg border border-white/10 bg-dark-800/50 md:w-40">
+                                {customAsset.type === 'video' ? (
+                                  <video
+                                    key={customAsset.previewUrl}
+                                    src={customAsset.previewUrl}
+                                    className="h-32 w-full object-cover"
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                  />
+                                ) : (
+                                  <img
+                                    src={customAsset.previewUrl}
+                                    alt={customAsset.name}
+                                    className="h-32 w-full object-cover"
+                                  />
+                                )}
+                              </div>
+                              <div className="flex flex-1 flex-col justify-between gap-2 text-sm text-white/80">
+                                <div>
+                                  <p className="font-semibold">{customAsset.name}</p>
+                                  <p className="text-xs text-white/50">
+                                    {customAsset.type === 'video'
+                                      ? `Vídeo • ${formatDuration(customAsset.durationMs)}`
+                                      : 'Imagem estática'}
+                                  </p>
+                                  {customAsset.type === 'video' && (
+                                    <p className="mt-1 text-[11px] text-white/50">
+                                      Se o áudio for maior que o vídeo, congelamos o último frame; se for menor, o vídeo toca até o final.
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="btn-secondary inline-flex items-center gap-2 border-danger-500/40 text-danger-300 hover:bg-danger-500/10"
+                                  onClick={() => handleRemoveCustomAsset(slide)}
+                                >
+                                  <Trash2 size={14} /> Remover asset
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <label className="mt-3 flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40">
+                              <UploadCloud size={18} className="text-primary-300" />
+                              <span>Enviar asset final</span>
+                              <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+                                PNG · JPG · WEBP · MP4 · WEBM · MOV
+                              </span>
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime"
+                                className="sr-only"
+                                onChange={(event) => handleAssetUpload(slide, event)}
+                              />
+                            </label>
+                          )}
+                          {assetError && (
+                            <div className="mt-3 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-xs text-danger-200">
+                              {assetError}
+                            </div>
+                          )}
+                        </div>
                         {styleUploadErrors[slide.id] && (
                           <div className="mt-3 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-xs text-danger-200">
                             {styleUploadErrors[slide.id]}
@@ -345,18 +565,24 @@ export function ScriptReviewStep({
                               </div>
                             </div>
                           ))}
-                          {slide.styleGuide.references.length < MAX_STYLE_REFERENCES && (
-                            <label className="flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40">
-                              <UploadCloud size={18} className="text-primary-300" />
-                              <span>Enviar referência</span>
-                              <input
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp"
-                                multiple
-                                className="sr-only"
-                                onChange={(event) => handleStyleUpload(slide, event)}
-                              />
-                            </label>
+                          {!referencesDisabled &&
+                            slide.styleGuide.references.length < MAX_STYLE_REFERENCES && (
+                              <label className="flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40">
+                                <UploadCloud size={18} className="text-primary-300" />
+                                <span>Enviar referência</span>
+                                <input
+                                  type="file"
+                                  accept="image/png,image/jpeg,image/webp"
+                                  multiple
+                                  className="sr-only"
+                                  onChange={(event) => handleStyleUpload(slide, event)}
+                                />
+                              </label>
+                            )}
+                          {referencesDisabled && (
+                            <div className="col-span-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                              Remova o asset final para adicionar novas referências.
+                            </div>
                           )}
                         </div>
                         <div className="mt-4 space-y-2">
@@ -424,7 +650,8 @@ export function ScriptReviewStep({
                       </button>
                     </div>
                   </article>
-                ))}
+                  );
+                })}
 
                 <button
                   type="button"
@@ -485,6 +712,19 @@ export function ScriptReviewStep({
       </div>
     </div>
   );
+}
+
+function formatDuration(durationMs?: number): string {
+  if (!durationMs || !Number.isFinite(durationMs)) {
+    return 'duração indefinida';
+  }
+
+  if (durationMs >= 1000) {
+    const seconds = durationMs / 1000;
+    return `${seconds.toFixed(seconds >= 10 ? 0 : 1)}s`;
+  }
+
+  return `${Math.round(durationMs)}ms`;
 }
 
 function InfoBadge({ label, value }: { label: string; value: string }) {

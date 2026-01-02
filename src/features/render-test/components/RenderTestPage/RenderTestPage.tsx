@@ -19,11 +19,13 @@ import type { WebAVRendererSlideInput } from '@/shared/types/webav.types';
 
 const IMAGE_DIR = 'assets/images/';
 const AUDIO_DIR = 'assets/audio/';
+const CUSTOM_DIR = 'assets/custom/';
 
 type SlidePreview = {
   slide: RenderBundleSlide;
   imageUrl?: string;
   audioUrl?: string;
+  assetUrl?: string;
 };
 
 export function RenderTestPage() {
@@ -46,13 +48,37 @@ export function RenderTestPage() {
   }, [slidesPreview]);
   const renderAspectRatio = manifest?.aspectRatio ?? '16:9';
   const webAvSlides = useMemo<WebAVRendererSlideInput[]>(() => {
-    return orderedSlides.map((entry, index) => ({
-      id: entry.slide.id,
-      order: entry.slide.order ?? index,
-      imageUrl: entry.imageUrl,
-      audioUrl: entry.audioUrl,
-      zIndex: 1,
-    }));
+    return orderedSlides.map((entry, index) => {
+      const visualAsset = (() => {
+        if (!entry.assetUrl || !entry.slide.assetType) {
+          return undefined;
+        }
+
+        if (entry.slide.assetType === 'video') {
+          return {
+            kind: 'video' as const,
+            url: entry.assetUrl,
+            durationSeconds: entry.slide.assetDurationMs
+              ? entry.slide.assetDurationMs / 1000
+              : undefined,
+          };
+        }
+
+        return {
+          kind: 'image' as const,
+          url: entry.assetUrl,
+        };
+      })();
+
+      return {
+        id: entry.slide.id,
+        order: entry.slide.order ?? index,
+        imageUrl: entry.imageUrl,
+        audioUrl: entry.audioUrl,
+        zIndex: 1,
+        visualAsset,
+      };
+    });
   }, [orderedSlides]);
 
   const handleFileSelection = async (
@@ -131,6 +157,18 @@ export function RenderTestPage() {
         if (audioEntry) {
           const blob = await audioEntry.async('blob');
           preview.audioUrl = URL.createObjectURL(blob);
+        }
+      }
+
+      if (slide.assetType === 'image' && preview.imageUrl) {
+        preview.assetUrl = preview.imageUrl;
+      }
+
+      if (slide.assetType === 'video' && slide.assetFile) {
+        const assetEntry = zip.file(`${CUSTOM_DIR}${slide.assetFile}`);
+        if (assetEntry) {
+          const blob = await assetEntry.async('blob');
+          preview.assetUrl = URL.createObjectURL(blob);
         }
       }
 
@@ -331,6 +369,9 @@ function cleanupPreviewAssets(entries: SlidePreview[]) {
     }
     if (entry.audioUrl?.startsWith('blob:')) {
       URL.revokeObjectURL(entry.audioUrl);
+    }
+    if (entry.assetUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(entry.assetUrl);
     }
   });
 }

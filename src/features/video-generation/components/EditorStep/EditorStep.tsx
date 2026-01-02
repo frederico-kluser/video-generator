@@ -38,6 +38,54 @@ export function EditorStep({
 
   const currentSlide = slides[currentIndex];
 
+  const renderVisualPreview = () => {
+    const asset = currentSlide?.customAsset;
+
+    if (asset?.type === 'video' && asset.previewUrl) {
+      return (
+        <video
+          key={asset.previewUrl}
+          src={asset.previewUrl}
+          className={`h-full w-full object-cover transition-all duration-500 ${
+            currentSlide?.isRegeneratingImage
+              ? 'scale-105 opacity-50 blur-md'
+              : 'scale-100 opacity-100'
+          }`}
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+      );
+    }
+
+    const imageSrc =
+      asset?.type === 'image' && asset.previewUrl
+        ? asset.previewUrl
+        : currentSlide?.imageUrl;
+
+    if (imageSrc) {
+      return (
+        <img
+          src={imageSrc}
+          alt="Preview do slide"
+          className={`h-full w-full object-cover transition-all duration-500 ${
+            currentSlide?.isRegeneratingImage
+              ? 'scale-105 opacity-50 blur-md'
+              : 'scale-100 opacity-100'
+          }`}
+        />
+      );
+    }
+
+    return (
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-dark-800 text-white/40">
+        <ImageIcon size={48} className="animate-pulse" />
+        <span>Gerando visual...</span>
+      </div>
+    );
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'ArrowRight' && currentIndex < slides.length - 1) {
@@ -174,22 +222,7 @@ export function EditorStep({
           <div
             className={`relative w-full max-w-3xl overflow-hidden rounded-2xl border border-dark-700 bg-dark-900 shadow-2xl ${arClass}`}
           >
-            {currentSlide.imageUrl ? (
-              <img
-                src={currentSlide.imageUrl}
-                alt="Preview do slide"
-                className={`h-full w-full object-cover transition-all duration-500 ${
-                  currentSlide.isRegeneratingImage
-                    ? 'scale-105 opacity-50 blur-md'
-                    : 'scale-100 opacity-100'
-                }`}
-              />
-            ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-dark-800 text-white/40">
-                <ImageIcon size={48} className="animate-pulse" />
-                <span>Gerando visual...</span>
-              </div>
-            )}
+            {renderVisualPreview()}
 
             {/* Regenerating overlay */}
             {currentSlide.isRegeneratingImage && (
