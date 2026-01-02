@@ -20,18 +20,14 @@ function resolveDebugFlag(): boolean {
 
   const searchFlag = searchParams.get('debug');
   const hashFlag = hashParams.get('debug');
-  const storedFlag = window.localStorage?.getItem(DEBUG_STORAGE_KEY);
 
-  const foundActiveFlag = [searchFlag, hashFlag, storedFlag].some((value) => {
+  // Só verifica a URL, não persiste no localStorage automaticamente
+  const foundActiveFlag = [searchFlag, hashFlag].some((value) => {
     if (!value) {
       return false;
     }
     return DEBUG_TRUTHY.has(value.toLowerCase());
   });
-
-  if (searchFlag && DEBUG_TRUTHY.has(searchFlag.toLowerCase())) {
-    window.localStorage?.setItem(DEBUG_STORAGE_KEY, 'true');
-  }
 
   return Boolean(foundActiveFlag || castedWindow.__EDUSCRIPT_DEBUG__);
 }
@@ -44,6 +40,13 @@ export function useDebugMode() {
   useEffect(() => {
     if (typeof window === 'undefined') {
       return () => {};
+    }
+
+    // Limpa o localStorage se não houver parâmetro debug na URL
+    const currentFlag = resolveDebugFlag();
+    const storedFlag = window.localStorage?.getItem(DEBUG_STORAGE_KEY);
+    if (!currentFlag && storedFlag) {
+      window.localStorage?.removeItem(DEBUG_STORAGE_KEY);
     }
 
     const handleChange = () => {

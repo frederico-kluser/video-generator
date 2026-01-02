@@ -98,9 +98,11 @@ export function VideoGenerationFlow() {
       {step === VIDEO_GENERATION_STEP.INPUT && (
         <>
           <InputStep onStart={actions.startGeneration} />
-          <div className="px-4 pb-16">
-            <AudioLabsCta />
-          </div>
+          {isDebugMode && (
+            <div className="px-4 pb-16">
+              <AudioLabsCta />
+            </div>
+          )}
         </>
       )}
 
