@@ -237,8 +237,10 @@ export async function applyScriptInstructionsToSlides(params: {
   instructions: string;
   topic: string;
   materials: string;
-  targetAudience: Script['targetAudience'];
+  targetAudience: string;
 }): Promise<{ summary: string; operations: SlideEditOperation[] }> {
+  const normalizedAudience = normalizeAudience(params.targetAudience);
+
   return editSlidesWithInstructions({
     slides: params.slides.map((slide) => ({
       id: slide.id,
@@ -250,6 +252,6 @@ export async function applyScriptInstructionsToSlides(params: {
     instructions: params.instructions,
     topic: params.topic,
     materials: params.materials,
-    targetAudience: params.targetAudience,
+    targetAudience: normalizedAudience,
   });
 }

@@ -202,8 +202,11 @@ export function useVideoGeneration() {
         return prev;
       }
       const next = [...prev];
-      const [slide] = next.splice(currentIndex, 1);
-      next.splice(targetIndex, 0, slide);
+      const [slideToMove] = next.splice(currentIndex, 1);
+      if (!slideToMove) {
+        return prev;
+      }
+      next.splice(targetIndex, 0, slideToMove);
       appLogger.info('🔀 Slides reordenados.', {
         from: currentIndex + 1,
         to: targetIndex + 1,
