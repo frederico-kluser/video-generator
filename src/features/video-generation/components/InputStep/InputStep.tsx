@@ -273,7 +273,7 @@ export function InputStep({ onStart }: InputStepProps) {
                       type="button"
                       className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 ${
                         isActive
-                          ? 'border-primary-500 bg-primary-500/15 text-primary-200 shadow-glow-sm'
+                          ? 'border-primary-500 bg-primary-500/15 text-primary-200'
                           : 'border-dark-600 bg-dark-800/50 text-white/70 hover:border-dark-500 hover:text-white'
                       }`}
                       onClick={() => setSelectedCategory(category)}
@@ -340,7 +340,7 @@ export function InputStep({ onStart }: InputStepProps) {
                       type="button"
                       className={`group relative flex flex-col items-center gap-2 rounded-xl border p-4 transition-all duration-300 ${
                         isSelected
-                          ? 'border-primary-500 bg-primary-500/15 shadow-glow-sm'
+                          ? 'border-primary-500 bg-primary-500/15'
                           : 'border-dark-600 bg-dark-800/50 hover:border-dark-500 hover:bg-dark-700/50'
                       }`}
                       onClick={() => setAspectRatio(option.id)}
@@ -453,7 +453,7 @@ function PromptBlueprintCard({
       onClick={onSelect}
       className={`w-full rounded-2xl border p-4 text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
         isSelected
-          ? 'border-primary-500 bg-primary-500/10 shadow-glow-sm'
+          ? 'border-primary-500 bg-primary-500/10'
           : 'border-dark-600 bg-dark-800/40 hover:border-dark-500 hover:bg-dark-700/40'
       }`}
       aria-pressed={isSelected}
