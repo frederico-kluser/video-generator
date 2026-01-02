@@ -1,34 +1,20 @@
-export type ThemeId = 'midnight' | 'aurora' | 'solstice';
+export type ThemeId = 'default';
 
 export type ThemeDefinition = {
   id: ThemeId;
   label: string;
   description: string;
-  accentGradient: string;
 };
 
 export const THEME_DEFINITIONS: ThemeDefinition[] = [
   {
-    id: 'midnight',
-    label: 'Midnight Studio',
-    description: 'Roxos profundos com glow violeta clássico do Grava.',
-    accentGradient: 'from-primary-600 via-primary-500 to-accent-500',
-  },
-  {
-    id: 'aurora',
-    label: 'Aurora Lab',
-    description: 'Teal + magenta inspirados em auroras boreais.',
-    accentGradient: 'from-accent-500 via-primary-500 to-accent-700',
-  },
-  {
-    id: 'solstice',
-    label: 'Solstice Studio',
-    description: 'Âmbares quentes com acentos rosados.',
-    accentGradient: 'from-primary-500 via-accent-500 to-primary-600',
+    id: 'default',
+    label: 'Grava',
+    description: 'Tema padrão do Grava.',
   },
 ];
 
-export const DEFAULT_THEME_ID: ThemeId = 'aurora';
+export const DEFAULT_THEME_ID: ThemeId = 'default';
 
 const themeMap = new Map(THEME_DEFINITIONS.map((theme) => [theme.id, theme]));
 

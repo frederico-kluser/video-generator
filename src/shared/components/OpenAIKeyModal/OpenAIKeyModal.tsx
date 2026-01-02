@@ -70,7 +70,7 @@ export function OpenAIKeyModal({
         )}
 
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-accent-500">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-600">
             <Key size={24} className="text-white" />
           </div>
           <div>
@@ -138,7 +138,7 @@ export function OpenAIKeyModal({
           )}
           <button
             onClick={handleSave}
-            className="flex-1 rounded-lg bg-gradient-to-r from-primary-500 to-accent-500 px-4 py-3 font-medium text-white shadow-lg shadow-primary-500/25 transition-all hover:shadow-primary-500/40"
+            className="flex-1 rounded-lg bg-primary-600 px-4 py-3 font-medium text-white transition-all hover:bg-primary-500"
           >
             Salvar chave
           </button>

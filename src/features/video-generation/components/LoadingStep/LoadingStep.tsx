@@ -16,19 +16,19 @@ export function LoadingStep({ progress }: LoadingStepProps) {
       {/* Animated background orbs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute left-1/4 top-1/4 h-64 w-64 animate-float rounded-full bg-primary-600/20 blur-[80px]" />
-        <div className="animation-delay-2000 absolute right-1/4 top-1/2 h-48 w-48 animate-float rounded-full bg-accent-600/20 blur-[60px]" />
+        <div className="animation-delay-2000 absolute right-1/4 top-1/2 h-48 w-48 animate-float rounded-full bg-primary-600/20 blur-[60px]" />
         <div className="animation-delay-4000 absolute bottom-1/4 left-1/2 h-56 w-56 animate-float rounded-full bg-primary-500/15 blur-[70px]" />
       </div>
 
       {/* Loader */}
       <div className="relative">
         {/* Outer glow ring */}
-        <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-r from-primary-500 to-accent-500 opacity-30 blur-xl" />
+        <div className="absolute inset-0 animate-pulse rounded-full bg-primary-500 opacity-30 blur-xl" />
 
         {/* Spinning ring */}
         <div className="relative flex h-32 w-32 items-center justify-center">
-          <div className="absolute inset-0 animate-spin-slow rounded-full border-4 border-transparent border-t-primary-500 border-r-accent-400" />
-          <div className="absolute inset-2 animate-spin rounded-full border-4 border-transparent border-b-primary-400 border-l-accent-500" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+          <div className="absolute inset-0 animate-spin-slow rounded-full border-4 border-transparent border-t-primary-500 border-r-primary-400" />
+          <div className="absolute inset-2 animate-spin rounded-full border-4 border-transparent border-b-primary-400 border-l-primary-500" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
 
           {/* Center icon */}
           <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-dark-800/80 backdrop-blur-sm">
