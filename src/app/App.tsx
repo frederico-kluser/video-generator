@@ -7,12 +7,15 @@ import { AudioEqualizerLab } from '@/features/audio-eq-lab/components/AudioEqual
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
 import { RenderTestPage } from '@/features/render-test/components/RenderTestPage/RenderTestPage';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
+import { useUrlOnlyDebugMode } from '@/shared/hooks/useDebugMode';
 
 export function App() {
+  const isDebugMode = useUrlOnlyDebugMode();
+
   useEffect(() => {
     const { appTitle } = getEnv();
-    document.title = appTitle;
-  }, []);
+    document.title = isDebugMode ? `${appTitle} - Debug Mode` : appTitle;
+  }, [isDebugMode]);
 
   const normalizedPath =
     typeof window !== 'undefined'
