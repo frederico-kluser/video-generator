@@ -28,9 +28,10 @@ Grava combina briefing guiado, geração assistida por IA, narração humana e r
 - **Laboratórios de áudio**: `/audio-lab` limpa ruídos com pipelines server-side e `/audio-eq-lab` equaliza e concatena takes.
 - **Render test**: `/render-test` valida bundles `.zip` ou `manifest.json` com o mesmo renderer do preview.
 - **Observabilidade**: `appLogger` adiciona contexto estruturado com emojis em cada etapa.
+- **Animações 3Blue1Brown**: o Editor gera clipes Manim CE (6–12s) via API local compatível com o pipeline oficial da 3Blue1Brown, anexando o MP4 diretamente como asset do slide.
 
 ### Stack e integrações
-React 19, TypeScript 5.8, Vite 6, Tailwind 3.4, WebAV (`@webav/av-*`), LangChain + OpenAI SDK, Express + `fluent-ffmpeg`, Zod, JSZip, Lucide React.
+React 19, TypeScript 5.8, Vite 6, Tailwind 3.4, WebAV (`@webav/av-*`), LangChain + OpenAI SDK, Express + `fluent-ffmpeg`, FastAPI + Manim CE (API externa 3Blue1Brown), Zod, JSZip, Lucide React.
 
 ## Rotas e módulos principais
 
@@ -85,6 +86,7 @@ Use [.env.example](.env.example) como base.
 | `VITE_API_URL`          | Não              | Base das requisições do app (ex.: `http://localhost:5173/api`).              |
 | `VITE_API_PROXY_TARGET` | Não              | Host do backend Express (ex.: `http://localhost:3000`).                      |
 | `VITE_PORT`             | Não              | Porta do servidor Vite.                                                      |
+| `VITE_MANIM_API_BASE_URL` | Não           | Endpoint da API FastAPI que renderiza cenas Manim (default `http://localhost:8000`). |
 | `CLEANUP_PORT`          | Backend          | Porta do serviço `/audio/cleanup`.                                           |
 | `ARNNDN_MODEL_URL`      | Backend          | URL opcional para baixar o modelo `lq.rnnn`.                                 |
 
@@ -149,6 +151,16 @@ src/
 ### Editor e ajustes guiados
 [EditorStep](src/features/video-generation/components/EditorStep/EditorStep.tsx) permite feedback textual/voz (`VoiceInputButton`) por slide. Cada feedback chama `refineSlideContent`, marca o slide como `isRegeneratingImage` e dispara `generateSlideImage` com o novo prompt.
 
+### Animações 3Blue1Brown (Manim)
+O Editor também possui o cartão “Animação 3Blue1Brown”. Ao clicar em **Gerar animação**, o app envia o briefing do slide, notas e prompt visual para a API FastAPI/Manim definida em `VITE_MANIM_API_BASE_URL` (default `http://localhost:8000`). A resposta (`/generate-video`) deve seguir o contrato do [manim-api](https://github.com/) usado pelo time: sucesso com `video_base64` + `scene_name`.
+
+Resumo do fluxo: 
+1. `generateManimSlideAnimation` monta um prompt especializado com o preâmbulo do estúdio (paleta BLUE_E/TEAL_E/GOLD_E, duração 6–12s, câmera suave, `self.wait(1)`).
+2. O MP4 retornado é transformado em `File` + `blob:` URL, tem a duração lida via `readVideoDurationMs` e entra como `SlideCustomAsset` do tipo `video`.
+3. O asset substitui a imagem do slide em todas as etapas (Editor, Recording, Preview/WebAV bundles). O fallback por `MediaRecorder` fica automaticamente bloqueado, já que há vídeo customizado.
+
+> Para subir a API local, clone o repositório `3blue1brown/manim-api`, rode `./setup_all.sh` (macOS/Linux), ative `venv` e execute `uvicorn main:app --reload --host 0.0.0.0 --port 8000`. O app detecta a URL via `VITE_MANIM_API_BASE_URL`.
+
 ### Estúdio de narração
 [RecordingStep](src/features/video-generation/components/RecordingStep/RecordingStep.tsx) usa `MediaRecorder` para capturar áudio por slide, marca progresso, oferece regravação e pré-escuta, além de exibir o visual (imagem ou vídeo customizado) para manter contexto.
 
@@ -158,7 +170,8 @@ src/
 - **Fallback MediaRecorder** — apenas imagens + áudio, útil para navegadores sem WebCodecs. Fica automaticamente desabilitado quando há vídeos enviados.
 
 ### Estado atual da adição de vídeos
-- Cada slide aceita **um** asset personalizado (`SlideCustomAsset`) que pode ser imagem ou vídeo. Uploads ocorrem na revisão e o arquivo fica apenas na memória (não há persistência/backups).
+- Cada slide aceita **um** asset personalizado (`SlideCustomAsset`) que pode ser imagem, vídeo enviado manualmente ou o MP4 gerado automaticamente via 3Blue1Brown/Manim.
+- Uploads continuam disponíveis na Revisão (imagem/vídeo). No Editor, o botão “Gerar animação” substitui o asset atual se a API retornar sucesso.
 - Vídeos aparecem no Editor, Gravação e Preview como loops silenciosos; o áudio oficial continua vindo da narração gravada. A duração tentada é lida via `video.onloadedmetadata` e reaproveitada no WebAV (que congela o último frame se o áudio for mais longo).
 - O exportador WebAV incorpora o arquivo real (blob ou URL) e também o adiciona no bundle de debug; o fallback via MediaRecorder é automaticamente bloqueado quando `hasVideoAssets === true`.
 - Limitações atuais: sem recorte/trimming, sem ajustes de volume, sem normalização de aspect ratio (o vídeo é encaixado via `object-fit: cover`) e sem upload para storage/server — recarregar a página perde o asset. Essas evoluções estão listadas no roadmap.
