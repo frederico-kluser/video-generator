@@ -306,24 +306,24 @@ export function ScriptReviewStep({
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-dark-950 via-dark-900 to-dark-950 px-6 py-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8">
-        <header className="flex flex-col gap-4 rounded-3xl border border-dark-700/60 bg-dark-900/80 p-8 shadow-2xl shadow-primary-500/5">
-          <div className="flex items-center gap-3 text-primary-300">
-            <Sparkles className="h-5 w-5 animate-pulse" />
-            <span className="text-sm font-semibold uppercase tracking-[0.25em]">
+    <div className="min-h-screen bg-gradient-to-b from-dark-950 via-dark-900 to-dark-950 px-3 py-4 sm:px-4 sm:py-6 md:px-6 md:py-8">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:gap-5 md:gap-6">
+        <header className="flex flex-col gap-2 rounded-xl border border-dark-700/60 bg-dark-900/80 p-4 shadow-xl shadow-primary-500/5 sm:gap-3 sm:rounded-2xl sm:p-5 md:gap-4 md:rounded-3xl md:p-6 lg:p-8">
+          <div className="flex items-center gap-2 text-primary-300 sm:gap-3">
+            <Sparkles className="h-4 w-4 animate-pulse sm:h-5 sm:w-5" />
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] sm:text-sm sm:tracking-[0.25em]">
               Revisão do roteiro
             </span>
           </div>
-          <h1 className="text-3xl font-semibold text-white">
+          <h1 className="text-xl font-semibold text-white sm:text-2xl md:text-3xl">
             Ajuste o conteúdo antes de gerar qualquer imagem
           </h1>
-          <p className="text-base text-white/70">
+          <p className="text-sm text-white/70 sm:text-base">
             Cada slide pode ser editado, reordenado ou removido livremente.
             Adicione novos blocos caso precise de mais contexto e só avance para
             a etapa visual quando o fluxo estiver perfeito.
           </p>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4">
             <InfoBadge label="Tópico" value={projectData.topic ?? '—'} />
             <InfoBadge
               label="Público"
@@ -336,12 +336,12 @@ export function ScriptReviewStep({
           </div>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-          <div className="space-y-4 rounded-3xl border border-dark-800/60 bg-dark-900/70 p-6 shadow-xl shadow-black/40">
+        <section className="grid gap-4 sm:gap-5 md:gap-6 md:grid-cols-[1fr] lg:grid-cols-[2fr_1fr]">
+          <div className="space-y-3 rounded-xl border border-dark-800/60 bg-dark-900/70 p-3 shadow-xl shadow-black/40 sm:space-y-4 sm:rounded-2xl sm:p-4 md:rounded-3xl md:p-5 lg:p-6">
             {orderedSlides.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-20 text-center text-white/60">
-                <LayoutList className="h-12 w-12" />
-                <p>Adicione pelo menos um slide para continuar.</p>
+              <div className="flex flex-col items-center justify-center gap-2 py-12 text-center text-white/60 sm:gap-3 sm:py-16 md:py-20">
+                <LayoutList className="h-10 w-10 sm:h-12 sm:w-12" />
+                <p className="text-sm sm:text-base">Adicione pelo menos um slide para continuar.</p>
                 <button
                   type="button"
                   className="btn-primary"
@@ -351,7 +351,7 @@ export function ScriptReviewStep({
                 </button>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {orderedSlides.map((slide, index) => {
                   const customAsset = slide.customAsset;
                   const referencesDisabled = Boolean(customAsset);
@@ -360,18 +360,18 @@ export function ScriptReviewStep({
                   return (
                     <article
                     key={slide.id}
-                    className="rounded-2xl border border-dark-700/70 bg-dark-950/60 p-5"
+                    className="rounded-xl border border-dark-700/70 bg-dark-950/60 p-3 sm:rounded-2xl sm:p-4 md:p-5"
                   >
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.3em] text-white/40">
+                    <div className="mb-3 flex items-center justify-between gap-2 sm:mb-4 sm:gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 sm:text-xs sm:tracking-[0.3em]">
                           Slide {index + 1}
                         </p>
-                        <h2 className="text-lg font-semibold text-white">
+                        <h2 className="truncate text-base font-semibold text-white sm:text-lg">
                           Conteúdo e narração
                         </h2>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                         <button
                           type="button"
                           onClick={() => onMoveSlide(slide.id, 'up')}
@@ -379,7 +379,7 @@ export function ScriptReviewStep({
                           className="btn-icon bg-dark-800/80 text-white"
                           title="Mover para cima"
                         >
-                          <ArrowUp className="h-4 w-4" />
+                          <ArrowUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </button>
                         <button
                           type="button"
@@ -388,7 +388,7 @@ export function ScriptReviewStep({
                           className="btn-icon bg-dark-800/80 text-white"
                           title="Mover para baixo"
                         >
-                          <ArrowDown className="h-4 w-4" />
+                          <ArrowDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </button>
                         <button
                           type="button"
@@ -396,15 +396,15 @@ export function ScriptReviewStep({
                           className="btn-icon bg-danger-500/10 text-danger-300"
                           title="Remover slide"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         </button>
                       </div>
                     </div>
 
-                    <label className="mb-2 block text-sm font-semibold text-white/80">
+                    <label className="mb-1.5 block text-xs font-semibold text-white/80 sm:mb-2 sm:text-sm">
                       Texto orientativo
                     </label>
-                    <div className="mb-4 flex items-start gap-3">
+                    <div className="mb-3 flex items-start gap-2 sm:mb-4 sm:gap-3">
                       <textarea
                         value={slide.scriptText}
                         onChange={(event) =>
@@ -412,11 +412,11 @@ export function ScriptReviewStep({
                             scriptText: event.target.value,
                           })
                         }
-                        className="min-h-[120px] w-full flex-1 rounded-xl border border-dark-700 bg-dark-900/80 p-3 text-sm text-white outline-none transition focus:border-primary-400"
+                        className="min-h-[80px] w-full flex-1 rounded-lg border border-dark-700 bg-dark-900/80 p-2.5 text-sm text-white outline-none transition focus:border-primary-400 sm:min-h-[100px] sm:rounded-xl sm:p-3 md:min-h-[120px]"
                       />
                       <VoiceInputButton
                         size="sm"
-                        className="mt-1 shrink-0"
+                        className="mt-0.5 shrink-0 sm:mt-1"
                         ariaLabel="Ditado para o texto orientativo"
                         onTranscription={(text) =>
                           onSlideChange(slide.id, {
@@ -426,10 +426,10 @@ export function ScriptReviewStep({
                       />
                     </div>
 
-                    <label className="mb-2 block text-sm font-semibold text-white/80">
+                    <label className="mb-1.5 block text-xs font-semibold text-white/80 sm:mb-2 sm:text-sm">
                       Narração literal
                     </label>
-                    <div className="mb-4 flex items-start gap-3">
+                    <div className="mb-3 flex items-start gap-2 sm:mb-4 sm:gap-3">
                       <textarea
                         value={slide.narrationText}
                         onChange={(event) =>
@@ -437,11 +437,11 @@ export function ScriptReviewStep({
                             narrationText: event.target.value,
                           })
                         }
-                        className="min-h-[90px] w-full flex-1 rounded-xl border border-dark-700 bg-dark-900/80 p-3 text-sm text-white outline-none transition focus:border-primary-400"
+                        className="min-h-[60px] w-full flex-1 rounded-lg border border-dark-700 bg-dark-900/80 p-2.5 text-sm text-white outline-none transition focus:border-primary-400 sm:min-h-[80px] sm:rounded-xl sm:p-3 md:min-h-[90px]"
                       />
                       <VoiceInputButton
                         size="sm"
-                        className="mt-1 shrink-0"
+                        className="mt-0.5 shrink-0 sm:mt-1"
                         ariaLabel="Ditado para a narração literal"
                         onTranscription={(text) =>
                           onSlideChange(slide.id, {
@@ -454,10 +454,10 @@ export function ScriptReviewStep({
                       />
                     </div>
 
-                    <label className="mb-2 block text-sm font-semibold text-white/80">
+                    <label className="mb-1.5 block text-xs font-semibold text-white/80 sm:mb-2 sm:text-sm">
                       Prompt visual sugerido
                     </label>
-                    <div className="mb-4 flex items-start gap-3">
+                    <div className="mb-3 flex items-start gap-2 sm:mb-4 sm:gap-3">
                       <textarea
                         value={slide.visualPrompt}
                         onChange={(event) =>
@@ -465,11 +465,11 @@ export function ScriptReviewStep({
                             visualPrompt: event.target.value,
                           })
                         }
-                        className="min-h-[80px] w-full flex-1 rounded-xl border border-dark-700 bg-dark-900/80 p-3 text-sm text-white outline-none transition focus:border-primary-400"
+                        className="min-h-[50px] w-full flex-1 rounded-lg border border-dark-700 bg-dark-900/80 p-2.5 text-sm text-white outline-none transition focus:border-primary-400 sm:min-h-[70px] sm:rounded-xl sm:p-3 md:min-h-[80px]"
                       />
                       <VoiceInputButton
                         size="sm"
-                        className="mt-1 shrink-0"
+                        className="mt-0.5 shrink-0 sm:mt-1"
                         ariaLabel="Ditado para o prompt visual"
                         onTranscription={(text) =>
                           onSlideChange(slide.id, {
@@ -483,47 +483,49 @@ export function ScriptReviewStep({
                     </div>
 
                     {slide.styleGuide && (
-                      <div className="mb-4 rounded-xl border border-white/10 bg-dark-900/60 p-4">
-                        <div className="mb-2 flex items-center justify-between text-sm font-semibold text-white">
-                          <div className="flex items-center gap-2">
-                            <Palette size={16} className="text-primary-300" />
-                            Referência visual (opcional)
+                      <div className="mb-3 rounded-lg border border-white/10 bg-dark-900/60 p-3 sm:mb-4 sm:rounded-xl sm:p-4">
+                        <div className="mb-1.5 flex items-center justify-between text-xs font-semibold text-white sm:mb-2 sm:text-sm">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Palette size={14} className="text-primary-300 sm:h-4 sm:w-4" />
+                            <span className="hidden sm:inline">Referência visual (opcional)</span>
+                            <span className="sm:hidden">Referência visual</span>
                           </div>
-                          <span className="text-xs text-white/50">
+                          <span className="text-[10px] text-white/50 sm:text-xs">
                             {slide.styleGuide.references.length}/{MAX_STYLE_REFERENCES}
                           </span>
                         </div>
-                        <p className="text-xs text-white/60">
+                        <p className="text-[11px] leading-relaxed text-white/60 sm:text-xs">
                           {referencesDisabled
-                            ? 'Referências visuais são ignoradas porque este slide utilizará o asset final enviado abaixo.'
-                            : 'Anexe imagens inspiração antes de gerar os visuais. Caso envie algo aqui, inserimos a referência em cada prompt automaticamente.'}
+                            ? 'Referências são ignoradas com asset final.'
+                            : 'Anexe imagens inspiração antes de gerar os visuais.'}
                         </p>
 
-                        <div className="mt-4 rounded-xl border border-white/10 bg-dark-950/40 p-4">
-                          <div className="flex items-center justify-between text-sm font-semibold text-white">
-                            <div className="flex items-center gap-2">
+                        <div className="mt-3 rounded-lg border border-white/10 bg-dark-950/40 p-3 sm:mt-4 sm:rounded-xl sm:p-4">
+                          <div className="flex items-center justify-between text-xs font-semibold text-white sm:text-sm">
+                            <div className="flex items-center gap-1.5 sm:gap-2">
                               {customAsset?.type === 'video' ? (
-                                <Film size={16} className="text-primary-300" />
+                                <Film size={14} className="text-primary-300 sm:h-4 sm:w-4" />
                               ) : (
-                                <ImageIcon size={16} className="text-primary-300" />
+                                <ImageIcon size={14} className="text-primary-300 sm:h-4 sm:w-4" />
                               )}
-                              Asset final (imagem ou vídeo)
+                              <span className="hidden sm:inline">Asset final (imagem ou vídeo)</span>
+                              <span className="sm:hidden">Asset final</span>
                             </div>
-                            <span className="text-xs text-white/50">
-                              {customAsset ? '1/1 anexado' : 'opcional'}
+                            <span className="text-[10px] text-white/50 sm:text-xs">
+                              {customAsset ? '1/1' : 'opcional'}
                             </span>
                           </div>
-                          <p className="mt-1 text-xs text-white/60">
-                            Envie o visual definitivo. Ajustaremos automaticamente para o aspect ratio escolhido e sincronizaremos com sua narração.
+                          <p className="mt-1 hidden text-xs text-white/60 sm:block">
+                            Envie o visual definitivo. Ajustaremos para o aspect ratio escolhido.
                           </p>
                           {customAsset ? (
-                            <div className="mt-3 flex flex-col gap-3 rounded-lg border border-white/10 bg-dark-900/60 p-3 md:flex-row">
-                              <div className="relative w-full overflow-hidden rounded-lg border border-white/10 bg-dark-800/50 md:w-40">
+                            <div className="mt-2 flex flex-col gap-2 rounded-lg border border-white/10 bg-dark-900/60 p-2 sm:mt-3 sm:gap-3 sm:p-3 md:flex-row">
+                              <div className="relative w-full overflow-hidden rounded-lg border border-white/10 bg-dark-800/50 md:w-32 lg:w-40">
                                 {customAsset.type === 'video' ? (
                                   <video
                                     key={customAsset.previewUrl}
                                     src={customAsset.previewUrl}
-                                    className="h-32 w-full object-cover"
+                                    className="h-24 w-full object-cover sm:h-28 md:h-32"
                                     autoPlay
                                     loop
                                     muted
@@ -533,39 +535,34 @@ export function ScriptReviewStep({
                                   <img
                                     src={customAsset.previewUrl}
                                     alt={customAsset.name}
-                                    className="h-32 w-full object-cover"
+                                    className="h-24 w-full object-cover sm:h-28 md:h-32"
                                   />
                                 )}
                               </div>
-                              <div className="flex flex-1 flex-col justify-between gap-2 text-sm text-white/80">
+                              <div className="flex flex-1 flex-col justify-between gap-1.5 text-xs text-white/80 sm:gap-2 sm:text-sm">
                                 <div>
-                                  <p className="font-semibold">{customAsset.name}</p>
-                                  <p className="text-xs text-white/50">
+                                  <p className="truncate font-semibold">{customAsset.name}</p>
+                                  <p className="text-[10px] text-white/50 sm:text-xs">
                                     {customAsset.type === 'video'
                                       ? `Vídeo • ${formatDuration(customAsset.durationMs)}`
-                                      : 'Imagem estática'}
+                                      : 'Imagem'}
                                   </p>
-                                  {customAsset.type === 'video' && (
-                                    <p className="mt-1 text-[11px] text-white/50">
-                                      Se o áudio for maior que o vídeo, congelamos o último frame; se for menor, o vídeo toca até o final.
-                                    </p>
-                                  )}
                                 </div>
                                 <button
                                   type="button"
-                                  className="btn-secondary inline-flex items-center gap-2 border-danger-500/40 text-danger-300 hover:bg-danger-500/10"
+                                  className="btn-secondary inline-flex items-center gap-1.5 border-danger-500/40 px-3 py-1.5 text-xs text-danger-300 hover:bg-danger-500/10 sm:gap-2 sm:px-4 sm:py-2"
                                   onClick={() => handleRemoveCustomAsset(slide)}
                                 >
-                                  <Trash2 size={14} /> Remover asset
+                                  <Trash2 size={12} className="sm:h-3.5 sm:w-3.5" /> Remover
                                 </button>
                               </div>
                             </div>
                           ) : (
-                            <label className="mt-3 flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40">
-                              <UploadCloud size={18} className="text-primary-300" />
-                              <span>Enviar asset final</span>
-                              <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">
-                                PNG · JPG · WEBP · MP4 · WEBM · MOV
+                            <label className="mt-2 flex h-20 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40 sm:mt-3 sm:h-24 sm:gap-2">
+                              <UploadCloud size={16} className="text-primary-300 sm:h-[18px] sm:w-[18px]" />
+                              <span className="text-[11px] sm:text-xs">Enviar asset final</span>
+                              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 sm:text-[10px] sm:tracking-[0.3em]">
+                                PNG · JPG · MP4 · MOV
                               </span>
                               <input
                                 type="file"
@@ -576,17 +573,17 @@ export function ScriptReviewStep({
                             </label>
                           )}
                           {assetError && (
-                            <div className="mt-3 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-xs text-danger-200">
+                            <div className="mt-2 rounded-lg border border-danger-500/30 bg-danger-500/10 px-2 py-1.5 text-[11px] text-danger-200 sm:mt-3 sm:px-3 sm:py-2 sm:text-xs">
                               {assetError}
                             </div>
                           )}
                         </div>
                         {styleUploadErrors[slide.id] && (
-                          <div className="mt-3 rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-xs text-danger-200">
+                          <div className="mt-2 rounded-lg border border-danger-500/30 bg-danger-500/10 px-2 py-1.5 text-[11px] text-danger-200 sm:mt-3 sm:px-3 sm:py-2 sm:text-xs">
                             {styleUploadErrors[slide.id]}
                           </div>
                         )}
-                        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-3 sm:gap-3 md:grid-cols-3">
                           {slide.styleGuide.references.map((reference) => (
                             <div
                               key={reference.id}
@@ -595,25 +592,25 @@ export function ScriptReviewStep({
                               <img
                                 src={reference.previewUrl}
                                 alt={reference.name}
-                                className="h-24 w-full object-cover"
+                                className="h-20 w-full object-cover sm:h-24"
                               />
                               <button
                                 type="button"
                                 className="absolute right-1 top-1 rounded-full bg-dark-900/80 p-1 text-white/70 transition hover:text-danger-400"
                                 onClick={() => handleRemoveStyleReference(slide, reference.id)}
                               >
-                                <Trash2 size={12} />
+                                <Trash2 size={10} className="sm:h-3 sm:w-3" />
                               </button>
-                              <div className="truncate px-2 py-1 text-center text-[11px] text-white/60">
+                              <div className="truncate px-1.5 py-0.5 text-center text-[10px] text-white/60 sm:px-2 sm:py-1 sm:text-[11px]">
                                 {reference.name}
                               </div>
                             </div>
                           ))}
                           {!referencesDisabled &&
                             slide.styleGuide.references.length < MAX_STYLE_REFERENCES && (
-                              <label className="flex h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40">
-                                <UploadCloud size={18} className="text-primary-300" />
-                                <span>Enviar referência</span>
+                              <label className="flex h-20 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40 sm:h-24 sm:gap-2">
+                                <UploadCloud size={16} className="text-primary-300 sm:h-[18px] sm:w-[18px]" />
+                                <span className="text-[11px] sm:text-xs">Referência</span>
                                 <input
                                   type="file"
                                   accept="image/png,image/jpeg,image/webp"
@@ -624,23 +621,23 @@ export function ScriptReviewStep({
                               </label>
                             )}
                           {referencesDisabled && (
-                            <div className="col-span-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                              Remova o asset final para adicionar novas referências.
+                            <div className="col-span-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100 sm:px-3 sm:py-2 sm:text-xs">
+                              Remova o asset final para adicionar referências.
                             </div>
                           )}
                         </div>
-                        <div className="mt-4 space-y-2">
+                        <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
                           <label
-                            className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50"
+                            className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/50 sm:text-xs sm:tracking-[0.2em]"
                             htmlFor={`style-notes-${slide.id}`}
                           >
                             Observações de estilo
                           </label>
-                          <div className="flex items-start gap-3">
+                          <div className="flex items-start gap-2 sm:gap-3">
                             <textarea
                               id={`style-notes-${slide.id}`}
-                              className="input min-h-[80px] flex-1 resize-none text-xs"
-                              placeholder="Ex.: manter iluminação neon vaporwave, fundo gradiente azul-magenta."
+                              className="input min-h-[50px] flex-1 resize-none text-xs sm:min-h-[70px] md:min-h-[80px]"
+                              placeholder="Ex.: iluminação neon, fundo gradiente."
                               value={slide.styleGuide.notes}
                               onChange={(event) =>
                                 handleStyleNotesChange(slide, event.target.value)
@@ -648,7 +645,7 @@ export function ScriptReviewStep({
                             />
                             <VoiceInputButton
                               size="sm"
-                              className="mt-1 shrink-0"
+                              className="mt-0.5 shrink-0 sm:mt-1"
                               ariaLabel="Ditado para observações de estilo"
                               onTranscription={(text) =>
                                 handleStyleNotesChange(
@@ -659,37 +656,39 @@ export function ScriptReviewStep({
                             />
                           </div>
                         </div>
-                        <div className="mt-4 space-y-2">
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/40">
-                            Fidelidade da referência
+                        <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
+                          <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/40 sm:text-[10px] sm:tracking-[0.3em]">
+                            Fidelidade
                           </span>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="grid grid-cols-2 gap-1.5 text-[11px] sm:gap-2 sm:text-xs">
                             <button
                               type="button"
-                              className={`rounded-lg border px-3 py-2 text-left transition ${
+                              className={`rounded-lg border px-2 py-1.5 text-left transition sm:px-3 sm:py-2 ${
                                 slide.styleGuide.inputFidelity === 'high'
                                   ? 'border-primary-400 bg-primary-500/10 text-primary-200'
                                   : 'border-white/10 text-white/60 hover:border-white/30'
                               }`}
                               onClick={() => handleFidelityChange(slide, 'high')}
                             >
-                              Alta (preserva traços)
-                              <span className="block text-[10px] text-white/50">
-                                Mantém cores, textura e rostos da referência.
+                              <span className="sm:hidden">Alta</span>
+                              <span className="hidden sm:inline">Alta (preserva traços)</span>
+                              <span className="hidden text-[10px] text-white/50 sm:block">
+                                Mantém cores, textura e rostos.
                               </span>
                             </button>
                             <button
                               type="button"
-                              className={`rounded-lg border px-3 py-2 text-left transition ${
+                              className={`rounded-lg border px-2 py-1.5 text-left transition sm:px-3 sm:py-2 ${
                                 slide.styleGuide.inputFidelity === 'low'
                                   ? 'border-primary-400 bg-primary-500/10 text-primary-200'
                                   : 'border-white/10 text-white/60 hover:border-white/30'
                               }`}
                               onClick={() => handleFidelityChange(slide, 'low')}
                             >
-                              Baixa (mais liberdade)
-                              <span className="block text-[10px] text-white/50">
-                                Usa só parte da estética, permite variações.
+                              <span className="sm:hidden">Baixa</span>
+                              <span className="hidden sm:inline">Baixa (mais liberdade)</span>
+                              <span className="hidden text-[10px] text-white/50 sm:block">
+                                Usa só parte da estética.
                               </span>
                             </button>
                           </div>
@@ -697,13 +696,13 @@ export function ScriptReviewStep({
                       </div>
                     )}
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2">
                       <button
                         type="button"
-                        className="btn-secondary"
+                        className="btn-secondary px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm"
                         onClick={() => onInsertSlideAfter(index)}
                       >
-                        <Plus className="h-4 w-4" /> Adicionar abaixo
+                        <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Adicionar abaixo</span><span className="sm:hidden">Abaixo</span>
                       </button>
                     </div>
                   </article>
@@ -712,34 +711,33 @@ export function ScriptReviewStep({
 
                 <button
                   type="button"
-                  className="w-full rounded-2xl border border-dashed border-primary-400/50 bg-dark-950/30 px-4 py-3 text-sm font-semibold text-primary-300 transition hover:bg-primary-500/10"
+                  className="w-full rounded-xl border border-dashed border-primary-400/50 bg-dark-950/30 px-3 py-2.5 text-xs font-semibold text-primary-300 transition hover:bg-primary-500/10 sm:rounded-2xl sm:px-4 sm:py-3 sm:text-sm"
                   onClick={onAddSlide}
                 >
-                  <Plus className="mr-2 inline h-4 w-4" /> Adicionar novo slide
+                  <Plus className="mr-1.5 inline h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" /> Adicionar slide
                 </button>
               </div>
             )}
           </div>
 
-          <aside className="flex flex-col gap-4 rounded-3xl border border-primary-500/20 bg-dark-950/70 p-6 shadow-lg shadow-primary-500/10">
+          <aside className="flex flex-col gap-3 rounded-xl border border-primary-500/20 bg-dark-950/70 p-4 shadow-lg shadow-primary-500/10 sm:gap-4 sm:rounded-2xl sm:p-5 md:rounded-3xl md:p-6">
             <div>
-              <h3 className="text-xl font-semibold text-white">
+              <h3 className="text-base font-semibold text-white sm:text-lg md:text-xl">
                 Refine por instruções
               </h3>
-              <p className="mt-1 text-sm text-white/70">
-                Descreva o estilo desejado, quantidade de slides ou ajustes de
-                tom e deixe a IA reescrever tudo de uma vez.
+              <p className="mt-0.5 text-xs text-white/70 sm:mt-1 sm:text-sm">
+                Descreva ajustes de tom ou quantidade de slides e deixe a IA reescrever.
               </p>
             </div>
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-2 sm:gap-3">
               <textarea
                 value={instructions}
                 onChange={(event) => setInstructions(event.target.value)}
-                placeholder="Ex: quero 6 slides, tom motivacional e foco em exemplos práticos."
-                className="min-h-[180px] flex-1 rounded-2xl border border-dark-700 bg-dark-900/80 p-4 text-sm text-white outline-none transition focus:border-primary-400"
+                placeholder="Ex: quero 6 slides, tom motivacional."
+                className="min-h-[100px] flex-1 rounded-xl border border-dark-700 bg-dark-900/80 p-3 text-sm text-white outline-none transition focus:border-primary-400 sm:min-h-[140px] sm:rounded-2xl sm:p-4 md:min-h-[180px]"
               />
               <VoiceInputButton
-                className="mt-1 shrink-0"
+                className="mt-0.5 shrink-0 sm:mt-1"
                 ariaLabel="Ditado para instruções globais"
                 onTranscription={(text) => setInstructions(text)}
               />
@@ -750,17 +748,16 @@ export function ScriptReviewStep({
               onClick={handleApplyInstructions}
               disabled={!instructions.trim()}
             >
-              <Wand2 className="h-5 w-5" /> Aplicar instruções
+              <Wand2 className="h-4 w-4 sm:h-5 sm:w-5" /> Aplicar
             </button>
 
-            <div className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 text-sm text-emerald-100">
-              <div className="mb-2 flex items-center gap-2 font-semibold text-emerald-300">
-                <CheckCircle2 className="h-4 w-4" />
+            <div className="mt-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-100 sm:mt-4 sm:rounded-2xl sm:p-4 sm:text-sm md:mt-6 md:p-5">
+              <div className="mb-1 flex items-center gap-1.5 font-semibold text-emerald-300 sm:mb-2 sm:gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 Pronto para gerar visuais?
               </div>
               <p className="text-emerald-100/70">
-                Assim que continuar, as imagens serão renderizadas e o próximo
-                passo abrirá o editor completo de slides.
+                As imagens serão renderizadas e o próximo passo abrirá o editor.
               </p>
             </div>
             <button
@@ -769,7 +766,7 @@ export function ScriptReviewStep({
               onClick={handleContinue}
               disabled={orderedSlides.length === 0}
             >
-              <Sparkles className="h-5 w-5" /> Gerar visuais e avançar
+              <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" /> Gerar visuais
             </button>
           </aside>
         </section>
@@ -793,11 +790,11 @@ function formatDuration(durationMs?: number): string {
 
 function InfoBadge({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2">
-      <p className="text-xs uppercase tracking-[0.3em] text-white/50">
+    <div className="rounded-xl border border-white/10 bg-white/5 px-2.5 py-1.5 sm:rounded-2xl sm:px-3 sm:py-2 md:px-4">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-white/50 sm:text-xs sm:tracking-[0.3em]">
         {label}
       </p>
-      <p className="text-base font-semibold text-white">{value}</p>
+      <p className="text-sm font-semibold text-white sm:text-base">{value}</p>
     </div>
   );
 }
