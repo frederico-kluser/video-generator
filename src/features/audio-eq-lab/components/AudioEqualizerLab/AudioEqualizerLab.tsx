@@ -22,7 +22,7 @@ import {
   getVoiceMediaConstraints,
   safeStopRecorder,
   useObjectUrl,
-} from '@/features/audio-lab/lib/mediaUtils';
+} from '@/shared/audio/mediaRecorder';
 import { type LoudnessMetrics, useLoudnessWorker } from '@/shared/audio/hooks/useLoudnessWorker';
 import { AudioBufferProcessor, preventClipping, removeDCOffset } from '@/shared/audio/processors/AudioBufferProcessor';
 import {

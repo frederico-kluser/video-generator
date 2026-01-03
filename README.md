@@ -25,7 +25,7 @@ Grava combina briefing guiado, geração assistida por IA, narração humana e r
 ### Destaques do produto
 - **Fluxo fim a fim**: briefing → roteiro → revisão → visuais → edição → gravação → preview/export.
 - **WebAV integrado**: exporta vídeos 20x mais rápido que FFmpeg.wasm com apenas ~50KB de payload.
-- **Laboratórios de áudio**: `/audio-lab` limpa ruídos com pipelines server-side e `/audio-eq-lab` equaliza e concatena takes.
+- **Laboratórios de áudio**: `/audio-eq-lab` equaliza e concatena takes.
 - **Render test**: `/render-test` valida bundles `.zip` ou `manifest.json` com o mesmo renderer do preview.
 - **Observabilidade**: `appLogger` adiciona contexto estruturado com emojis em cada etapa.
 - **Animações 3Blue1Brown**: o Editor gera clipes Manim CE (6–12s) via API local compatível com o pipeline oficial da 3Blue1Brown, anexando o MP4 diretamente como asset do slide.
@@ -38,7 +38,6 @@ React 19, TypeScript 5.8, Vite 6, Tailwind 3.4, WebAV (`@webav/av-*`), LangChain
 | Rota            | Componente principal                                                                                        | Propósito                                                                 |
 | --------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `/`             | [VideoGenerationFlow](src/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow.tsx) | Stepper completo de briefing a exportação                                 |
-| `/audio-lab`    | [AudioCleanupLab](src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx)                    | Compara áudio bruto vs pipelines de limpeza server-side                   |
 | `/audio-eq-lab` | [AudioEqualizerLab](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx)           | Equaliza três takes sequenciais com Web Audio API                         |
 | `/render-test`  | [RenderTestPage](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx)                     | Valida bundles exportados, inspeciona assets e renderiza com WebAV        |
 
@@ -50,7 +49,6 @@ O roteador vive em [src/app/App.tsx](src/app/App.tsx) e seleciona a feature conf
 - Node.js 20+ (testado com 20.11).
 - Yarn 1.22.x (o projeto define `packageManager`).
 - Navegador compatível com WebCodecs (Chrome/Edge 102+, Safari 16.6+ com limitações).
-- Opcional: microfone para testar gravações e um backend com FFmpeg se quiser experimentar o `/audio-lab`.
 
 ### Setup
 1. Instale dependências:  
@@ -116,7 +114,6 @@ src/
 ├── content/                # Catálogo de prompts e estudos (markdown)
 ├── examples/               # Exemplos de uso do serviço OpenAI
 ├── features/
-│   ├── audio-lab/          # Laboratório de limpeza de áudio
 │   ├── audio-eq-lab/       # Equalizador de três takes
 │   ├── render-test/        # Validador de bundles
 │   └── video-generation/   # Fluxo principal do app
@@ -179,22 +176,8 @@ Resumo do fluxo:
 
 ## Laboratórios de áudio
 
-### Audio Cleanup Lab (`/audio-lab`)
-Componente: [AudioCleanupLab](src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx). Fluxo `idle → preparing → recording → processing`, comparação lado a lado e diagnósticos (headers `X-Cleanup-Backend`, `X-Processing-Time-Ms`, `X-SNR-Improvement-Db`). É possível reprocessar o último take mudando apenas o preset, sem nova gravação.
-
 ### Audio Equalizer Lab (`/audio-eq-lab`)
 Componente: [AudioEqualizerLab](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx). Grava três takes, converte tudo para 48 kHz mono, concatena e aplica filtros `lowshelf`, `peaking` e `highshelf` usando `OfflineAudioContext`. Helpers como `renderOfflineWithTimeout` e `ensureBufferHasSignal` evitam mixagens silenciosas.
-
-### Servidor local de limpeza
-[server/audio-cleanup-server.ts](server/audio-cleanup-server.ts) expõe:
-- `GET /health`
-- `POST /audio/cleanup` (multipart `audio`, campo `preset` opcional: `sherpa-onnx`, `arnndn-lq`, `deepfilternet`)
-
-O servidor usa `ffmpeg-static`, baixa `lq.rnnn` automaticamente para o preset ARNNDN e aplica filtros (`afftdn`, `arnndn`, `deepfilternet`). Headers CORS já configurados. Rode com:
-```bash
-CLEANUP_PORT=3000 yarn dev:cleanup
-```
-Aponte `VITE_API_PROXY_TARGET` para esse host para que o Vite faça proxy de `/api`.
 
 ## Renderização e testes de bundle
 

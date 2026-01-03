@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { ArrowRight } from 'lucide-react';
 
-type AudioLabId = 'cleanup' | 'equalizer' | 'render' | 'recording' | 'threeBlueOneBrown';
+type AudioLabId = 'equalizer' | 'render' | 'threeBlueOneBrown';
 
 type AudioLabsCtaProps = {
   current?: AudioLabId;
@@ -20,25 +20,11 @@ type LabEntry = {
 
 const BASE_LABS: LabEntry[] = [
   {
-    id: 'cleanup',
-    title: 'Limpeza Neural (Sherpa + ARNNDN)',
-    description: 'Pipeline Web + servidor removendo ruído e DC-offset com modelos RNNoise.',
-    href: '/audio-lab',
-    badge: 'Limpeza',
-  },
-  {
     id: 'equalizer',
     title: 'Equalizador Sequencial (Takes Layering)',
     description: 'Monte takes em série e aplique shelves/peaking pré-render.',
     href: '/audio-eq-lab',
     badge: 'Equalização',
-  },
-  {
-    id: 'recording',
-    title: 'Captura Anti-Clipping (48 kHz)',
-    description: 'Comparativo pipeline atual vs. limitador 20:1 com headroom 0.95.',
-    href: '/audio-recording-lab',
-    badge: 'Captura',
   },
   {
     id: 'render',
