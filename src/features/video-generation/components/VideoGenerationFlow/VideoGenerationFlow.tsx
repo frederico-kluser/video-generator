@@ -52,15 +52,6 @@ export function VideoGenerationFlow() {
 
   return (
     <div className="relative min-h-screen animate-fade-in">
-      {isUrlDebugMode && (
-        <div className="pointer-events-none absolute bottom-4 left-4 z-50">
-          <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-amber-400/40 bg-dark-900/70 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-200">
-            <span className="h-2 w-2 rounded-full bg-amber-300 animate-pulse" />
-            Debug mode ativo
-          </div>
-        </div>
-      )}
-
       {/* Step indicator */}
       {step !== VIDEO_GENERATION_STEP.INPUT && (
         <div className="pointer-events-none absolute left-0 right-0 top-0 z-50 p-4">
