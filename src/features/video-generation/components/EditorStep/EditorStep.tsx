@@ -49,6 +49,9 @@ export function EditorStep({
 
   const currentSlide = slides[currentIndex];
   const hasCustomVideo = currentSlide?.customAsset?.type === 'video';
+  const canUseMathVideo = Boolean(projectData.isMathProject);
+  const isMathVideoSlide =
+    canUseMathVideo && currentSlide?.visualSource === 'math-video';
 
   const renderVisualPreview = () => {
     const asset = currentSlide?.customAsset;
@@ -203,7 +206,11 @@ export function EditorStep({
   };
 
   const handleGenerateAnimation = async () => {
-    if (!currentSlide) {
+    if (
+      !currentSlide ||
+      !canUseMathVideo ||
+      currentSlide.visualSource !== 'math-video'
+    ) {
       return;
     }
 
@@ -456,41 +463,43 @@ export function EditorStep({
             </div>
 
             {/* 3Blue1Brown animation */}
-            <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 sm:rounded-xl sm:p-4">
-              <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-indigo-200 sm:mb-3 sm:gap-2 sm:text-sm">
-                <Film size={14} className="text-indigo-300 sm:h-4 sm:w-4" />
-                Animação 3Blue1Brown
-              </label>
-              <p className="text-[11px] leading-relaxed text-indigo-100/70 sm:text-xs">
-                Gere um clipe Manim no estilo 3Blue1Brown usando a API local em{' '}
-                <span className="font-semibold text-indigo-100">{MANIM_API_BASE_URL}</span>.
-                O vídeo substitui o visual do slide quando finalizado.
-              </p>
-              <button
-                type="button"
-                onClick={() => void handleGenerateAnimation()}
-                disabled={isGeneratingAnimation}
-                className="btn-accent mt-2.5 w-full justify-center sm:mt-3"
-              >
-                {isGeneratingAnimation ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
-                    <span className="hidden sm:inline">Gerando...</span>
-                    <span className="sm:hidden">...</span>
-                  </>
-                ) : (
-                  <>
-                    <Film size={14} className="sm:h-4 sm:w-4" />
-                    {hasCustomVideo ? 'Substituir animação' : 'Gerar animação'}
-                  </>
-                )}
-              </button>
-              {animationError && (
-                <p className="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-100 sm:px-3 sm:py-2 sm:text-xs">
-                  {animationError}
+            {isMathVideoSlide && (
+              <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 sm:rounded-xl sm:p-4">
+                <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-indigo-200 sm:mb-3 sm:gap-2 sm:text-sm">
+                  <Film size={14} className="text-indigo-300 sm:h-4 sm:w-4" />
+                  Animação 3Blue1Brown
+                </label>
+                <p className="text-[11px] leading-relaxed text-indigo-100/70 sm:text-xs">
+                  Gere um clipe Manim no estilo 3Blue1Brown usando a API local em{' '}
+                  <span className="font-semibold text-indigo-100">{MANIM_API_BASE_URL}</span>.
+                  O vídeo substitui o visual do slide quando finalizado.
                 </p>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => void handleGenerateAnimation()}
+                  disabled={isGeneratingAnimation}
+                  className="btn-accent mt-2.5 w-full justify-center sm:mt-3"
+                >
+                  {isGeneratingAnimation ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
+                      <span className="hidden sm:inline">Gerando...</span>
+                      <span className="sm:hidden">...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Film size={14} className="sm:h-4 sm:w-4" />
+                      {hasCustomVideo ? 'Substituir animação' : 'Gerar animação'}
+                    </>
+                  )}
+                </button>
+                {animationError && (
+                  <p className="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-100 sm:px-3 sm:py-2 sm:text-xs">
+                    {animationError}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Visual prompt info */}
             <div className="hidden rounded-lg bg-dark-800/50 p-2.5 sm:block sm:p-3">

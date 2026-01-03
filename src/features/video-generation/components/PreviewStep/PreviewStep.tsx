@@ -316,7 +316,13 @@ export function PreviewStep({
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, width, height);
 
-        const slideImageSource = slideImageSources.get(slide.id) ?? null;
+        const visualSource = slide.visualSource ?? 'image-generation';
+        const canUseImage =
+          visualSource === 'image-generation' ||
+          (visualSource === 'manual-upload' && slide.customAsset?.type === 'image');
+        const slideImageSource = canUseImage
+          ? slideImageSources.get(slide.id) ?? null
+          : null;
 
         if (slideImageSource) {
           drawImageCover(ctx, slideImageSource, width, height);
@@ -412,9 +418,18 @@ export function PreviewStep({
         let audioFileName: string | null = null;
         let assetFileName: string | null = null;
 
-        if (slide.imageUrl) {
+        const visualSource = slide.visualSource ?? 'image-generation';
+        const hasManualImageAsset =
+          visualSource === 'manual-upload' && slide.customAsset?.type === 'image';
+        const shouldExportImage =
+          visualSource === 'image-generation' || hasManualImageAsset;
+        const imageSourceUrl = hasManualImageAsset
+          ? slide.imageUrl ?? slide.customAsset?.previewUrl ?? null
+          : slide.imageUrl;
+
+        if (shouldExportImage && imageSourceUrl) {
           try {
-            const imageBlob = await fetchImageBlob(slide.imageUrl);
+            const imageBlob = await fetchImageBlob(imageSourceUrl);
             const extension = inferExtensionFromMime(imageBlob.type, 'png');
             imageFileName = `slide-${formatSlideIndex(index)}.${extension}`;
             imagesDir?.file(imageFileName, imageBlob, { binary: true });
@@ -516,11 +531,14 @@ export function PreviewStep({
           url: baseUrl,
         };
       })();
+      const visualSource = slide.visualSource ?? 'image-generation';
+      const imageUrl =
+        visualSource === 'image-generation' ? slide.imageUrl ?? undefined : undefined;
 
       return {
         id: slide.id,
         order: slide.order ?? index,
-        imageUrl: slide.imageUrl ?? undefined,
+        imageUrl,
         audioBlob: slide.audioBlob ?? undefined,
         zIndex: 1,
         visualAsset,
@@ -536,9 +554,25 @@ export function PreviewStep({
 
   const resolveSlideVisual = (slide: Slide) => {
     const asset = slide.customAsset;
-    if (asset?.type === 'video' && asset.previewUrl) {
-      return { type: 'video' as const, url: asset.previewUrl };
+    const visualSource = slide.visualSource ?? 'image-generation';
+
+    if (visualSource === 'manual-upload') {
+      if (asset?.previewUrl) {
+        return {
+          type: asset.type === 'video' ? ('video' as const) : ('image' as const),
+          url: asset.previewUrl,
+        };
+      }
+      return null;
     }
+
+    if (visualSource === 'math-video') {
+      if (asset?.type === 'video' && asset.previewUrl) {
+        return { type: 'video' as const, url: asset.previewUrl };
+      }
+      return null;
+    }
+
     if (asset?.type === 'image' && asset.previewUrl) {
       return { type: 'image' as const, url: asset.previewUrl };
     }
@@ -863,12 +897,21 @@ async function preloadSlideImageSources(
 ): Promise<SlideImageSourceMap> {
   const entries = await Promise.all(
     slides.map(async (slide) => {
-      if (!slide.imageUrl) {
+      const visualSource = slide.visualSource ?? 'image-generation';
+      const hasManualImage =
+        visualSource === 'manual-upload' && slide.customAsset?.type === 'image';
+      const shouldLoadImage =
+        visualSource === 'image-generation' || hasManualImage;
+      const sourceUrl = hasManualImage
+        ? slide.imageUrl ?? slide.customAsset?.previewUrl ?? null
+        : slide.imageUrl;
+
+      if (!shouldLoadImage || !sourceUrl) {
         return [slide.id, null] as const;
       }
 
       try {
-        const source = await loadCanvasImageSource(slide.imageUrl);
+        const source = await loadCanvasImageSource(sourceUrl);
         return [slide.id, source] as const;
       } catch (error) {
         appLogger.warn('⚠️ Falha ao preparar imagem para renderização.', {
