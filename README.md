@@ -181,7 +181,7 @@ Resumo do fluxo:
 Componente: [AudioEqualizerLab](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx). Grava três takes, converte tudo para 48 kHz mono, concatena e aplica filtros `lowshelf`, `peaking` e `highshelf` usando `OfflineAudioContext`. Helpers como `renderOfflineWithTimeout` e `ensureBufferHasSignal` evitam mixagens silenciosas.
 
 ### VAD Lab (`/vad-lab`)
-Componente: [VadLabPage](src/features/vad-lab/components/VadLabPage/VadLabPage.tsx). Reproduz o guia do `@ricky0123/vad-web`: grava áudio no browser, aplica o Silero VAD (rodando via ONNX Runtime Web) e remonta a timeline limitando os intervalos de silêncio ao valor escolhido (default 300 ms). Copiamos os arquivos `.onnx`, `vad.worklet.bundle.min.js` e todos os artefatos do `onnxruntime-web` para `/vad`, garantindo SharedArrayBuffer com os headers COOP/COEP já configurados no Vite.
+Componente: [VadLabPage](src/features/vad-lab/components/VadLabPage/VadLabPage.tsx). Reproduz o guia do `@ricky0123/vad-web`: grava áudio no browser, aplica o Silero VAD (rodando via ONNX Runtime Web) e remonta a timeline limitando os intervalos de silêncio ao valor escolhido (default 300 ms). Copiamos os arquivos `.onnx`, `vad.worklet.bundle.min.js` e todos os artefatos do `onnxruntime-web` para `/vad`, garantindo SharedArrayBuffer com os headers COOP/COEP já configurados no Vite. Consulte o guia completo em [docs/VAD_LIBRARIES_GUIDE.md](docs/VAD_LIBRARIES_GUIDE.md) para trade-offs entre Bark, Silero e demais bibliotecas.
 
 ## Renderização e testes de bundle
 
