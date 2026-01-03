@@ -3,205 +3,212 @@
 </div>
 
 # Grava — React 19 + Vite 6 + TypeScript 5.8
+> Gerador de vídeos educativos pensado para 2025 com arquitetura orientada a features, WebAV para renderização acelerada via WebCodecs e integrações com GPT-5.1-Codex-Max (roteiros) + GPT-image-1.5 (visuais).
 
-Video generator otimizado para 2025 com arquitetura feature-based, React 19 e integrações com OpenAI (GPT-5.1-Codex-Max + GPT-image-1.5). O projeto segue as referências do Bulletproof React, Feature-Sliced Design e recomendações de especialistas como Matt Pocock.
+## Sumário
+- [Visão geral rápida](#visão-geral-rápida)
+- [Rotas e módulos principais](#rotas-e-módulos-principais)
+- [Primeiros passos](#primeiros-passos)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+- [Scripts Yarn](#scripts-yarn)
+- [Arquitetura e convenções](#arquitetura-e-convenções)
+- [Fluxo de geração de vídeo](#fluxo-de-gera%C3%A7%C3%A3o-de-v%C3%ADdeo)
+- [Laboratórios de áudio](#laboratórios-de-áudio)
+- [Renderização e testes de bundle](#renderiza%C3%A7%C3%A3o-e-testes-de-bundle)
+- [Logging, debug e observabilidade](#logging-debug-e-observabilidade)
+- [Documentação complementar](#documenta%C3%A7%C3%A3o-complementar)
+- [Roadmap](#roadmap)
 
-## Stack & ferramentas
+## Visão geral rápida
+Grava combina briefing guiado, geração assistida por IA, narração humana e renderização acelerada em um único fluxo React 19 + Vite 6. A UI segue o tema “Aurora Lab” e aplica tokens globais via CSS variables. Toda a lógica crítica foi separada em features independentes para facilitar manutenção e experimentação.
 
-- **WebAV** (v1.x) como engine de renderização de vídeo com aceleração GPU via WebCodecs API — **20x mais rápido** que FFmpeg.wasm com apenas ~50KB compactados (ver [docs/WEBAV_INTEGRATION.md](docs/WEBAV_INTEGRATION.md))
-- Pipeline de limpeza server-side (sherpa-onnx GTCRN + FFmpeg arnndn + DeepFilterNet) exposto no `/audio-lab`, comparando áudio bruto vs tratado em tempo quase real
-- Laboratório `/audio-eq-lab` com equalizador 3 bandas via Web Audio API; grava três takes, soma tudo e entrega mix bruta e mix equalizada usando filtros `lowshelf`, `peaking` e `highshelf` (ver [src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx))
+### Destaques do produto
+- **Fluxo fim a fim**: briefing → roteiro → revisão → visuais → edição → gravação → preview/export.
+- **WebAV integrado**: exporta vídeos 20x mais rápido que FFmpeg.wasm com apenas ~50KB de payload.
+- **Laboratórios de áudio**: `/audio-lab` limpa ruídos com pipelines server-side e `/audio-eq-lab` equaliza e concatena takes.
+- **Render test**: `/render-test` valida bundles `.zip` ou `manifest.json` com o mesmo renderer do preview.
+- **Observabilidade**: `appLogger` adiciona contexto estruturado com emojis em cada etapa.
 
-## Experiência visual 2025
+### Stack e integrações
+React 19, TypeScript 5.8, Vite 6, Tailwind 3.4, WebAV (`@webav/av-*`), LangChain + OpenAI SDK, Express + `fluent-ffmpeg`, Zod, JSZip, Lucide React.
 
-- O tema "Aurora Lab" fica aplicado por padrão em todo o app, definindo os tokens de cor via CSS variables para manter a identidade visual.
+## Rotas e módulos principais
 
-## Rotas principais
+| Rota            | Componente principal                                                                                        | Propósito                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `/`             | [VideoGenerationFlow](src/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow.tsx) | Stepper completo de briefing a exportação                                 |
+| `/audio-lab`    | [AudioCleanupLab](src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx)                    | Compara áudio bruto vs pipelines de limpeza server-side                   |
+| `/audio-eq-lab` | [AudioEqualizerLab](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx)           | Equaliza três takes sequenciais com Web Audio API                         |
+| `/render-test`  | [RenderTestPage](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx)                     | Valida bundles exportados, inspeciona assets e renderiza com WebAV        |
 
-| Rota            | Componente principal                                                                                        | Propósito                                                     |
-| --------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `/`             | [VideoGenerationFlow](src/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow.tsx) | Fluxo completo de briefing → preview com stepper e debug mode |
-| `/audio-lab`    | [AudioCleanupLab](src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx)                    | Compara áudio bruto vs pipelines remotos                      |
-| `/audio-eq-lab` | [AudioEqualizerLab](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx)           | Equaliza e mixa três takes sequenciais                        |
-| `/render-test`  | [RenderTestPage](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx)                     | Valida bundles `.zip` ou `manifest.json` exportados           |
+O roteador vive em [src/app/App.tsx](src/app/App.tsx) e seleciona a feature conforme `window.location.pathname`. A CTA [AudioLabsCta](src/shared/components/AudioLabsCta/AudioLabsCta.tsx) facilita a navegação entre os laboratórios quando o modo debug está ativo.
 
-O roteador em [src/app/App.tsx](src/app/App.tsx) decide o módulo com base em `window.location.pathname`, enquanto a CTA [src/shared/components/AudioLabsCta/AudioLabsCta.tsx](src/shared/components/AudioLabsCta/AudioLabsCta.tsx) facilita alternar entre os laboratórios.
+## Primeiros passos
 
-## Laboratórios de áudio
+### Pré-requisitos
+- Node.js 20+ (testado com 20.11).
+- Yarn 1.22.x (o projeto define `packageManager`).
+- Navegador compatível com WebCodecs (Chrome/Edge 102+, Safari 16.6+ com limitações).
+- Opcional: microfone para testar gravações e um backend com FFmpeg se quiser experimentar o `/audio-lab`.
 
-### Audio Cleanup Lab
+### Setup
+1. Instale dependências:  
+   ```bash
+   yarn install
+   ```
+2. Copie as variáveis padrão:  
+   ```bash
+   cp .env.example .env
+   ```
+3. Preencha `VITE_OPENAI_API_KEY` (uso local) e `OPENAI_API_KEY` (para chamadas server-side/proxy). Em produção real, exponha somente o backend.
 
-Acesse `/audio-lab` para abrir o laboratório de limpeza. Agora o front-end apenas captura o áudio bruto (48 kHz mono) e envia para o backend Node.js, que expõe três pipelines selecionáveis: **sherpa-onnx GTCRN** (tempo real), **FFmpeg arnndn lq.rnnn** (hiss constante) e **DeepFilterNet** (qualidade máxima).
+### Execução
+- **Frontend + servidor de limpeza**: `yarn dev` usa `concurrently` para subir Vite (`yarn dev:client`) e o serviço Express (`yarn dev:cleanup`).  
+- **Somente Vite**: `yarn dev:client`. Ideal para iterar no fluxo principal sem o backend.  
+- **Somente backend de áudio**: `yarn dev:cleanup` (ajuste `CLEANUP_PORT` se necessário).  
+- Configure `VITE_API_PROXY_TARGET=http://localhost:<porta-do-backend>` para permitir que o proxy `/api` do Vite encaminhe uploads sem CORS.
 
-- O componente [src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx](src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx) gerencia as fases `idle → preparing → recording → processing`, renderiza badges, players e controles, e utiliza `appLogger` para rastrear cada transição.
-- É possível reprocessar o último take com outro preset sem gravar de novo; basta trocar o preset enquanto o estado está `idle`, o que dispara `reprocessExistingCapture()` e envia o blob bruto novamente para `requestNoiseCleanup()`.
-- O laboratório converte os headers retornados (`backend`, `processingTime`, ganhos de SNR) em status cards, exibindo sempre o pipeline ativo ou mensagens de indisponibilidade com fallback visual.
-
-Clique em **Gravar amostra** para capturar o áudio bruto; assim que você para a gravação, o app faz upload automático para o preset escolhido e exibe players Original x Tratado, além dos diagnósticos retornados (tempo de processamento, ganho de SNR, backend utilizado). Utilize o laboratório antes de entrar no passo **Gravação** do fluxo principal para ajustar ganho do microfone, escolher ambientes silenciosos e confirmar que o backend de limpeza está entregando o padrão esperado.
-
-> Para desenvolvimento local: (1) execute `npm run dev:cleanup` para subir o serviço em `http://localhost:3000`, (2) mantenha `VITE_API_URL=http://localhost:5173/api` e (3) defina `VITE_API_PROXY_TARGET=http://localhost:3000`. O Vite fará proxy de `/api` para o backend, evitando CORS e eliminando erros 404/500.
-
-#### Servidor local de limpeza
-
-- O script [server/audio-cleanup-server.ts](server/audio-cleanup-server.ts) usa `express`, `multer` e `fluent-ffmpeg` (com `ffmpeg-static`) para aplicar as cadeias `afftdn` descritas na [documentação oficial do FFmpeg](https://ffmpeg.org/ffmpeg-filters.html#afftdn) e retornar um WAV pronto para comparação no laboratório.
-- O preset `arnndn-lq` baixa automaticamente o modelo público `lq.rnnn` do repositório [GregorR/rnnoise-models](https://github.com/GregorR/rnnoise-models); o arquivo fica em `server/models/lq.rnnn` e é ignorado pelo Git. Caso o download falhe, o servidor registra o motivo e faz fallback para `afftdn`.
-- Ajuste `CLEANUP_PORT` e `ARNNDN_MODEL_URL` conforme necessário (`CLEANUP_PORT=4000 npm run dev:cleanup`) e mantenha `VITE_API_PROXY_TARGET` sincronizado para que o proxy do Vite envie as requisições ao porto correto.
-
-### Audio Equalizer Lab
-
-A rota `/audio-eq-lab` complementa a limpeza com um banco de três takes sequenciais. Cada take é gravado individualmente, e o laboratório gera duas versões concatenadas: a mix bruta e a mix equalizada com filtros `lowshelf`, `peaking` e `highshelf` baseados no Web Audio API `BiquadFilterNode`. Ajuste os sliders de ganho, clique em **Gerar mix** e compare imediatamente os resultados usando os players expostos no laboratório.
-
-- [src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx) controla `TAKE_COUNT=3`, renderiza `TakeCard`s para cada captura e expõe `StatusChip`s para MediaRecorder, pipeline e contagem de takes.
-- A função `mixRecordings()` decodifica cada blob (`decodeBlobToBuffer()`), converte para mono, garante sample rate de 48 kHz (`resampleBuffer()`), concatena e passa o áudio por um `OfflineAudioContext` para aplicar o EQ em blocos de até 60 s, sempre validando o buffer com `debugValidateBuffer()`.
-- Helpers como `renderOfflineWithTimeout()` e `ensureBufferHasSignal()` impedem mixagens silenciosas e geram logs ricos (com `appLogger`) quando detectam NaN, falta de sinal ou filtros configurados fora do intervalo seguro.
-
-## Estrutura de pastas
-
-A organização continua orientada a features; módulos cross-feature vivem em `shared/` e cada rota importa diretamente o que precisa sem barrels globais.
-
-```
-src/
-├── app/
-│   ├── App.tsx                # Orquestra o fluxo da aplicação
-│   └── providers.tsx          # Providers globais (error boundary, etc.)
-├── config/
-│   ├── constants/             # Constantes de domínio (vídeo, prompts)
-│   └── env.ts                 # Helper type-safe para variáveis Vite
-├── schemas/                   # Zod schemas (script, slide, refinamentos)
-├── services/
-│   └── openaiService.ts       # Integrações GPT-5.1 + GPT-image com retries
-├── features/
-│   ├── render-test/
-│   │   ├── components/        # Página /render-test para validar bundles
-│   │   └── model/             # Contratos (manifesto, slides) compartilhados
-│   └── video-generation/
-│       ├── api/               # Integrações com OpenAI (scripts, imagens)
-│       ├── components/        # Input, Loading, Editor, Recording, Preview
-│       ├── hooks/             # `useVideoGeneration` com todo o fluxo
-│       └── model/             # Tipos coesos da feature
-├── shared/
-│   ├── components/            # Error boundaries reutilizáveis
-│   ├── errors/                # Modelos de erro
-│   ├── lib/                   # SDKs/configurações compartilhadas
-│   ├── logging/               # Logger estruturado com emojis
-│   └── utils/                 # Helpers (UUID, controle de concorrência)
-└── vite-env.d.ts
-```
-
-Cada feature expõe apenas o que precisa através de seus próprios diretórios, evitando barrels globais. Código verdadeiramente compartilhado fica em `shared/`. Schemas e serviços OpenAI são centrais para reaproveitar validações/integrações.
-
-## Destaques do código
-
-- [src/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow.tsx](src/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow.tsx) e [src/features/video-generation/hooks/useVideoGeneration.ts](src/features/video-generation/hooks/useVideoGeneration.ts) compõem o stepper, coordenam `VIDEO_GENERATION_STEP`, acionam o CTA de laboratórios e delegam controle de concorrência para [src/shared/utils/concurrency.ts](src/shared/utils/concurrency.ts).
-- [src/features/video-generation/api/videoGenerationApi.ts](src/features/video-generation/api/videoGenerationApi.ts) normaliza público-alvo, mistura duração estimada com o blueprint escolhido e injeta `styleGuide`/referências visuais antes de chamar o serviço de imagens.
-- [src/services/openaiService.ts](src/services/openaiService.ts) centraliza as chamadas OpenAI (Responses API + GPT-image), define JSON Schemas rígidos, aplica `withRetry` e propaga erros customizados (`OpenAIServiceError`).
-- [src/shared/hooks/useWebAVRenderer.ts](src/shared/hooks/useWebAVRenderer.ts) gerencia o ciclo completo de renderização com WebAV: criar sprites, combinar e exportar MP4 com aceleração GPU.
-- [src/features/video-generation/components/PreviewStep/WebAVRenderer.tsx](src/features/video-generation/components/PreviewStep/WebAVRenderer.tsx) expõe UI de renderização WebAV com progresso em tempo real e detecção automática de capabilities do navegador.
-- [src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx](src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx) conversa com [server/audio-cleanup-server.ts](server/audio-cleanup-server.ts) para gerenciar presets, diagnósticos e reprocessamentos com abort controller e logs estruturados.
-- [src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx) implementa um pipeline completo com `OfflineAudioContext`, chunking de 60 s, validação de buffers e export para WAV para cada mix.
-- [src/features/render-test/components/RenderTestPage/RenderTestPage.tsx](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx) usa JSZip para inspecionar bundles, gera `objectURL` para cada asset, garante limpeza com `cleanupPreviewAssets()` ao trocar de arquivo **e agora renderiza o MP4 final com o mesmo `WebAVRenderer` reutilizado no PreviewStep**, eliminando duplicação de lógica.
-- [src/shared/logging/logger.ts](src/shared/logging/logger.ts) e [src/shared/hooks/useDebugMode.ts](src/shared/hooks/useDebugMode.ts) mantêm logging estruturado com emojis e sincronizam o modo debug entre query string, hash, `localStorage` e `window.__EDUSCRIPT_DEBUG__`.
+### Build, lint e testes
+- `yarn typecheck` — garante saúde do TypeScript.
+- `yarn lint` — ESLint 9 (flat config) com React, Hooks, A11y e `simple-import-sort`.
+- `yarn build` — `tsc --noEmit` + `vite build`.
+- `yarn preview` — serve o build com os headers de Cross-Origin Isolation já configurados.
 
 ## Variáveis de ambiente
-
-Use o template [.env.example](.env.example) como base:
-
-```bash
-cp .env.example .env
-```
-
-Valores disponíveis:
+Use [.env.example](.env.example) como base.
 
 | Variável                | Obrigatório      | Observação                                                                   |
 | ----------------------- | ---------------- | ---------------------------------------------------------------------------- |
-| `VITE_OPENAI_API_KEY`   | Desenvolvimento  | Exposta no bundle; use apenas para testes locais.                            |
-| `OPENAI_API_KEY`        | Produção/backend | Injete via proxy/edge function para esconder a chave real.                   |
-| `VITE_APP_TITLE`        | Não              | Atualiza o título da aba.                                                    |
+| `VITE_OPENAI_API_KEY`   | Desenvolvimento  | Vai para o bundle; use apenas em máquinas locais.                            |
+| `OPENAI_API_KEY`        | Produção/backend | Injete no proxy/edge para esconder a chave real.                             |
+| `VITE_APP_TITLE`        | Não              | Atualiza o título da aba (default: “Grava”).                                 |
 | `VITE_API_URL`          | Não              | Base das requisições do app (ex.: `http://localhost:5173/api`).              |
-| `VITE_API_PROXY_TARGET` | Não              | Host do serviço Node (ex.: `http://localhost:3000`) usado pelo proxy `/api`. |
-| `VITE_PORT`             | Não              | Porta do dev server.                                                         |
+| `VITE_API_PROXY_TARGET` | Não              | Host do backend Express (ex.: `http://localhost:3000`).                      |
+| `VITE_PORT`             | Não              | Porta do servidor Vite.                                                      |
+| `CLEANUP_PORT`          | Backend          | Porta do serviço `/audio/cleanup`.                                           |
+| `ARNNDN_MODEL_URL`      | Backend          | URL opcional para baixar o modelo `lq.rnnn`.                                 |
 
-> ⚠️ Em produção, mantenha somente `OPENAI_API_KEY` no servidor e encaminhe chamadas via proxy para evitar vazamento da chave.
+> ⚠️ Em produção, exponha apenas `OPENAI_API_KEY` no servidor e use o proxy para encaminhar chamadas. Os headers `Cross-Origin-Embedder-Policy` e `Cross-Origin-Opener-Policy` já estão configurados em `vite.config.ts`.
 
-## Schemas & serviço OpenAI
+## Scripts Yarn
 
-- [src/schemas/eduScriptSchemas.ts](src/schemas/eduScriptSchemas.ts) concentra os modelos Zod de slides, scripts e refinamentos. Isso garante que o contrato usado pelo LangChain/Responses API seja o mesmo consumido no app.
-- [src/services/openaiService.ts](src/services/openaiService.ts) orquestra GPT-5.1-Codex-Max para texto e GPT-image-1.5 para imagens, inclui `withRetry`, tratamento de erros estruturado e helpers como `refineSlideContentWithFeedback`.
-- [src/examples/usageExample.ts](src/examples/usageExample.ts) demonstra o fluxo completo (`generateScriptFromMaterials`, `generateSlideImages`, `refineContent`) pronto para CLI/tests.
+| Comando            | Ação                                                                 |
+| ------------------ | -------------------------------------------------------------------- |
+| `yarn dev`         | Vite + serviço de limpeza (concurrently)                             |
+| `yarn dev:client`  | Apenas Vite                                                          |
+| `yarn dev:cleanup` | Servidor Express com `multer` + `fluent-ffmpeg`                      |
+| `yarn build`       | `tsc --noEmit` + `vite build`                                        |
+| `yarn preview`     | Preview do build com headers COOP/COEP                               |
+| `yarn lint`        | ESLint 9 + React + A11y + import-sort                                |
+| `yarn typecheck`   | TypeScript estrito (`noUncheckedIndexedAccess`, etc.)                |
+| `yarn format`      | Prettier (`printWidth: 80`, `singleQuote: true`)                     |
 
-Exemplo rápido do serviço:
+## Arquitetura e convenções
+O código segue uma arquitetura orientada a features com referências do Bulletproof React e Feature-Sliced Design. Cada rota vive dentro de `src/features/<feature>` e consome apenas módulos necessários de `shared/`.
 
-```ts
-import {
-  generateScriptFromMaterials,
-  withRetry,
-} from '@/services/openaiService';
-
-const script = await withRetry(() =>
-  generateScriptFromMaterials(materials, {
-    topic: 'Ciclo da água',
-    targetAudience: 'middleSchool',
-    desiredDuration: 5,
-  }),
-);
+### Mapa de pastas
+```
+src/
+├── app/                    # Orquestra roteamento e providers
+├── config/                 # Constantes de domínio e helpers de env
+├── content/                # Catálogo de prompts e estudos (markdown)
+├── examples/               # Exemplos de uso do serviço OpenAI
+├── features/
+│   ├── audio-lab/          # Laboratório de limpeza de áudio
+│   ├── audio-eq-lab/       # Equalizador de três takes
+│   ├── render-test/        # Validador de bundles
+│   └── video-generation/   # Fluxo principal do app
+├── schemas/                # Zod schemas compartilhados
+├── services/               # Integradores (OpenAI, etc.)
+├── shared/                 # Componentes, libs, hooks, logging e utilitários
+└── types/                  # Tipagens extras (WebAV, etc.)
 ```
 
-## Catálogo de prompts & pesquisas
+### Convenções principais
+- Importações usam o alias `@/*` (configurado em `tsconfig.json` e `vite.config.ts` via `vite-tsconfig-paths`).
+- Componentes em PascalCase, hooks prefixados com `use`, booleans com `is/has/should`.
+- Evite barrels globais; importe diretamente do módulo.
+- `appLogger` centraliza logs e deve ser preferido no lugar de `console`.
+- Cada seção crítica está protegida por `react-error-boundary` (`SectionErrorFallback`).
+- Debug mode sincroniza query string, hash e `localStorage` através de [useDebugMode](src/shared/hooks/useDebugMode.ts).
 
-- Os blueprints de prompts derivados de `docs/prompts` agora vivem tipados em [src/content/prompts](src/content/prompts).
-- Cada blueprint carrega metadados (categoria, range de slides, duração, tom) e expõe helpers (`getPromptBlueprintById`, `loadPromptMarkdown`).
-- O `InputStep` usa esses dados para permitir que o usuário escolha a finalidade do vídeo antes da geração e o fluxo inteiro respeita a duração/estilo escolhidos.
-- Para carregar o markdown bruto dos estudos de deep research, use `loadBlueprintMarkdown(promptId)` — o Vite importa o `.md` como string via `import.meta.glob`.
+## Fluxo de geração de vídeo
 
-## Scripts principais
+### Stepper e estado compartilhado
+[useVideoGeneration](src/features/video-generation/hooks/useVideoGeneration.ts) mantém `VideoGenerationState`, controla o stepper (`VIDEO_GENERATION_STEP`) e executa ações atômicas: geração de roteiro, edição em massa, inserção/exclusão/ordenação de slides, criação de assets e abertura do preview.
 
-| Comando            | Ação                                                      |
-| ------------------ | --------------------------------------------------------- |
-| `yarn install`     | Instala dependências                                      |
-| `yarn dev`         | Inicia Vite com React Fast Refresh                        |
-| `yarn dev:cleanup` | Inicia o backend local `/audio/cleanup` com fluent-ffmpeg |
-| `yarn build`       | `tsc --noEmit` + `vite build`                             |
-| `yarn preview`     | Pré-visualiza o build                                     |
-| `yarn lint`        | ESLint 9 (flat) com React + TS + a11y                     |
-| `yarn typecheck`   | Garante que o TS está saudável                            |
-| `yarn format`      | Prettier com `printWidth: 80`, `singleQuote: true`        |
+### Briefing & prompts
+[InputStep](src/features/video-generation/components/InputStep/InputStep.tsx) coleta tema, materiais, público e blueprint de prompt. Os blueprints vivem em [src/content/prompts](src/content/prompts) com metadados tipados e helpers (`getPromptBlueprintById`, `loadPromptMarkdown`).
 
-## Fluxo de geração
+### Geração de roteiro + validação
+`generateScriptFromMaterials` (OpenAI Responses API via [src/services/openaiService.ts](src/services/openaiService.ts)) usa schemas JSON + Zod para garantir slides válidos. `applyScriptInstructionsToSlides` aplica diffs inteligentes quando o usuário fornece instruções adicionais na revisão.
 
-O estado global vive em [src/features/video-generation/hooks/useVideoGeneration.ts](src/features/video-generation/hooks/useVideoGeneration.ts), que normaliza IDs com `uuidv4()`, controla `VIDEO_GENERATION_STEP`, publica progresso para o UI e orquestra as transições disparadas pelos componentes. A geração em lote respeita `VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT` ao delegar trabalho para [src/shared/utils/concurrency.ts](src/shared/utils/concurrency.ts), enquanto `appLogger` acompanha cada ação.
+### Revisão & assets personalizados
+[ScriptReviewStep](src/features/video-generation/components/ScriptReviewStep/ScriptReviewStep.tsx) ordena slides, permite inserir/remover/mover, aceita notas de estilo e faz upload de referências visuais (até 5 por slide). Também é aqui que usuários adicionam **assets personalizados** (imagens ou vídeos) — cada upload gera um `customAsset` com preview/arquivo/duração opcional, bloqueando uploads de referências para evitar conflitos.
 
-1. **Briefing (`InputStep`)** — formulário com `useActionState` valida os campos e dispara `useVideoGeneration().actions.startGeneration`.
-2. **Roteiro** — `generateScriptFromMaterials` usa GPT-5.1-Codex-Max (via LangChain) com schemas Zod para garantir JSON válido.
-3. **Visuais** — `runWithConcurrency` limita a geração de imagens (`gpt-image-1.5`) ao valor em `VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT`, enquanto `generateSlideImage()` em [src/features/video-generation/api/videoGenerationApi.ts](src/features/video-generation/api/videoGenerationApi.ts) aplica prompt visual, aspect ratio e referências do `styleGuide` de cada slide.
-4. **Edição** — usuário pode ajustar o texto manualmente ou enviar feedback para `refineSlideContent`.
-5. **Gravação** — `MediaRecorder` captura o áudio por slide e o fluxo garante limpeza dos streams.
-6. **Preview & Export** — preview sincronizado com áudio e export via **WebAV** (aceleração GPU, 20x mais rápido) ou fallback com `MediaRecorder`. Implementamos detecção de capabilities com `detectWebCodecsCapabilities()` e mantemos ambas as opções de renderização. Em modo debug é possível exportar um bundle `.zip` contendo roteiro, imagens e áudios para inspeção offline.
+### Editor e ajustes guiados
+[EditorStep](src/features/video-generation/components/EditorStep/EditorStep.tsx) permite feedback textual/voz (`VoiceInputButton`) por slide. Cada feedback chama `refineSlideContent`, marca o slide como `isRegeneratingImage` e dispara `generateSlideImage` com o novo prompt.
 
-Falhas em cada etapa são isoladas com `react-error-boundary`: `AppProviders` cobre a árvore inteira e `SectionErrorFallback` envolve Editor/Recording/Preview individualmente.
+### Estúdio de narração
+[RecordingStep](src/features/video-generation/components/RecordingStep/RecordingStep.tsx) usa `MediaRecorder` para capturar áudio por slide, marca progresso, oferece regravação e pré-escuta, além de exibir o visual (imagem ou vídeo customizado) para manter contexto.
 
-## Modo debug & render-test
+### Preview, debug e export
+[PreviewStep](src/features/video-generation/components/PreviewStep/PreviewStep.tsx) sincroniza áudio/visuais, gera bundles `.zip` quando o modo debug está ativo e oferece dois caminhos de exportação:
+- **WebAV Renderer** ([WebAVRenderer.tsx](src/features/video-generation/components/PreviewStep/WebAVRenderer.tsx) + [useWebAVRenderer](src/shared/hooks/useWebAVRenderer.ts)) — GPU, suporta vídeos customizados e gera MP4.
+- **Fallback MediaRecorder** — apenas imagens + áudio, útil para navegadores sem WebCodecs. Fica automaticamente desabilitado quando há vídeos enviados.
 
-- Ative o modo debug com `?debug=true` (ou definindo `localStorage.setItem('eduscript:debug-mode','true')`). O novo hook [useDebugMode](src/shared/hooks/useDebugMode.ts) mantém o flag sincronizado entre query string, hash, `localStorage` e window globals.
-- Quando o modo estiver ativo, o `PreviewStep` exibe o botão **Bundle debug**, que gera um `.zip` contendo `manifest.json`, imagens e áudios por slide usando JSZip. Esse pacote permite validar a renderização final sem reprocessar os materiais.
-- A rota `/render-test` carrega a página [RenderTestPage](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx): basta arrastar o bundle `.zip` (ou apenas o `manifest.json`) para ver cada slide, ouvir o áudio, conferir prompts e métricas antes de enviar para o renderizador definitivo.
-- O modelo do manifesto fica em [renderBundle.ts](src/features/render-test/model/renderBundle.ts) e é compartilhado entre exportação e leitura, evitando incompatibilidades entre ambientes.
+### Estado atual da adição de vídeos
+- Cada slide aceita **um** asset personalizado (`SlideCustomAsset`) que pode ser imagem ou vídeo. Uploads ocorrem na revisão e o arquivo fica apenas na memória (não há persistência/backups).
+- Vídeos aparecem no Editor, Gravação e Preview como loops silenciosos; o áudio oficial continua vindo da narração gravada. A duração tentada é lida via `video.onloadedmetadata` e reaproveitada no WebAV (que congela o último frame se o áudio for mais longo).
+- O exportador WebAV incorpora o arquivo real (blob ou URL) e também o adiciona no bundle de debug; o fallback via MediaRecorder é automaticamente bloqueado quando `hasVideoAssets === true`.
+- Limitações atuais: sem recorte/trimming, sem ajustes de volume, sem normalização de aspect ratio (o vídeo é encaixado via `object-fit: cover`) e sem upload para storage/server — recarregar a página perde o asset. Essas evoluções estão listadas no roadmap.
 
-## Logging e diagnósticos
+## Laboratórios de áudio
 
-Use `appLogger.info|warn|error`, exposto em [src/shared/logging/logger.ts](src/shared/logging/logger.ts), para qualquer análise. Os logs já carregam emojis e contexto serializado, facilitando filtros no console ou em observabilidade externa.
+### Audio Cleanup Lab (`/audio-lab`)
+Componente: [AudioCleanupLab](src/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab.tsx). Fluxo `idle → preparing → recording → processing`, comparação lado a lado e diagnósticos (headers `X-Cleanup-Backend`, `X-Processing-Time-Ms`, `X-SNR-Improvement-Db`). É possível reprocessar o último take mudando apenas o preset, sem nova gravação.
 
-## Checklist para contribuições
+### Audio Equalizer Lab (`/audio-eq-lab`)
+Componente: [AudioEqualizerLab](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx). Grava três takes, converte tudo para 48 kHz mono, concatena e aplica filtros `lowshelf`, `peaking` e `highshelf` usando `OfflineAudioContext`. Helpers como `renderOfflineWithTimeout` e `ensureBufferHasSignal` evitam mixagens silenciosas.
 
-- Siga os padrões de nomenclatura (PascalCase para componentes, `use` prefix para hooks, `is/has/should` para booleanos, etc.).
-- Evite novos barrel files — importe direto dos módulos.
-- Coloque código reutilizável em `shared/` somente quando for realmente cross-feature.
-- Sempre rode `yarn typecheck && yarn lint` antes de abrir PR.
-- Se adicionar novas integrações com APIs externas, centralize em `features/<feature>/api` e exponha helpers via hooks.
+### Servidor local de limpeza
+[server/audio-cleanup-server.ts](server/audio-cleanup-server.ts) expõe:
+- `GET /health`
+- `POST /audio/cleanup` (multipart `audio`, campo `preset` opcional: `sherpa-onnx`, `arnndn-lq`, `deepfilternet`)
+
+O servidor usa `ffmpeg-static`, baixa `lq.rnnn` automaticamente para o preset ARNNDN e aplica filtros (`afftdn`, `arnndn`, `deepfilternet`). Headers CORS já configurados. Rode com:
+```bash
+CLEANUP_PORT=3000 yarn dev:cleanup
+```
+Aponte `VITE_API_PROXY_TARGET` para esse host para que o Vite faça proxy de `/api`.
+
+## Renderização e testes de bundle
+
+### WebAV renderer
+A integração descrita em [docs/WEBAV_INTEGRATION.md](docs/WEBAV_INTEGRATION.md) e [docs/RENDER_VIDEO.md](docs/RENDER_VIDEO.md) explica como configuramos COOP/COEP, chunks manuais, detecção de capabilities e fallback para freeze frame quando o vídeo customizado termina antes do áudio.
+
+### /render-test
+[RenderTestPage](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx) aceita um bundle `.zip` ou `manifest.json` exportado do Preview. Ele reconstrói slides, toca áudios, mostra prompts e reutiliza `WebAVRenderer` para renderizar o MP4 final, garantindo paridade entre ambientes offline e o app principal.
+
+## Logging, debug e observabilidade
+- `appLogger` ([src/shared/logging/logger.ts](src/shared/logging/logger.ts)) expõe `info/warn/error` com contexto serializado e emojis por domínio.
+- `useDebugMode` sincroniza o modo debug via query `?debug=true`, hash, `localStorage` e `window.__EDUSCRIPT_DEBUG__`.
+- Componentes críticos (Editor, Recording, Preview) ficam dentro de `ErrorBoundary` customizados (`SectionErrorFallback`) para isolar falhas sem derrubar o app inteiro.
+
+## Documentação complementar
+- [docs/WEBAV_INTEGRATION.md](docs/WEBAV_INTEGRATION.md) — checklist completo de WebAV + WebCodecs.
+- [docs/RENDER_VIDEO.md](docs/RENDER_VIDEO.md) — guia aprofundado de clips, sprites, combinator e edição no navegador.
+- [docs/TOOLS_VIDEO_EDITION.md](docs/TOOLS_VIDEO_EDITION.md) — benchmarking de SDKs e trade-offs.
+- [docs/PROMPT_AUDIT.md](docs/PROMPT_AUDIT.md) — histórico e auditoria dos blueprints de prompt.
+- [docs/NEXT_PROMPT_PLAN.md](docs/NEXT_PROMPT_PLAN.md) — melhorias planejadas para prompts.
+- [docs/ai-agent-prompts](docs/ai-agent-prompts) / [docs/prompts](docs/prompts) — repositório bruto de estudos e pesquisas para IA.
+- [docs/MTL_XML.md](docs/MTL_XML.md) — referência de parsing/renderização de materiais 3D (para futuras integrações).
 
 ## Roadmap
-
 - [ ] Adicionar biblioteca de prompts reutilizáveis (`features/content-library`).
-- [ ] Salvar projetos no Azure Cosmos DB para colaborar em tempo real (seguir instruções anexas).
-- [ ] Criar suítes de testes e2e com Playwright cobrindo as etapas do fluxo.
+- [ ] Salvar projetos (slides, áudio, assets customizados) em Azure Cosmos DB para colaboração em tempo real.
+- [ ] Criar suítes de testes e2e com Playwright cobrindo o fluxo completo.
+- [ ] Persistir uploads de vídeo/imagem em storage durável + CDN com assinaturas temporárias.
+- [ ] Habilitar edição (trim/volume) e suporte ao export fallback para vídeos personalizados.
 
 Sinta-se à vontade para abrir issues ou PRs com melhorias no fluxo ou novas features de vídeo educacional. 💡
