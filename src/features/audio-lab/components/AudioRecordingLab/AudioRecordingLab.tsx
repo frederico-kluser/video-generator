@@ -1,7 +1,11 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useState } from 'react';
 import { Activity, Mic, ShieldCheck } from 'lucide-react';
+import {
+  type StatusMessages,
+  RecorderErrors,
+  useReactMediaRecorder,
+} from 'react-media-recorder';
 
-import { useAntiClippingRecorder } from '@/features/audio-lab/hooks/useAntiClippingRecorder';
 import { useObjectUrl } from '@/features/audio-lab/lib/mediaUtils';
 import { useVoiceRecorder } from '@/shared/hooks/useVoiceRecorder';
 
@@ -33,10 +37,34 @@ const BASELINE_HIGHLIGHTS = [
 ] as const;
 
 const PRO_HIGHLIGHTS = [
-  'Captura em 48 kHz com AGC/echo desativados',
-  'Input gain em 0.8 + DynamicsCompressor em modo limitador',
-  'Monitoramento em tempo real do pico e da redução de ganho',
+  'Hook useReactMediaRecorder com constraints 48 kHz e AGC desligado',
+  'Fallback extendable-media-recorder garante encoder Opus/WAV',
+  'Bitrate travado em 128 kbps com blob WebM pronto para upload',
 ] as const;
+
+const STATUS_COPY: Partial<Record<StatusMessages, string>> = {
+  idle: 'Aguardando para iniciar a captura com react-media-recorder.',
+  acquiring_media: 'Solicitando microfone com constraints profissionais (48 kHz).',
+  delayed_start: 'Aguardando o MediaRecorder inicializar o encoder extendable.',
+  recording: 'Gravando WebM/Opus com AGC/echo desligados (react-media-recorder).',
+  stopping: 'Finalizando chunks e montando blob via react-media-recorder.',
+  stopped: 'Blob WebM pronto para download/envio.',
+  permission_denied: 'Permissão negada pelo navegador.',
+  media_in_use: 'Outro app está usando o microfone no momento.',
+  no_specified_media_found: 'Nenhum dispositivo compatível retornado com as constraints 48 kHz.',
+  invalid_media_constraints: 'O dispositivo não suporta as constraints solicitadas.',
+  recorder_error: 'Falha interna do MediaRecorder/encoder.',
+  media_aborted: 'Navegador abortou a captura.',
+  paused: 'Captura pausada pela API.',
+};
+
+const RECOMMENDED_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false,
+  channelCount: 1,
+  sampleRate: 48_000,
+};
 
 type RecorderCardProps = {
   title: string;
@@ -49,7 +77,6 @@ type RecorderCardProps = {
   audioUrl: string | null;
   statusLabel: string;
   error: string | null;
-  meter?: React.ReactNode;
   footer?: React.ReactNode;
 };
 
@@ -64,7 +91,6 @@ function RecorderCard({
   audioUrl,
   statusLabel,
   error,
-  meter,
   footer,
 }: RecorderCardProps) {
   return (
@@ -94,8 +120,6 @@ function RecorderCard({
         )}
       </div>
 
-      {meter}
-
       <div className="mt-5 flex flex-col gap-3">
         <button
           type="button"
@@ -122,15 +146,39 @@ function RecorderCard({
 
 export function AudioRecordingLab() {
   const voiceRecorder = useVoiceRecorder();
-  const antiClippingRecorder = useAntiClippingRecorder();
+  const {
+    status: recommendedStatus,
+    startRecording: startRecommendedRecording,
+    stopRecording: stopRecommendedRecording,
+    mediaBlobUrl: recommendedBlobUrl,
+    error: recommendedErrorRaw,
+    clearBlobUrl: clearRecommendedBlobUrl,
+  } = useReactMediaRecorder({
+    audio: RECOMMENDED_CONSTRAINTS,
+    blobPropertyBag: { type: 'audio/webm;codecs=opus' },
+    mediaRecorderOptions: {
+      mimeType: 'audio/webm;codecs=opus',
+      audioBitsPerSecond: 128_000,
+    },
+    askPermissionOnMount: true,
+  });
 
   const [baselineBlob, setBaselineBlob] = useState<Blob | null>(null);
-  const [proBlob, setProBlob] = useState<Blob | null>(null);
   const [baselineBusy, setBaselineBusy] = useState(false);
-  const [proBusy, setProBusy] = useState(false);
+  const [recommendedBusy, setRecommendedBusy] = useState(false);
 
   const baselineUrl = useObjectUrl(baselineBlob);
-  const proUrl = useObjectUrl(proBlob);
+  const professionalUrl = recommendedBlobUrl ?? null;
+
+  const normalizedRecommendedError =
+    recommendedErrorRaw && recommendedErrorRaw !== RecorderErrors.NONE
+      ? recommendedErrorRaw
+      : null;
+
+  const recommendedStatusLabel =
+    recommendedStatus === 'recording'
+      ? 'react-media-recorder capturando WebM/Opus em 48 kHz (AGC/echo OFF)'
+      : STATUS_COPY[recommendedStatus] ?? 'Pronto para iniciar a captura profissional.';
 
   const handleBaselineToggle = useCallback(async () => {
     if (baselineBusy) {
@@ -152,51 +200,22 @@ export function AudioRecordingLab() {
     }
   }, [baselineBusy, voiceRecorder]);
 
-  const handleProToggle = useCallback(async () => {
-    if (proBusy) {
+  const handleRecommendedToggle = useCallback(() => {
+    if (recommendedBusy) {
       return;
     }
-    setProBusy(true);
+    setRecommendedBusy(true);
     try {
-      if (antiClippingRecorder.isRecording) {
-        const blob = await antiClippingRecorder.stopRecording();
-        if (blob) {
-          setProBlob(blob);
-        }
+      if (recommendedStatus === 'recording') {
+        stopRecommendedRecording();
       } else {
-        setProBlob(null);
-        await antiClippingRecorder.startRecording();
+        clearRecommendedBlobUrl();
+        startRecommendedRecording();
       }
     } finally {
-      setProBusy(false);
+      setRecommendedBusy(false);
     }
-  }, [antiClippingRecorder, proBusy]);
-
-  const proMeter = useMemo(() => {
-    const peakPercent = Math.min(antiClippingRecorder.level, 1) * 100;
-    return (
-      <div className="mt-4 rounded-xl border border-white/5 bg-dark-800/70 p-4">
-        <div className="flex items-center justify-between text-xs text-white/60">
-          <span>Pico instantâneo</span>
-          <span>{peakPercent.toFixed(0)}%</span>
-        </div>
-        <div className="mt-2 h-2 rounded-full bg-white/10">
-          <div
-            className={`h-full rounded-full ${antiClippingRecorder.isClipping ? 'bg-danger-500' : 'bg-primary-400'}`}
-            style={{ width: `${peakPercent}%` }}
-          />
-        </div>
-        <p className="mt-2 text-xs text-white/70">
-          {antiClippingRecorder.isClipping
-            ? '⚠️ Pico encostando em 0 dBFS (limitador segurando)'
-            : 'Headroom ativo em -6 dB (0.95 de saída)'}
-        </p>
-        <p className="text-[11px] text-white/50">
-          Redução do compressor: {antiClippingRecorder.gainReduction.toFixed(1)} dB
-        </p>
-      </div>
-    );
-  }, [antiClippingRecorder.gainReduction, antiClippingRecorder.isClipping, antiClippingRecorder.level]);
+  }, [clearRecommendedBlobUrl, recommendedBusy, recommendedStatus, startRecommendedRecording, stopRecommendedRecording]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:py-12 lg:py-16">
@@ -206,7 +225,7 @@ export function AudioRecordingLab() {
           Teste de Gravação Anti-Clipping
         </h1>
         <p className="mx-auto mt-4 max-w-3xl text-base text-white/70">
-          Comparativo direto entre o fluxo atual (MediaRecorder sem processamento) e o pipeline definitivo recomendado no diagnóstico: captura em 48 kHz, headroom controlado e limitador dedicado. Bibliotecas indicadas para produção são <strong>react-media-recorder</strong> e <strong>react-audio-voice-recorder</strong>, ambas com API por hooks e manutenção ativa.
+          Comparativo direto entre o fluxo atual (MediaRecorder sem processamento) e a instalação oficial da <strong>react-media-recorder</strong> configurada com constraints profissionais (48 kHz, AGC/echo OFF) e fallback <strong>extendable-media-recorder</strong> para encoder Opus/WAV.
         </p>
       </header>
 
@@ -230,22 +249,17 @@ export function AudioRecordingLab() {
         />
 
         <RecorderCard
-          title="Pipeline anti-clipping"
-          badge="Técnica recomendada"
-          description="Implementa o fluxo proposto: desliga processamento automático, roda limitador em -6 dB e mantém folga de headroom."
+          title="react-media-recorder Pro"
+          badge="Biblioteca recomendada"
+          description="Hook oficial v1.7.2 com extendable-media-recorder/wav-encoder já instalados, garantindo encoder Opus e constraints anti-clipping."
           highlights={PRO_HIGHLIGHTS}
-          onToggle={handleProToggle}
-          isRecording={antiClippingRecorder.isRecording}
-          isBusy={proBusy}
-          audioUrl={proUrl}
-          statusLabel={
-            antiClippingRecorder.isRecording
-              ? 'Capturando em 48 kHz com limitador + monitoramento instantâneo'
-              : 'Pronto para capturar com o pipeline profissional'
-          }
-          error={antiClippingRecorder.error}
-          meter={proMeter}
-          footer={<p>Saída: WebM/Opus 128 kbps vindo do stream pós-limitador (headroom 0.95).</p>}
+          onToggle={handleRecommendedToggle}
+          isRecording={recommendedStatus === 'recording'}
+          isBusy={recommendedBusy}
+          audioUrl={professionalUrl}
+          statusLabel={recommendedStatusLabel}
+          error={normalizedRecommendedError}
+          footer={<p>Saída: WebM/Opus 128 kbps (blob gerado direto pela react-media-recorder / extendable-media-recorder).</p>}
         />
       </div>
 
