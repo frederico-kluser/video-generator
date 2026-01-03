@@ -76,13 +76,7 @@ export function VadLabPage() {
         preSpeechPadMs: 150,
         minSpeechMs: 250,
         ortConfig: (ort) => {
-          const wasmBase = `${ASSET_BASE_PATH}/`;
-          const wasmPaths = (ort.env.wasm.wasmPaths ?? {}) as Record<string, string>;
-          wasmPaths['ort-wasm.wasm'] = `${wasmBase}ort-wasm.wasm`;
-          wasmPaths['ort-wasm-simd.wasm'] = `${wasmBase}ort-wasm-simd.wasm`;
-          wasmPaths['ort-wasm-threaded.wasm'] = `${wasmBase}ort-wasm-threaded.wasm`;
-          wasmPaths['ort-wasm-simd-threaded.wasm'] = `${wasmBase}ort-wasm-simd-threaded.wasm`;
-          ort.env.wasm.wasmPaths = wasmPaths;
+          ort.env.wasm.wasmPaths = `${ASSET_BASE_PATH}/`;
           const threads = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency ?? 4 : 4;
           ort.env.wasm.numThreads = Math.max(1, Math.min(threads, 4));
         },
