@@ -213,12 +213,11 @@ export function AudioCleanupLab() {
     async (stream: MediaStream) => {
       const context = await ensureAudioContext();
       if (!workletLoadedRef.current) {
-        await context.audioWorklet.addModule(
-          new URL(
-            '@/shared/audio/worklets/loudness-processor.worklet.ts',
-            import.meta.url,
-          ),
+        const loudnessProcessorModule = new URL(
+          '../../../../shared/audio/worklets/loudness-processor.worklet.ts',
+          import.meta.url,
         );
+        await context.audioWorklet.addModule(loudnessProcessorModule);
         workletLoadedRef.current = true;
       }
 

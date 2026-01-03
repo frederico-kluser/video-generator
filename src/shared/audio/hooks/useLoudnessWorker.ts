@@ -34,7 +34,7 @@ export function useLoudnessWorker() {
   const ensureWorker = useCallback(() => {
     if (!workerRef.current) {
       workerRef.current = new Worker(
-        new URL('@/shared/audio/workers/loudnessWorker.ts', import.meta.url),
+        new URL('../workers/loudnessWorker.ts', import.meta.url),
         { type: 'module' },
       );
       workerRef.current.onmessage = (event: MessageEvent<WorkerMessage>) => {
