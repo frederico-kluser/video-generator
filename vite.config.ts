@@ -81,7 +81,12 @@ export default defineConfig(({ mode }) => {
       },
     },
     optimizeDeps: {
-      include: ['@webav/av-cliper', '@webav/av-canvas', '@webav/av-recorder'],
+      include: [
+        '@webav/av-cliper',
+        '@webav/av-canvas',
+        '@webav/av-recorder',
+        'onnxruntime-web',
+      ],
     },
     define: {
       __APP_TITLE__: JSON.stringify(env.VITE_APP_TITLE ?? 'Grava'),
