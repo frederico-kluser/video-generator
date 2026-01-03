@@ -3,6 +3,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 
 import { getEnv } from '@/config/env';
 import { AudioCleanupLab } from '@/features/audio-lab/components/AudioCleanupLab/AudioCleanupLab';
+import { AudioRecordingLab } from '@/features/audio-lab/components/AudioRecordingLab/AudioRecordingLab';
 import { AudioEqualizerLab } from '@/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab';
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
 import { VideoBatchDebugPage } from '@/features/video-generation/components/VideoBatchDebugPage/VideoBatchDebugPage';
@@ -29,6 +30,8 @@ export function App() {
     page = <RenderTestPage />;
   } else if (normalizedPath === '/audio-lab') {
     page = <AudioCleanupLab />;
+  } else if (normalizedPath === '/audio-recording-lab') {
+    page = <AudioRecordingLab />;
   } else if (normalizedPath === '/audio-eq-lab') {
     page = <AudioEqualizerLab />;
   } else if (normalizedPath === '/debug-video-tests') {

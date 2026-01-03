@@ -1,77 +1,118 @@
-import { ArrowRight, Bug } from 'lucide-react';
+import { useMemo } from 'react';
 
-type AudioLabId = 'cleanup' | 'equalizer' | 'render';
+import { ArrowRight } from 'lucide-react';
+
+type AudioLabId = 'cleanup' | 'equalizer' | 'render' | 'recording' | 'threeBlueOneBrown';
 
 type AudioLabsCtaProps = {
   current?: AudioLabId;
   onOpenVideoTester?: () => void;
 };
 
-const LAB_LINKS: Array<{
+type LabEntry = {
   id: AudioLabId;
   title: string;
   description: string;
-  href: string;
   badge: string;
-}> = [
+  href?: string;
+  action?: () => void;
+};
+
+const BASE_LABS: LabEntry[] = [
   {
     id: 'cleanup',
-    title: 'Audio Cleanup Lab',
-    description:
-      'Sherpa-ONNX + arnndn remotos para testar a cadeia de limpeza.',
+    title: 'Limpeza Neural (Sherpa + ARNNDN)',
+    description: 'Pipeline Web + servidor removendo ruído e DC-offset com modelos RNNoise.',
     href: '/audio-lab',
     badge: 'Limpeza',
   },
   {
     id: 'equalizer',
-    title: 'Audio Equalizer Lab',
-    description: 'Monte takes sequenciais e aplique shelves + peaking.',
+    title: 'Equalizador Sequencial (Takes Layering)',
+    description: 'Monte takes em série e aplique shelves/peaking pré-render.',
     href: '/audio-eq-lab',
-    badge: 'Equalizacao',
+    badge: 'Equalização',
+  },
+  {
+    id: 'recording',
+    title: 'Captura Anti-Clipping (48 kHz)',
+    description: 'Comparativo pipeline atual vs. limitador 20:1 com headroom 0.95.',
+    href: '/audio-recording-lab',
+    badge: 'Captura',
   },
   {
     id: 'render',
-    title: 'Render Test Lab',
-    description: 'Teste o sistema de renderização de vídeo com WebAV.',
+    title: 'Renderização WebAV (Debug)',
+    description: 'Teste o encoder WebAV/FFmpeg antes do envio para cloud.',
     href: '/render-test',
     badge: 'Render',
   },
 ];
 
 export function AudioLabsCta({ current, onOpenVideoTester }: AudioLabsCtaProps) {
+  const labs: LabEntry[] = useMemo(() => {
+    if (!onOpenVideoTester) {
+      return BASE_LABS;
+    }
+
+    return [
+      ...BASE_LABS,
+      {
+        id: 'threeBlueOneBrown',
+        title: 'Teste API 3Blue1Brown',
+        description: 'Executa apenas o renderizador matemático e verifica o payload da API.',
+        badge: '3B1B',
+        action: onOpenVideoTester,
+      },
+    ];
+  }, [onOpenVideoTester]);
+
   return (
-    <div className="mx-auto max-w-2xl rounded-xl border border-white/10 bg-dark-900/60 px-4 py-3">
+    <div className="mx-auto max-w-3xl rounded-xl border border-white/10 bg-dark-900/60 px-4 py-3">
       <div className="flex flex-wrap items-center justify-center gap-2">
-        {LAB_LINKS.map((lab) => {
+        {labs.map((lab) => {
           const isActive = current === lab.id;
-          return (
-            <a
-              key={lab.id}
-              href={lab.href}
-              className={`group inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition hover:bg-white/5 ${
-                isActive
-                  ? 'border-primary-400/60 bg-primary-500/10 text-primary-200'
-                  : 'border-white/10 text-white/70 hover:border-white/20 hover:text-white'
-              }`}
-            >
-              <span>{lab.title}</span>
+          const className = `group inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-left font-medium transition hover:bg-white/5 ${
+            isActive
+              ? 'border-primary-400/60 bg-primary-500/10 text-primary-200'
+              : 'border-white/10 text-white/80 hover:border-white/20 hover:text-white'
+          }`;
+
+          const content = (
+            <>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-white/60">
+                  {lab.badge}
+                </span>
+                <span>{lab.title}</span>
+                <span className="text-[10px] text-white/60">{lab.description}</span>
+              </div>
               <ArrowRight
                 size={12}
                 className="opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100"
               />
-            </a>
+            </>
+          );
+
+          if (lab.href) {
+            return (
+              <a key={lab.id} href={lab.href} className={className}>
+                {content}
+              </a>
+            );
+          }
+
+          return (
+            <button
+              key={lab.id}
+              type="button"
+              onClick={lab.action}
+              className={className}
+            >
+              {content}
+            </button>
           );
         })}
-        {onOpenVideoTester && (
-          <button
-            type="button"
-            onClick={onOpenVideoTester}
-            className="group inline-flex items-center gap-1.5 rounded-lg border border-primary-400/40 bg-primary-500/5 px-3 py-1.5 text-xs font-semibold text-primary-100 transition hover:border-primary-400 hover:bg-primary-500/15 hover:text-white"
-          >
-            <Bug size={12} className="opacity-70 transition group-hover:translate-x-0.5" />
-            Abrir painel de testes
-          </button>
-        )}
       </div>
     </div>
   );
