@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+
 import {
   ChevronLeft,
   ChevronRight,
   Edit3,
+  Film,
   ImageIcon,
   Loader2,
   MessageSquare,
@@ -11,12 +13,14 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+import { MANIM_API_BASE_URL } from '@/config/constants/manim';
 import { type AspectRatio } from '@/config/constants/video';
+import { generateManimSlideAnimation } from '@/features/video-generation/api/manimAnimationApi';
 import {
   generateSlideImage,
   refineSlideContent,
 } from '@/features/video-generation/api/videoGenerationApi';
-import type { Slide } from '@/features/video-generation/model/types';
+import type { ProjectData, Slide } from '@/features/video-generation/model/types';
 import { VoiceInputButton } from '@/shared/components/VoiceInput/VoiceInputButton';
 import { appLogger } from '@/shared/logging/logger';
 import { mergeTranscript } from '@/shared/utils/transcription';
@@ -24,6 +28,7 @@ import { mergeTranscript } from '@/shared/utils/transcription';
 type EditorStepProps = {
   slides: Slide[];
   aspectRatio: AspectRatio;
+  projectData: Partial<ProjectData>;
   onUpdateSlide: (id: string, updates: Partial<Slide>) => void;
   onFinish: () => void;
 };
@@ -31,14 +36,18 @@ type EditorStepProps = {
 export function EditorStep({
   slides,
   aspectRatio,
+  projectData,
   onUpdateSlide,
   onFinish,
 }: EditorStepProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [isProcessingFeedback, setIsProcessingFeedback] = useState(false);
+  const [isGeneratingAnimation, setIsGeneratingAnimation] = useState(false);
+  const [animationError, setAnimationError] = useState<string | null>(null);
 
   const currentSlide = slides[currentIndex];
+  const hasCustomVideo = currentSlide?.customAsset?.type === 'video';
 
   const renderVisualPreview = () => {
     const asset = currentSlide?.customAsset;
@@ -160,6 +169,45 @@ export function EditorStep({
       window.alert('Falha ao processar feedback. Tente novamente.');
     } finally {
       setIsProcessingFeedback(false);
+    }
+  };
+
+  const handleGenerateAnimation = async () => {
+    if (!currentSlide) {
+      return;
+    }
+
+    setAnimationError(null);
+    setIsGeneratingAnimation(true);
+    onUpdateSlide(currentSlide.id, { isRegeneratingImage: true });
+
+    try {
+      const asset = await generateManimSlideAnimation({
+        slide: currentSlide,
+        projectData,
+        aspectRatio,
+      });
+
+      onUpdateSlide(currentSlide.id, {
+        customAsset: asset,
+        isRegeneratingImage: false,
+      });
+    } catch (error) {
+      appLogger.error('Não foi possível gerar a animação 3Blue1Brown.', {
+        error,
+        slideId: currentSlide.id,
+      });
+      setAnimationError(
+        error instanceof Error
+          ? error.message
+          : 'Erro desconhecido ao gerar animação.',
+      );
+      window.alert(
+        'Não foi possível gerar a animação 3Blue1Brown. Consulte o console para detalhes.',
+      );
+      onUpdateSlide(currentSlide.id, { isRegeneratingImage: false });
+    } finally {
+      setIsGeneratingAnimation(false);
     }
   };
 
@@ -358,7 +406,7 @@ export function EditorStep({
               </div>
               <button
                 type="button"
-                onClick={handleFeedbackSubmit}
+                onClick={() => void handleFeedbackSubmit()}
                 disabled={!feedback || isProcessingFeedback}
                 className="btn-primary mt-2.5 w-full sm:mt-3"
               >
@@ -375,6 +423,43 @@ export function EditorStep({
                   </>
                 )}
               </button>
+            </div>
+
+            {/* 3Blue1Brown animation */}
+            <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 sm:rounded-xl sm:p-4">
+              <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-indigo-200 sm:mb-3 sm:gap-2 sm:text-sm">
+                <Film size={14} className="text-indigo-300 sm:h-4 sm:w-4" />
+                Animação 3Blue1Brown
+              </label>
+              <p className="text-[11px] leading-relaxed text-indigo-100/70 sm:text-xs">
+                Gere um clipe Manim no estilo 3Blue1Brown usando a API local em{' '}
+                <span className="font-semibold text-indigo-100">{MANIM_API_BASE_URL}</span>.
+                O vídeo substitui o visual do slide quando finalizado.
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleGenerateAnimation()}
+                disabled={isGeneratingAnimation}
+                className="btn-accent mt-2.5 w-full justify-center sm:mt-3"
+              >
+                {isGeneratingAnimation ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Gerando...</span>
+                    <span className="sm:hidden">...</span>
+                  </>
+                ) : (
+                  <>
+                    <Film size={14} className="sm:h-4 sm:w-4" />
+                    {hasCustomVideo ? 'Substituir animação' : 'Gerar animação'}
+                  </>
+                )}
+              </button>
+              {animationError && (
+                <p className="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1.5 text-[11px] text-rose-100 sm:px-3 sm:py-2 sm:text-xs">
+                  {animationError}
+                </p>
+              )}
             </div>
 
             {/* Visual prompt info */}

@@ -4,6 +4,8 @@ import {
   ArrowDown,
   ArrowUp,
   CheckCircle2,
+  Film,
+  ImageIcon,
   LayoutList,
   Palette,
   Plus,
@@ -11,8 +13,6 @@ import {
   Trash2,
   UploadCloud,
   Wand2,
-  Film,
-  ImageIcon,
 } from 'lucide-react';
 
 import type {
@@ -20,8 +20,9 @@ import type {
   Slide,
   SlideCustomAsset,
 } from '@/features/video-generation/model/types';
-import { appLogger } from '@/shared/logging/logger';
 import { VoiceInputButton } from '@/shared/components/VoiceInput/VoiceInputButton';
+import { appLogger } from '@/shared/logging/logger';
+import { readVideoDurationMs } from '@/shared/utils/media';
 import { mergeTranscript } from '@/shared/utils/transcription';
 import { uuidv4 } from '@/shared/utils/uuid';
 
@@ -141,40 +142,6 @@ export function ScriptReviewStep({
     event.target.value = '';
   };
 
-  const readVideoDurationMs = (assetUrl: string): Promise<number | null> =>
-    new Promise((resolve) => {
-      const video = document.createElement('video');
-      let settled = false;
-
-      const finalize = (duration: number | null) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        video.src = '';
-        video.remove();
-        resolve(duration);
-      };
-
-      video.preload = 'metadata';
-      video.muted = true;
-      video.src = assetUrl;
-
-      const timeoutId = window.setTimeout(() => finalize(null), 5000);
-
-      video.onloadedmetadata = () => {
-        window.clearTimeout(timeoutId);
-        const duration = Number.isFinite(video.duration)
-          ? Math.max(0, Math.round(video.duration * 1000))
-          : null;
-        finalize(duration);
-      };
-
-      video.onerror = () => {
-        window.clearTimeout(timeoutId);
-        finalize(null);
-      };
-    });
 
   const handleAssetUpload = async (
     slide: Slide,

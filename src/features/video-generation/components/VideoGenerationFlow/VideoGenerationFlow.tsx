@@ -15,8 +15,8 @@ import { PreviewStep } from '@/features/video-generation/components/PreviewStep/
 import { RecordingStep } from '@/features/video-generation/components/RecordingStep/RecordingStep';
 import { ScriptReviewStep } from '@/features/video-generation/components/ScriptReviewStep/ScriptReviewStep';
 import { useVideoGeneration } from '@/features/video-generation/hooks/useVideoGeneration';
-import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
 import { AudioLabsCta } from '@/shared/components/AudioLabsCta/AudioLabsCta';
+import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
 import { useDebugMode, useUrlOnlyDebugMode } from '@/shared/hooks/useDebugMode';
 
 const STEP_LABELS: Record<VideoGenerationStep, string> = {
@@ -125,6 +125,7 @@ export function VideoGenerationFlow() {
           <EditorStep
             slides={slides}
             aspectRatio={aspectRatio}
+            projectData={projectData}
             onUpdateSlide={actions.updateSlide}
             onFinish={actions.startRecording}
           />
