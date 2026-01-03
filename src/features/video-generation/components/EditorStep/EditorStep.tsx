@@ -165,37 +165,38 @@ export function EditorStep({
 
 
   return (
-    <div className="flex min-h-screen flex-col pt-14">
+    <div className="flex min-h-screen flex-col pt-12 sm:pt-14">
       {/* Header */}
-      <div className="glass-card mx-4 mb-4 flex items-center justify-between rounded-xl border-dark-700 px-4 py-3">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+      <div className="glass-card mx-2 mb-3 flex items-center justify-between rounded-lg border-dark-700 px-3 py-2 sm:mx-4 sm:mb-4 sm:rounded-xl sm:px-4 sm:py-3">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="hidden items-center gap-1.5 sm:flex sm:gap-2">
             {slides.map((_, index) => (
               <button
                 key={index}
                 type="button"
                 onClick={() => setCurrentIndex(index)}
-                className={`h-2 rounded-full transition-all duration-300 ${
+                className={`h-1.5 rounded-full transition-all duration-300 sm:h-2 ${
                   index === currentIndex
-                    ? 'w-6 bg-primary-500'
+                    ? 'w-4 bg-primary-500 sm:w-6'
                     : index < currentIndex
-                      ? 'w-2 bg-primary-500/50'
-                      : 'w-2 bg-dark-600 hover:bg-dark-500'
+                      ? 'w-1.5 bg-primary-500/50 sm:w-2'
+                      : 'w-1.5 bg-dark-600 hover:bg-dark-500 sm:w-2'
                 }`}
               />
             ))}
           </div>
-          <span className="text-sm text-white/50">
-            {currentIndex + 1} / {slides.length}
+          <span className="text-xs text-white/50 sm:text-sm">
+            {currentIndex + 1}/{slides.length}
           </span>
         </div>
-        <button type="button" className="btn-accent" onClick={onFinish}>
-          <Mic size={18} />
-          Ir para gravação
+        <button type="button" className="btn-accent px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm" onClick={onFinish}>
+          <Mic size={14} className="sm:h-[18px] sm:w-[18px]" />
+          <span className="hidden sm:inline">Ir para gravação</span>
+          <span className="sm:hidden">Gravar</span>
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 px-4 pb-4 lg:flex-row">
+      <div className="flex flex-1 flex-col gap-3 px-2 pb-3 sm:gap-4 sm:px-4 sm:pb-4 lg:flex-row">
         {/* Slide Preview */}
         <div className="relative flex flex-1 items-center justify-center">
           {/* Navigation buttons */}
@@ -204,9 +205,9 @@ export function EditorStep({
             aria-label="Slide anterior"
             disabled={currentIndex === 0}
             onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-            className="btn-icon absolute left-2 z-10 disabled:opacity-30"
+            className="btn-icon absolute left-1 z-10 h-8 w-8 disabled:opacity-30 sm:left-2 sm:h-10 sm:w-10"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={16} className="sm:h-5 sm:w-5" />
           </button>
           <button
             type="button"
@@ -215,14 +216,14 @@ export function EditorStep({
             onClick={() =>
               setCurrentIndex((prev) => Math.min(slides.length - 1, prev + 1))
             }
-            className="btn-icon absolute right-2 z-10 disabled:opacity-30"
+            className="btn-icon absolute right-1 z-10 h-8 w-8 disabled:opacity-30 sm:right-2 sm:h-10 sm:w-10"
           >
-            <ChevronRight size={20} />
+            <ChevronRight size={16} className="sm:h-5 sm:w-5" />
           </button>
 
           {/* Slide container */}
           <div
-            className={`relative w-full max-w-3xl overflow-hidden rounded-2xl border border-dark-700 bg-dark-900 shadow-2xl ${arClass}`}
+            className={`relative w-full max-w-3xl overflow-hidden rounded-xl border border-dark-700 bg-dark-900 shadow-2xl sm:rounded-2xl ${arClass}`}
           >
             {renderVisualPreview()}
 
@@ -242,20 +243,20 @@ export function EditorStep({
             )}
 
             {/* Script overlay */}
-            <div className="absolute bottom-0 left-0 right-0 space-y-3 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
+            <div className="absolute bottom-0 left-0 right-0 space-y-2 bg-gradient-to-t from-black via-black/80 to-transparent p-3 sm:space-y-3 sm:p-4 md:p-6">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-white/60">
+                <p className="text-[10px] uppercase tracking-wide text-white/60 sm:text-[11px]">
                   Briefing do slide
                 </p>
-                <p className="text-base leading-relaxed text-white drop-shadow-lg">
+                <p className="text-sm leading-relaxed text-white drop-shadow-lg sm:text-base">
                   {currentSlide.scriptText}
                 </p>
               </div>
-              <div className="rounded-lg bg-dark-900/80 p-4">
-                <p className="text-[11px] uppercase tracking-wide text-primary-300">
-                  Texto literal para narrar
+              <div className="rounded-lg bg-dark-900/80 p-2.5 sm:p-3 md:p-4">
+                <p className="text-[10px] uppercase tracking-wide text-primary-300 sm:text-[11px]">
+                  Texto para narrar
                 </p>
-                <p className="text-lg font-semibold leading-relaxed text-white">
+                <p className="text-base font-semibold leading-relaxed text-white sm:text-lg">
                   {currentSlide.narrationText}
                 </p>
               </div>
@@ -264,23 +265,23 @@ export function EditorStep({
         </div>
 
         {/* Sidebar */}
-        <aside className="w-full lg:w-[400px]">
-          <div className="glass-card h-full space-y-5 p-5">
-            <div className="flex items-center gap-2 text-lg font-semibold text-white">
-              <Edit3 size={18} className="text-primary-400" />
+        <aside className="w-full lg:w-[360px] xl:w-[400px]">
+          <div className="glass-card h-full space-y-3 p-3 sm:space-y-4 sm:p-4 md:space-y-5 md:p-5">
+            <div className="flex items-center gap-1.5 text-base font-semibold text-white sm:gap-2 sm:text-lg">
+              <Edit3 size={16} className="text-primary-400 sm:h-[18px] sm:w-[18px]" />
               Editor
             </div>
 
             {/* Script editor */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="label" htmlFor="scriptText">
-                  Briefing / instruções do slide
+            <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-1.5 sm:space-y-2">
+                <label className="label text-xs sm:text-sm" htmlFor="scriptText">
+                  Briefing / instruções
                 </label>
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2 sm:gap-3">
                   <textarea
                     id="scriptText"
-                    className="input min-h-[120px] flex-1 resize-none text-sm"
+                    className="input min-h-[80px] flex-1 resize-none text-xs sm:min-h-[100px] sm:text-sm md:min-h-[120px]"
                     value={currentSlide.scriptText}
                     onChange={(event) =>
                       onUpdateSlide(currentSlide.id, {
@@ -290,7 +291,7 @@ export function EditorStep({
                   />
                   <VoiceInputButton
                     size="sm"
-                    className="mt-1 shrink-0"
+                    className="mt-0.5 shrink-0 sm:mt-1"
                     ariaLabel="Ditado para o briefing do slide"
                     onTranscription={(text) =>
                       onUpdateSlide(currentSlide.id, {
@@ -301,14 +302,14 @@ export function EditorStep({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="label" htmlFor="narrationText">
-                  Texto literal para narrar
+              <div className="space-y-1.5 sm:space-y-2">
+                <label className="label text-xs sm:text-sm" htmlFor="narrationText">
+                  Texto para narrar
                 </label>
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2 sm:gap-3">
                   <textarea
                     id="narrationText"
-                    className="input min-h-[100px] flex-1 resize-none text-sm"
+                    className="input min-h-[60px] flex-1 resize-none text-xs sm:min-h-[80px] sm:text-sm md:min-h-[100px]"
                     value={currentSlide.narrationText}
                     onChange={(event) =>
                       onUpdateSlide(currentSlide.id, {
@@ -318,7 +319,7 @@ export function EditorStep({
                   />
                   <VoiceInputButton
                     size="sm"
-                    className="mt-1 shrink-0"
+                    className="mt-0.5 shrink-0 sm:mt-1"
                     ariaLabel="Ditado para o texto literal"
                     onTranscription={(text) =>
                       onUpdateSlide(currentSlide.id, {
@@ -334,22 +335,22 @@ export function EditorStep({
             </div>
 
             {/* AI Feedback */}
-            <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-4">
-              <label className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary-300">
-                <Sparkles size={16} className="animate-pulse" />
+            <div className="rounded-lg border border-primary-500/20 bg-primary-500/5 p-3 sm:rounded-xl sm:p-4">
+              <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-primary-300 sm:mb-3 sm:gap-2 sm:text-sm">
+                <Sparkles size={14} className="animate-pulse sm:h-4 sm:w-4" />
                 Revisão com IA
               </label>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2 sm:gap-3">
                 <textarea
-                  className="input min-h-[100px] flex-1 resize-none border-primary-500/20 bg-dark-800/50 text-sm focus:border-primary-500/40"
-                  placeholder="Ex.: deixe a imagem mais colorida, resuma o texto, mude o estilo visual..."
+                  className="input min-h-[60px] flex-1 resize-none border-primary-500/20 bg-dark-800/50 text-xs focus:border-primary-500/40 sm:min-h-[80px] sm:text-sm md:min-h-[100px]"
+                  placeholder="Ex.: imagem mais colorida, resuma texto..."
                   value={feedback}
                   onChange={(event) => setFeedback(event.target.value)}
                   disabled={isProcessingFeedback}
                 />
                 <VoiceInputButton
                   size="sm"
-                  className="mt-1 shrink-0"
+                  className="mt-0.5 shrink-0 sm:mt-1"
                   ariaLabel="Ditado para o feedback da IA"
                   disabled={isProcessingFeedback}
                   onTranscription={(text) => setFeedback(text)}
@@ -359,29 +360,30 @@ export function EditorStep({
                 type="button"
                 onClick={handleFeedbackSubmit}
                 disabled={!feedback || isProcessingFeedback}
-                className="btn-primary mt-3 w-full"
+                className="btn-primary mt-2.5 w-full sm:mt-3"
               >
                 {isProcessingFeedback ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processando...
+                    <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Processando...</span>
+                    <span className="sm:hidden">...</span>
                   </>
                 ) : (
                   <>
-                    <Send size={16} />
-                    Aplicar feedback
+                    <Send size={14} className="sm:h-4 sm:w-4" />
+                    Aplicar
                   </>
                 )}
               </button>
             </div>
 
             {/* Visual prompt info */}
-            <div className="rounded-lg bg-dark-800/50 p-3">
-              <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-white/50">
-                <MessageSquare size={12} />
+            <div className="hidden rounded-lg bg-dark-800/50 p-2.5 sm:block sm:p-3">
+              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold text-white/50 sm:gap-2 sm:text-xs">
+                <MessageSquare size={10} className="sm:h-3 sm:w-3" />
                 Prompt visual
               </div>
-              <p className="line-clamp-2 text-xs italic text-white/40">
+              <p className="line-clamp-2 text-[10px] italic text-white/40 sm:text-xs">
                 {currentSlide.visualPrompt}
               </p>
             </div>
