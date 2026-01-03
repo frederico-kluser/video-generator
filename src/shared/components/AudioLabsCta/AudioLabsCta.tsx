@@ -1,9 +1,10 @@
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Bug } from 'lucide-react';
 
 type AudioLabId = 'cleanup' | 'equalizer' | 'render';
 
 type AudioLabsCtaProps = {
   current?: AudioLabId;
+  onOpenVideoTester?: () => void;
 };
 
 const LAB_LINKS: Array<{
@@ -37,7 +38,7 @@ const LAB_LINKS: Array<{
   },
 ];
 
-export function AudioLabsCta({ current }: AudioLabsCtaProps) {
+export function AudioLabsCta({ current, onOpenVideoTester }: AudioLabsCtaProps) {
   return (
     <div className="mx-auto max-w-2xl rounded-xl border border-white/10 bg-dark-900/60 px-4 py-3">
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -61,6 +62,16 @@ export function AudioLabsCta({ current }: AudioLabsCtaProps) {
             </a>
           );
         })}
+        {onOpenVideoTester && (
+          <button
+            type="button"
+            onClick={onOpenVideoTester}
+            className="group inline-flex items-center gap-1.5 rounded-lg border border-primary-400/40 bg-primary-500/5 px-3 py-1.5 text-xs font-semibold text-primary-100 transition hover:border-primary-400 hover:bg-primary-500/15 hover:text-white"
+          >
+            <Bug size={12} className="opacity-70 transition group-hover:translate-x-0.5" />
+            Abrir painel de testes
+          </button>
+        )}
       </div>
     </div>
   );

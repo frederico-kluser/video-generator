@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
 import { Sparkles } from 'lucide-react';
@@ -50,6 +51,16 @@ export function VideoGenerationFlow() {
     : null;
   const currentStepIndex = STEP_ORDER.indexOf(step);
 
+  const handleOpenVideoTester = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.pathname = '/debug-video-tests';
+    url.searchParams.set('debug', '1');
+    window.location.assign(url.toString());
+  }, []);
+
   return (
     <div className="relative min-h-screen animate-fade-in">
       {/* Step indicator */}
@@ -92,7 +103,7 @@ export function VideoGenerationFlow() {
           <InputStep onStart={actions.startGeneration} />
           {isUrlDebugMode && (
             <div className="px-4 pb-16">
-              <AudioLabsCta />
+              <AudioLabsCta onOpenVideoTester={handleOpenVideoTester} />
             </div>
           )}
         </>

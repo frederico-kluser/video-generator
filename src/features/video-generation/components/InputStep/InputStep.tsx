@@ -185,17 +185,19 @@ export function InputStep({ onStart }: InputStepProps) {
             <p className="text-sm text-white/60 sm:text-base md:text-lg">
               Transforme suas anotações em videoaulas memoráveis
             </p>
-            {hasApiKey && (
-              <button
-                type="button"
-                onClick={openKeyModal}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white/80 sm:mt-4 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
-              >
-                <Key size={12} className="sm:h-3.5 sm:w-3.5" />
-                <span className="hidden sm:inline">Trocar chave OpenAI</span>
-                <span className="sm:hidden">Trocar API Key</span>
-              </button>
-            )}
+            <div className="mt-3 flex flex-wrap justify-center gap-2 sm:mt-4">
+              {hasApiKey && (
+                <button
+                  type="button"
+                  onClick={openKeyModal}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white/80 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm"
+                >
+                  <Key size={12} className="sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">Trocar chave OpenAI</span>
+                  <span className="sm:hidden">Trocar API Key</span>
+                </button>
+              )}
+            </div>
           </div>
 
         {/* Main Card */}
@@ -444,6 +446,7 @@ export function InputStep({ onStart }: InputStepProps) {
                 </>
               )}
             </button>
+
           </form>
         </div>
 

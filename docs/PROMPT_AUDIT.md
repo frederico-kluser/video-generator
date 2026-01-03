@@ -210,6 +210,14 @@ FEEDBACK:
 PÚBLICO-ALVO: {{targetAudience}}
 ```
 
+### 8. Captura de prompts por voz (Whisper + microfone)
+
+- O botão de microfone presente nos formulários (`VoiceInputButton`) grava áudio localmente usando o hook `useVoiceRecorder` (MediaRecorder API) e só habilita transcrição após o usuário parar a captura.
+- O blob é enviado para `transcribeAudioBlob` ([src/services/openaiService.ts#L614-L643](../src/services/openaiService.ts#L614-L643)), que converte o stream em um `File` e chama `openai.audio.transcriptions.create` com o modelo `gpt-4o-mini-transcribe` (linha sucessora do Whisper). A resposta vem em texto puro (`response_format: "text"`, temperatura 0) e é imediatamente injetada no campo correspondente.
+- Com isso, todo campo de prompt (tópico, materiais, feedback granular, instruções de roteiro etc.) pode ser preenchido por voz, mantendo logs de erro amigáveis caso o microfone esteja bloqueado ou a API falhe.
+
+> **Porque importa:** reduzimos atrito no briefing — o usuário dita ideias enquanto lê suas notas e o Whisper entrega uma transcrição limpa que já nasce no formato correto para os prompts.
+
 ## Heurísticas e Pré-processamentos
 
 - **Mapeamento de público**: expressões regulares traduzem respostas livres do usuário para enums suportados pelo modelo (elementary → professional). Referência: [src/features/video-generation/api/videoGenerationApi.ts#L14-L39](src/features/video-generation/api/videoGenerationApi.ts#L14-L39).
