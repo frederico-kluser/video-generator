@@ -31,9 +31,11 @@ export function RecordingStep({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const currentSlide = slides[currentIndex];
   const recordedCount = slides.filter((s) => s.audioBlob).length;
@@ -43,6 +45,15 @@ export function RecordingStep({
       audioPlayerRef.current?.pause();
     };
   }, [currentIndex]);
+
+  useEffect(() => {
+    setIsVideoPlaying(false);
+    const element = videoRef.current;
+    if (element) {
+      element.pause();
+      element.currentTime = 0;
+    }
+  }, [currentSlide?.id]);
 
   if (!currentSlide) {
     return null;
@@ -71,6 +82,7 @@ export function RecordingStep({
 
       recorder.start();
       setIsRecording(true);
+      playVideoFromStart();
     } catch (error) {
       appLogger.error('💥 Microfone não disponível.', { error });
       window.alert('Precisamos de acesso ao microfone para gravar o áudio.');
@@ -81,6 +93,7 @@ export function RecordingStep({
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      videoRef.current?.pause();
     }
   };
 
@@ -106,6 +119,60 @@ export function RecordingStep({
       audioPlayerRef.current.currentTime = 0;
       setIsPlaying(false);
     }
+  };
+
+  const playVideoFromStart = () => {
+    const element = videoRef.current;
+    if (!element) {
+      return;
+    }
+    try {
+      element.loop = false;
+      element.pause();
+      element.currentTime = 0;
+      const playPromise = element.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.catch((error) => {
+          appLogger.warn('🎥 Não foi possível iniciar o vídeo automaticamente.', {
+            error,
+          });
+        });
+      }
+    } catch (error) {
+      appLogger.warn('🎥 Falha ao sincronizar vídeo com a gravação.', { error });
+    }
+  };
+
+  const toggleVideoPlayback = () => {
+    const element = videoRef.current;
+    if (!element) {
+      return;
+    }
+    if (isVideoPlaying) {
+      element.pause();
+      return;
+    }
+    if (!Number.isNaN(element.duration) && element.currentTime >= element.duration) {
+      element.currentTime = 0;
+    }
+    const playPromise = element.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise.catch((error) => {
+        appLogger.warn('🎥 Não foi possível reproduzir o vídeo.', { error });
+      });
+    }
+  };
+
+  const handleVideoEnded = () => {
+    const element = videoRef.current;
+    if (!element) {
+      return;
+    }
+    element.pause();
+    if (!Number.isNaN(element.duration)) {
+      element.currentTime = element.duration;
+    }
+    setIsVideoPlaying(false);
   };
 
   const deleteRecording = () => {
@@ -151,6 +218,8 @@ export function RecordingStep({
   };
 
   const progress = Math.round(((currentIndex + 1) / slides.length) * 100);
+  const currentVisual = resolveSlideVisual(currentSlide);
+  const isVideoSlide = currentVisual?.type === 'video';
 
   const arClass =
     aspectRatio === '9:16'
@@ -191,7 +260,7 @@ export function RecordingStep({
           className={`relative flex-shrink-0 overflow-hidden rounded-xl border border-dark-700 bg-dark-900 shadow-2xl sm:rounded-2xl ${arClass}`}
         >
           {(() => {
-            const visual = resolveSlideVisual(currentSlide);
+            const visual = currentVisual;
  
             if (!visual) {
               return (
@@ -206,12 +275,15 @@ export function RecordingStep({
               return (
                 <video
                   key={visual.url}
+                  ref={videoRef}
                   src={visual.url}
                   className="h-full w-full object-cover"
-                  autoPlay
-                  loop
                   muted
                   playsInline
+                  preload="auto"
+                  onPlay={() => setIsVideoPlaying(true)}
+                  onPause={() => setIsVideoPlaying(false)}
+                  onEnded={handleVideoEnded}
                 />
               );
             }
@@ -224,6 +296,24 @@ export function RecordingStep({
               />
             );
           })()}
+
+          {isVideoSlide && currentVisual && (
+            <button
+              type="button"
+              aria-label={isVideoPlaying ? 'Pausar visual' : 'Reproduzir visual'}
+              disabled={isRecording}
+              onClick={toggleVideoPlayback}
+              className={`btn-icon absolute bottom-3 left-3 h-10 w-10 rounded-full bg-dark-900/80 text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12 ${
+                isRecording ? 'pointer-events-none' : 'hover:bg-dark-800/80'
+              }`}
+            >
+              {isVideoPlaying ? (
+                <Pause size={18} className="sm:h-[22px] sm:w-[22px]" />
+              ) : (
+                <Play size={18} className="sm:h-[22px] sm:w-[22px]" />
+              )}
+            </button>
+          )}
 
           {/* Recording indicator */}
           {currentSlide.audioBlob && (
