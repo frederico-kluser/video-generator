@@ -283,68 +283,69 @@ export function EditorStep({
 
       <div className="flex flex-1 flex-col gap-3 px-2 pb-3 sm:gap-4 sm:px-4 sm:pb-4 lg:flex-row">
         {/* Slide Preview */}
-        <div className="relative flex flex-1 items-center justify-center">
-          {/* Navigation buttons */}
-          <button
-            type="button"
-            aria-label="Slide anterior"
-            disabled={currentIndex === 0}
-            onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-            className="btn-icon absolute left-1 z-10 h-8 w-8 disabled:opacity-30 sm:left-2 sm:h-10 sm:w-10"
-          >
-            <ChevronLeft size={16} className="sm:h-5 sm:w-5" />
-          </button>
-          <button
-            type="button"
-            aria-label="Próximo slide"
-            disabled={currentIndex === slides.length - 1}
-            onClick={() =>
-              setCurrentIndex((prev) => Math.min(slides.length - 1, prev + 1))
-            }
-            className="btn-icon absolute right-1 z-10 h-8 w-8 disabled:opacity-30 sm:right-2 sm:h-10 sm:w-10"
-          >
-            <ChevronRight size={16} className="sm:h-5 sm:w-5" />
-          </button>
+        <div className="flex flex-1 flex-col gap-3">
+          <div className="relative flex flex-1 items-center justify-center">
+            {/* Navigation buttons */}
+            <button
+              type="button"
+              aria-label="Slide anterior"
+              disabled={currentIndex === 0}
+              onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+              className="btn-icon absolute left-1 z-10 h-8 w-8 disabled:opacity-30 sm:left-2 sm:h-10 sm:w-10"
+            >
+              <ChevronLeft size={16} className="sm:h-5 sm:w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="Próximo slide"
+              disabled={currentIndex === slides.length - 1}
+              onClick={() =>
+                setCurrentIndex((prev) => Math.min(slides.length - 1, prev + 1))
+              }
+              className="btn-icon absolute right-1 z-10 h-8 w-8 disabled:opacity-30 sm:right-2 sm:h-10 sm:w-10"
+            >
+              <ChevronRight size={16} className="sm:h-5 sm:w-5" />
+            </button>
 
-          {/* Slide container */}
-          <div
-            className={`relative w-full max-w-3xl overflow-hidden rounded-xl border border-dark-700 bg-dark-900 shadow-2xl sm:rounded-2xl ${arClass}`}
-          >
-            {renderVisualPreview()}
+            {/* Slide container */}
+            <div
+              className={`relative w-full max-w-3xl overflow-hidden rounded-xl border border-dark-700 bg-dark-900 shadow-2xl sm:rounded-2xl ${arClass}`}
+            >
+              {renderVisualPreview()}
 
-            {/* Regenerating overlay */}
-            {currentSlide.isRegeneratingImage && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-dark-950/60 backdrop-blur-sm">
-                <div className="relative">
-                  <div className="absolute inset-0 animate-ping rounded-full bg-primary-500/30" />
-                  <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary-500/20">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
+              {/* Regenerating overlay */}
+              {currentSlide.isRegeneratingImage && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-dark-950/60 backdrop-blur-sm">
+                  <div className="relative">
+                    <div className="absolute inset-0 animate-ping rounded-full bg-primary-500/30" />
+                    <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary-500/20">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
+                    </div>
                   </div>
+                  <span className="text-sm font-medium text-white/70">
+                    Regenerando imagem...
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-white/70">
-                  Regenerando imagem...
-                </span>
-              </div>
-            )}
+              )}
+            </div>
+          </div>
 
-            {/* Script overlay */}
-            <div className="absolute bottom-0 left-0 right-0 space-y-2 bg-gradient-to-t from-black via-black/80 to-transparent p-3 sm:space-y-3 sm:p-4 md:p-6">
-              <div>
-                <p className="text-[10px] uppercase tracking-wide text-white/60 sm:text-[11px]">
-                  Briefing do slide
-                </p>
-                <p className="text-sm leading-relaxed text-white drop-shadow-lg sm:text-base">
-                  {currentSlide.scriptText}
-                </p>
-              </div>
-              <div className="rounded-lg bg-dark-900/80 p-2.5 sm:p-3 md:p-4">
-                <p className="text-[10px] uppercase tracking-wide text-primary-300 sm:text-[11px]">
-                  Texto para narrar
-                </p>
-                <p className="text-base font-semibold leading-relaxed text-white sm:text-lg">
-                  {currentSlide.narrationText}
-                </p>
-              </div>
+          <div className="glass-card space-y-3 rounded-xl border border-dark-700/70 bg-dark-900/70 p-3 sm:space-y-4 sm:p-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-white/60 sm:text-[11px]">
+                Briefing do slide
+              </p>
+              <p className="text-sm leading-relaxed text-white/90 sm:text-base">
+                {currentSlide.scriptText || 'Sem briefing definido.'}
+              </p>
+            </div>
+            <div className="rounded-lg bg-dark-800/80 p-2.5 sm:p-3 md:p-4">
+              <p className="text-[10px] uppercase tracking-wide text-primary-300 sm:text-[11px]">
+                Texto para narrar
+              </p>
+              <p className="text-base font-semibold leading-relaxed text-white sm:text-lg">
+                {currentSlide.narrationText || 'Sem texto de narração.'}
+              </p>
             </div>
           </div>
         </div>
