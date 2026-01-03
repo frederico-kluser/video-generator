@@ -1,6 +1,6 @@
 import type { AspectRatio } from '@/config/constants/video';
 
-const FALLBACK_BASE_URL = 'http://localhost:8000';
+const FALLBACK_BASE_URL = 'https://ondokai.com';
 
 const resolveBaseUrl = (): string => {
   const viteEnv = import.meta.env?.VITE_MANIM_API_BASE_URL;

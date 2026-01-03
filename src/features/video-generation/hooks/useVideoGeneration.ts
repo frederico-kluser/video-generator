@@ -330,48 +330,52 @@ export function useVideoGeneration() {
       }
 
       if (mathSlides.length > 0) {
-        for (const slide of mathSlides) {
-          try {
-            const asset = await generateManimSlideAnimation({
-              slide,
-              projectData,
-              aspectRatio,
-            });
-            setSlides((prev) =>
-              prev.map((current) =>
-                current.id === slide.id
-                  ? {
-                      ...current,
-                      customAsset: asset,
-                      isRegeneratingImage: false,
-                    }
-                  : current,
-              ),
-            );
-          } catch (error) {
-            appLogger.error('💥 Falha ao gerar vídeo matemático.', {
-              error,
-              slideId: slide.id,
-            });
-            setSlides((prev) =>
-              prev.map((current) =>
-                current.id === slide.id
-                  ? {
-                      ...current,
-                      isRegeneratingImage: false,
-                    }
-                  : current,
-              ),
-            );
-          } finally {
-            completed += 1;
-            setProgress({
-              total: totalSlides,
-              completed,
-              currentAction: `Renderizando visuais (${completed}/${totalSlides})...`,
-            });
-          }
-        }
+        await runWithConcurrency(
+          mathSlides,
+          VIDEO_CONFIG.MATH_VIDEO_CONCURRENCY_LIMIT,
+          async (slide) => {
+            try {
+              const asset = await generateManimSlideAnimation({
+                slide,
+                projectData,
+                aspectRatio,
+              });
+              setSlides((prev) =>
+                prev.map((current) =>
+                  current.id === slide.id
+                    ? {
+                        ...current,
+                        customAsset: asset,
+                        isRegeneratingImage: false,
+                      }
+                    : current,
+                ),
+              );
+            } catch (error) {
+              appLogger.error('💥 Falha ao gerar vídeo matemático.', {
+                error,
+                slideId: slide.id,
+              });
+              setSlides((prev) =>
+                prev.map((current) =>
+                  current.id === slide.id
+                    ? {
+                        ...current,
+                        isRegeneratingImage: false,
+                      }
+                    : current,
+                ),
+              );
+            } finally {
+              completed += 1;
+              setProgress({
+                total: totalSlides,
+                completed,
+                currentAction: `Renderizando visuais (${completed}/${totalSlides})...`,
+              });
+            }
+          },
+        );
       }
 
       setProgress({
