@@ -11,6 +11,7 @@ import {
   Mic,
   Send,
   Sparkles,
+  UploadCloud,
 } from 'lucide-react';
 
 import { MANIM_API_BASE_URL } from '@/config/constants/manim';
@@ -51,22 +52,61 @@ export function EditorStep({
 
   const renderVisualPreview = () => {
     const asset = currentSlide?.customAsset;
+    const visualSource = currentSlide?.visualSource ?? 'image-generation';
 
-    if (asset?.type === 'video' && asset.previewUrl) {
+    const renderVideo = (src: string) => (
+      <video
+        key={src}
+        src={src}
+        className={`h-full w-full object-cover transition-all duration-500 ${
+          currentSlide?.isRegeneratingImage
+            ? 'scale-105 opacity-50 blur-md'
+            : 'scale-100 opacity-100'
+        }`}
+        autoPlay
+        loop
+        muted
+        playsInline
+      />
+    );
+
+    const renderImage = (src: string) => (
+      <img
+        src={src}
+        alt="Preview do slide"
+        className={`h-full w-full object-cover transition-all duration-500 ${
+          currentSlide?.isRegeneratingImage
+            ? 'scale-105 opacity-50 blur-md'
+            : 'scale-100 opacity-100'
+        }`}
+      />
+    );
+
+    if (visualSource === 'manual-upload') {
+      if (asset?.previewUrl) {
+        return asset.type === 'video'
+          ? renderVideo(asset.previewUrl)
+          : renderImage(asset.previewUrl);
+      }
+
       return (
-        <video
-          key={asset.previewUrl}
-          src={asset.previewUrl}
-          className={`h-full w-full object-cover transition-all duration-500 ${
-            currentSlide?.isRegeneratingImage
-              ? 'scale-105 opacity-50 blur-md'
-              : 'scale-100 opacity-100'
-          }`}
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-dark-800 text-white/50">
+          <UploadCloud size={40} className="text-primary-300" />
+          <span>Envie um asset manual para este slide.</span>
+        </div>
+      );
+    }
+
+    if (visualSource === 'math-video') {
+      if (asset?.type === 'video' && asset.previewUrl) {
+        return renderVideo(asset.previewUrl);
+      }
+
+      return (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-dark-800 text-white/50">
+          <Film size={40} className="text-indigo-300" />
+          <span>O vídeo matemático será gerado na próxima etapa.</span>
+        </div>
       );
     }
 
@@ -76,17 +116,7 @@ export function EditorStep({
         : currentSlide?.imageUrl;
 
     if (imageSrc) {
-      return (
-        <img
-          src={imageSrc}
-          alt="Preview do slide"
-          className={`h-full w-full object-cover transition-all duration-500 ${
-            currentSlide?.isRegeneratingImage
-              ? 'scale-105 opacity-50 blur-md'
-              : 'scale-100 opacity-100'
-          }`}
-        />
-      );
+      return renderImage(imageSrc);
     }
 
     return (

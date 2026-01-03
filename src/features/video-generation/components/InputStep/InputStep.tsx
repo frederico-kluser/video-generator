@@ -89,6 +89,7 @@ export function InputStep({ onStart }: InputStepProps) {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(
     VIDEO_CONFIG.DEFAULT_ASPECT_RATIO,
   );
+  const [isMathProject, setIsMathProject] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<PromptCategory>(
     getPromptBlueprintById(DEFAULT_PROMPT_BLUEPRINT_ID).category,
   );
@@ -133,6 +134,8 @@ export function InputStep({ onStart }: InputStepProps) {
         typeof promptIdEntry === 'string' && isPromptBlueprintId(promptIdEntry)
           ? promptIdEntry
           : DEFAULT_PROMPT_BLUEPRINT_ID;
+      const isMathProjectValue =
+        getStringValue(formData.get('isMathProject'), 'false') === 'true';
 
       if (!topicValue || !materialsValue) {
         return 'Informe um tópico e materiais de referência para continuar.';
@@ -144,6 +147,7 @@ export function InputStep({ onStart }: InputStepProps) {
         targetAudience: targetAudienceValue,
         aspectRatio: safeAspectRatio,
         promptId: safePromptId,
+        isMathProject: isMathProjectValue,
       };
 
       try {
@@ -232,6 +236,36 @@ export function InputStep({ onStart }: InputStepProps) {
               </div>
             </div>
 
+            <div className="rounded-xl border border-primary-500/20 bg-dark-900/60 p-3 sm:rounded-2xl sm:p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">Vídeo sobre matemática?</p>
+                  <p className="text-xs text-white/60">
+                    Ative quando o roteiro focar em conceitos matemáticos para liberar referências e vídeos Manim.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-pressed={isMathProject}
+                  onClick={() => setIsMathProject((prev) => !prev)}
+                  className={`relative h-8 w-14 rounded-full transition ${
+                    isMathProject ? 'bg-primary-500' : 'bg-dark-600'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
+                      isMathProject ? 'right-1' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className={`mt-2 text-[11px] sm:text-xs ${isMathProject ? 'text-primary-200' : 'text-white/60'}`}>
+                {isMathProject
+                  ? 'Prompts matemáticos e a opção de gerar vídeos 3Blue1Brown ficarão disponíveis por slide.'
+                  : 'Mantém apenas geração de imagens. Ative para liberar vídeos matemáticos.'}
+              </p>
+            </div>
+
             {/* Audience Select */}
             <div className="space-y-1.5 sm:space-y-2">
               <label className="label" htmlFor="audience">
@@ -301,6 +335,7 @@ export function InputStep({ onStart }: InputStepProps) {
                 })}
               </div>
               <input type="hidden" name="promptId" value={selectedPromptId} />
+              <input type="hidden" name="isMathProject" value={isMathProject ? 'true' : 'false'} />
             </div>
 
             {/* Materials Textarea */}

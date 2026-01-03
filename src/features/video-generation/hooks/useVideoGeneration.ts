@@ -11,6 +11,7 @@ import {
   generateSlideImage,
   applyScriptInstructionsToSlides,
 } from '@/features/video-generation/api/videoGenerationApi';
+import { generateManimSlideAnimation } from '@/features/video-generation/api/manimAnimationApi';
 import type {
   GenerationProgress,
   ProjectData,
@@ -35,6 +36,8 @@ const createBlankSlide = (order: number): Slide => ({
   scriptText: '',
   narrationText: '',
   visualPrompt: '',
+  mathAnimationPrompt: '',
+  visualSource: 'image-generation',
   imageUrl: undefined,
   userNotes: undefined,
   audioBlob: undefined,
@@ -228,7 +231,14 @@ export function useVideoGeneration() {
         (slide) => Boolean(slide.customAsset),
       );
       const slidesNeedingGeneration = slidesToProcess.filter(
-        (slide) => !slide.customAsset,
+        (slide) =>
+          !slide.customAsset && slide.visualSource !== 'manual-upload',
+      );
+      const imageSlides = slidesNeedingGeneration.filter(
+        (slide) => slide.visualSource === 'image-generation',
+      );
+      const mathSlides = slidesNeedingGeneration.filter(
+        (slide) => slide.visualSource === 'math-video',
       );
 
       if (slidesWithCustomAsset.length > 0) {
@@ -274,25 +284,72 @@ export function useVideoGeneration() {
         return;
       }
 
-      await runWithConcurrency(
-        slidesNeedingGeneration,
-        VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT,
-        async (slide) => {
+      if (imageSlides.length > 0) {
+        await runWithConcurrency(
+          imageSlides,
+          VIDEO_CONFIG.IMAGE_GENERATION_CONCURRENCY_LIMIT,
+          async (slide) => {
+            try {
+              const imageUrl = await generateSlideImage(slide, aspectRatio);
+              setSlides((prev) =>
+                prev.map((current) =>
+                  current.id === slide.id
+                    ? {
+                        ...current,
+                        imageUrl,
+                        isRegeneratingImage: false,
+                      }
+                    : current,
+                ),
+              );
+            } catch (error) {
+              appLogger.error('💥 Falha ao gerar imagem.', {
+                error,
+                slideId: slide.id,
+              });
+              setSlides((prev) =>
+                prev.map((current) =>
+                  current.id === slide.id
+                    ? {
+                        ...current,
+                        isRegeneratingImage: false,
+                      }
+                    : current,
+                ),
+              );
+            } finally {
+              completed += 1;
+              setProgress({
+                total: totalSlides,
+                completed,
+                currentAction: `Renderizando visuais (${completed}/${totalSlides})...`,
+              });
+            }
+          },
+        );
+      }
+
+      if (mathSlides.length > 0) {
+        for (const slide of mathSlides) {
           try {
-            const imageUrl = await generateSlideImage(slide, aspectRatio);
+            const asset = await generateManimSlideAnimation({
+              slide,
+              projectData,
+              aspectRatio,
+            });
             setSlides((prev) =>
               prev.map((current) =>
                 current.id === slide.id
                   ? {
                       ...current,
-                      imageUrl,
+                      customAsset: asset,
                       isRegeneratingImage: false,
                     }
                   : current,
               ),
             );
           } catch (error) {
-            appLogger.error('💥 Falha ao gerar imagem.', {
+            appLogger.error('💥 Falha ao gerar vídeo matemático.', {
               error,
               slideId: slide.id,
             });
@@ -314,10 +371,16 @@ export function useVideoGeneration() {
               currentAction: `Renderizando visuais (${completed}/${totalSlides})...`,
             });
           }
-        },
-      );
+        }
+      }
+
+      setProgress({
+        total: totalSlides,
+        completed: totalSlides,
+        currentAction: 'Visuais prontos.',
+      });
     },
-    [],
+    [projectData],
   );
 
   const startGeneration = useCallback(
@@ -336,6 +399,8 @@ export function useVideoGeneration() {
           payload.materials,
           payload.targetAudience ?? VIDEO_CONFIG.DEFAULT_AUDIENCE,
           payload.promptId,
+          undefined,
+          { isMathProject: payload.isMathProject },
         );
 
         const preparedSlides = normalizeSlideOrder(
@@ -343,6 +408,8 @@ export function useVideoGeneration() {
             ...slide,
             id: uuidv4(),
             order: index,
+            mathAnimationPrompt: slide.mathAnimationPrompt ?? '',
+            visualSource: slide.visualSource ?? 'image-generation',
             isRegeneratingImage: false,
             styleGuide: slide.styleGuide ?? createDefaultStyleGuide(),
             customAsset: null,
@@ -434,6 +501,7 @@ export function useVideoGeneration() {
           targetAudience,
           projectData.promptId,
           instructions,
+          { isMathProject: projectData.isMathProject },
         );
 
         const preparedSlides = normalizeSlideOrder(
@@ -441,6 +509,8 @@ export function useVideoGeneration() {
             ...slide,
             id: uuidv4(),
             order: index,
+            mathAnimationPrompt: slide.mathAnimationPrompt ?? '',
+            visualSource: slide.visualSource ?? 'image-generation',
             isRegeneratingImage: false,
             styleGuide: slide.styleGuide ?? createDefaultStyleGuide(),
             customAsset: null,
@@ -478,11 +548,15 @@ export function useVideoGeneration() {
     }
 
     const slidesReady = normalizeSlideOrder(
-      slides.map((slide, index) => ({
-        ...slide,
-        order: index,
-        isRegeneratingImage: !slide.customAsset,
-      })),
+      slides.map((slide, index) => {
+        const shouldAutoGenerate =
+          slide.visualSource !== 'manual-upload' && !slide.customAsset;
+        return {
+          ...slide,
+          order: index,
+          isRegeneratingImage: shouldAutoGenerate,
+        };
+      }),
     );
 
     try {

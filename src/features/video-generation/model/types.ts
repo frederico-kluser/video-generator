@@ -33,12 +33,19 @@ export type SlideCustomAsset = {
   durationMs?: number;
 };
 
+export type SlideVisualSource =
+  | 'manual-upload'
+  | 'image-generation'
+  | 'math-video';
+
 export type Slide = {
   id: string;
   order: number;
   scriptText: string;
   narrationText: string;
   visualPrompt: string;
+  mathAnimationPrompt?: string;
+  visualSource: SlideVisualSource;
   imageUrl?: string;
   userNotes?: string;
   audioBlob?: Blob;
@@ -67,6 +74,7 @@ export type ProjectData = {
   aspectRatio: AspectRatio;
   targetAudience: string;
   promptId: PromptBlueprintId;
+  isMathProject: boolean;
 };
 
 export type GenerationProgress = {
@@ -88,4 +96,5 @@ export type VideoGenerationPayload = {
   aspectRatio: AspectRatio;
   targetAudience: string;
   promptId: PromptBlueprintId;
+  isMathProject: boolean;
 };

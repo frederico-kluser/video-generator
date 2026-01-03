@@ -19,6 +19,7 @@ import type {
   ProjectData,
   Slide,
   SlideCustomAsset,
+  SlideVisualSource,
 } from '@/features/video-generation/model/types';
 import { VoiceInputButton } from '@/shared/components/VoiceInput/VoiceInputButton';
 import { appLogger } from '@/shared/logging/logger';
@@ -60,6 +61,7 @@ export function ScriptReviewStep({
     () => [...slides].sort((a, b) => a.order - b.order),
     [slides],
   );
+  const canUseMathVideo = Boolean(projectData.isMathProject);
   const MAX_STYLE_REFERENCES = 5;
   const SUPPORTED_IMAGE_TYPES = /image\/(png|jpe?g|webp)/i;
   const SUPPORTED_VIDEO_TYPES = /video\/(mp4|webm|quicktime)/i;
@@ -186,6 +188,7 @@ export function ScriptReviewStep({
 
       onSlideChange(slide.id, {
         customAsset: asset,
+        visualSource: 'manual-upload',
         imageUrl: asset.type === 'image' ? asset.previewUrl : slide.imageUrl,
         isRegeneratingImage: false,
       });
@@ -229,6 +232,25 @@ export function ScriptReviewStep({
     }
 
     onSlideChange(slide.id, updates);
+  };
+
+  const handleVisualSourceChange = (
+    slide: Slide,
+    nextSource: SlideVisualSource,
+  ) => {
+    const currentSource = slide.visualSource ?? 'image-generation';
+    if (currentSource === nextSource) {
+      return;
+    }
+
+    if (nextSource !== 'manual-upload' && slide.customAsset) {
+      handleRemoveCustomAsset(slide);
+    }
+
+    onSlideChange(slide.id, {
+      visualSource: nextSource,
+      isRegeneratingImage: false,
+    });
   };
 
   const handleRemoveStyleReference = (slide: Slide, referenceId: string) => {
@@ -321,8 +343,12 @@ export function ScriptReviewStep({
               <div className="space-y-3 sm:space-y-4">
                 {orderedSlides.map((slide, index) => {
                   const customAsset = slide.customAsset;
-                  const referencesDisabled = Boolean(customAsset);
+                  const visualSource = slide.visualSource ?? 'image-generation';
+                  const isManualSource = visualSource === 'manual-upload';
+                  const isMathVideoSource = visualSource === 'math-video' && canUseMathVideo;
+                  const isImageSource = !isManualSource && !isMathVideoSource;
                   const assetError = assetUploadErrors[slide.id];
+                  const mathPromptValue = slide.mathAnimationPrompt ?? '';
 
                   return (
                     <article
@@ -421,130 +447,121 @@ export function ScriptReviewStep({
                       />
                     </div>
 
-                    <label className="mb-1.5 block text-xs font-semibold text-white/80 sm:mb-2 sm:text-sm">
-                      Prompt visual sugerido
-                    </label>
-                    <div className="mb-3 flex items-start gap-2 sm:mb-4 sm:gap-3">
-                      <textarea
-                        value={slide.visualPrompt}
-                        onChange={(event) =>
-                          onSlideChange(slide.id, {
-                            visualPrompt: event.target.value,
-                          })
-                        }
-                        className="min-h-[50px] w-full flex-1 rounded-lg border border-dark-700 bg-dark-900/80 p-2.5 text-sm text-white outline-none transition focus:border-primary-400 sm:min-h-[70px] sm:rounded-xl sm:p-3 md:min-h-[80px]"
-                      />
-                      <VoiceInputButton
-                        size="sm"
-                        className="mt-0.5 shrink-0 sm:mt-1"
-                        ariaLabel="Ditado para o prompt visual"
-                        onTranscription={(text) =>
-                          onSlideChange(slide.id, {
-                            visualPrompt: mergeTranscript(
-                              slide.visualPrompt,
-                              text,
-                            ),
-                          })
-                        }
-                      />
+                    <div className="mb-3 space-y-2 sm:mb-4 sm:space-y-3">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50 sm:text-xs sm:tracking-[0.3em]">
+                        Fonte visual
+                      </span>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        <button
+                          type="button"
+                          aria-pressed={isManualSource}
+                          className={`rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:p-4 ${
+                            isManualSource
+                              ? 'border-primary-500 bg-primary-500/10 text-primary-100'
+                              : 'border-white/10 text-white/70 hover:border-white/30'
+                          }`}
+                          onClick={() => handleVisualSourceChange(slide, 'manual-upload')}
+                        >
+                          <div className="flex items-center gap-2">
+                            <UploadCloud size={16} className="text-primary-300 sm:h-5 sm:w-5" />
+                            <div>
+                              <p className="text-sm font-semibold text-white sm:text-base">Upload manual</p>
+                              <p className="text-[11px] text-white/60 sm:text-xs">
+                                Use imagem ou vídeo prontos
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={isImageSource}
+                          className={`rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:p-4 ${
+                            isImageSource
+                              ? 'border-primary-500 bg-primary-500/10 text-primary-100'
+                              : 'border-white/10 text-white/70 hover:border-white/30'
+                          }`}
+                          onClick={() => handleVisualSourceChange(slide, 'image-generation')}
+                        >
+                          <div className="flex items-center gap-2">
+                            <ImageIcon size={16} className="text-primary-300 sm:h-5 sm:w-5" />
+                            <div>
+                              <p className="text-sm font-semibold text-white sm:text-base">Gerar imagem</p>
+                              <p className="text-[11px] text-white/60 sm:text-xs">
+                                IA baseada em prompt e referências
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                        {canUseMathVideo && (
+                          <button
+                            type="button"
+                            aria-pressed={isMathVideoSource}
+                            className={`rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:p-4 ${
+                              isMathVideoSource
+                                ? 'border-indigo-500 bg-indigo-500/10 text-indigo-100'
+                                : 'border-white/10 text-white/70 hover:border-white/30'
+                            }`}
+                            onClick={() => handleVisualSourceChange(slide, 'math-video')}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Film size={16} className="text-indigo-300 sm:h-5 sm:w-5" />
+                              <div>
+                                <p className="text-sm font-semibold text-white sm:text-base">Gerar vídeo matemático</p>
+                                <p className="text-[11px] text-white/60 sm:text-xs">Cena 3Blue1Brown / Manim</p>
+                              </div>
+                            </div>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    {slide.styleGuide && (
+                    {isImageSource && (
+                      <>
+                        <label className="mb-1.5 block text-xs font-semibold text-white/80 sm:mb-2 sm:text-sm">
+                          Prompt visual sugerido
+                        </label>
+                        <div className="mb-3 flex items-start gap-2 sm:mb-4 sm:gap-3">
+                          <textarea
+                            value={slide.visualPrompt}
+                            onChange={(event) =>
+                              onSlideChange(slide.id, {
+                                visualPrompt: event.target.value,
+                              })
+                            }
+                            className="min-h-[50px] w-full flex-1 rounded-lg border border-dark-700 bg-dark-900/80 p-2.5 text-sm text-white outline-none transition focus:border-primary-400 sm:min-h-[70px] sm:rounded-xl sm:p-3 md:min-h-[80px]"
+                          />
+                          <VoiceInputButton
+                            size="sm"
+                            className="mt-0.5 shrink-0 sm:mt-1"
+                            ariaLabel="Ditado para o prompt visual"
+                            onTranscription={(text) =>
+                              onSlideChange(slide.id, {
+                                visualPrompt: mergeTranscript(
+                                  slide.visualPrompt,
+                                  text,
+                                ),
+                              })
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {isImageSource && slide.styleGuide && (
                       <div className="mb-3 rounded-lg border border-white/10 bg-dark-900/60 p-3 sm:mb-4 sm:rounded-xl sm:p-4">
                         <div className="mb-1.5 flex items-center justify-between text-xs font-semibold text-white sm:mb-2 sm:text-sm">
                           <div className="flex items-center gap-1.5 sm:gap-2">
                             <Palette size={14} className="text-primary-300 sm:h-4 sm:w-4" />
-                            <span className="hidden sm:inline">Referência visual (opcional)</span>
-                            <span className="sm:hidden">Referência visual</span>
+                            <span className="hidden sm:inline">Referências visuais</span>
+                            <span className="sm:hidden">Referências</span>
                           </div>
                           <span className="text-[10px] text-white/50 sm:text-xs">
                             {slide.styleGuide.references.length}/{MAX_STYLE_REFERENCES}
                           </span>
                         </div>
                         <p className="text-[11px] leading-relaxed text-white/60 sm:text-xs">
-                          {referencesDisabled
-                            ? 'Referências são ignoradas com asset final.'
-                            : 'Anexe imagens inspiração antes de gerar os visuais.'}
+                          Anexe inspirações para guiar a geração automática deste slide.
                         </p>
-
-                        <div className="mt-3 rounded-lg border border-white/10 bg-dark-950/40 p-3 sm:mt-4 sm:rounded-xl sm:p-4">
-                          <div className="flex items-center justify-between text-xs font-semibold text-white sm:text-sm">
-                            <div className="flex items-center gap-1.5 sm:gap-2">
-                              {customAsset?.type === 'video' ? (
-                                <Film size={14} className="text-primary-300 sm:h-4 sm:w-4" />
-                              ) : (
-                                <ImageIcon size={14} className="text-primary-300 sm:h-4 sm:w-4" />
-                              )}
-                              <span className="hidden sm:inline">Asset final (imagem ou vídeo)</span>
-                              <span className="sm:hidden">Asset final</span>
-                            </div>
-                            <span className="text-[10px] text-white/50 sm:text-xs">
-                              {customAsset ? '1/1' : 'opcional'}
-                            </span>
-                          </div>
-                          <p className="mt-1 hidden text-xs text-white/60 sm:block">
-                            Envie o visual definitivo. Ajustaremos para o aspect ratio escolhido.
-                          </p>
-                          {customAsset ? (
-                            <div className="mt-2 flex flex-col gap-2 rounded-lg border border-white/10 bg-dark-900/60 p-2 sm:mt-3 sm:gap-3 sm:p-3 md:flex-row">
-                              <div className="relative w-full overflow-hidden rounded-lg border border-white/10 bg-dark-800/50 md:w-32 lg:w-40">
-                                {customAsset.type === 'video' ? (
-                                  <video
-                                    key={customAsset.previewUrl}
-                                    src={customAsset.previewUrl}
-                                    className="h-24 w-full object-cover sm:h-28 md:h-32"
-                                    autoPlay
-                                    loop
-                                    muted
-                                    playsInline
-                                  />
-                                ) : (
-                                  <img
-                                    src={customAsset.previewUrl}
-                                    alt={customAsset.name}
-                                    className="h-24 w-full object-cover sm:h-28 md:h-32"
-                                  />
-                                )}
-                              </div>
-                              <div className="flex flex-1 flex-col justify-between gap-1.5 text-xs text-white/80 sm:gap-2 sm:text-sm">
-                                <div>
-                                  <p className="truncate font-semibold">{customAsset.name}</p>
-                                  <p className="text-[10px] text-white/50 sm:text-xs">
-                                    {customAsset.type === 'video'
-                                      ? `Vídeo • ${formatDuration(customAsset.durationMs)}`
-                                      : 'Imagem'}
-                                  </p>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="btn-secondary inline-flex items-center gap-1.5 border-danger-500/40 px-3 py-1.5 text-xs text-danger-300 hover:bg-danger-500/10 sm:gap-2 sm:px-4 sm:py-2"
-                                  onClick={() => handleRemoveCustomAsset(slide)}
-                                >
-                                  <Trash2 size={12} className="sm:h-3.5 sm:w-3.5" /> Remover
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <label className="mt-2 flex h-20 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40 sm:mt-3 sm:h-24 sm:gap-2">
-                              <UploadCloud size={16} className="text-primary-300 sm:h-[18px] sm:w-[18px]" />
-                              <span className="text-[11px] sm:text-xs">Enviar asset final</span>
-                              <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 sm:text-[10px] sm:tracking-[0.3em]">
-                                PNG · JPG · MP4 · MOV
-                              </span>
-                              <input
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime"
-                                className="sr-only"
-                                onChange={(event) => handleAssetUpload(slide, event)}
-                              />
-                            </label>
-                          )}
-                          {assetError && (
-                            <div className="mt-2 rounded-lg border border-danger-500/30 bg-danger-500/10 px-2 py-1.5 text-[11px] text-danger-200 sm:mt-3 sm:px-3 sm:py-2 sm:text-xs">
-                              {assetError}
-                            </div>
-                          )}
-                        </div>
                         {styleUploadErrors[slide.id] && (
                           <div className="mt-2 rounded-lg border border-danger-500/30 bg-danger-500/10 px-2 py-1.5 text-[11px] text-danger-200 sm:mt-3 sm:px-3 sm:py-2 sm:text-xs">
                             {styleUploadErrors[slide.id]}
@@ -573,24 +590,18 @@ export function ScriptReviewStep({
                               </div>
                             </div>
                           ))}
-                          {!referencesDisabled &&
-                            slide.styleGuide.references.length < MAX_STYLE_REFERENCES && (
-                              <label className="flex h-20 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40 sm:h-24 sm:gap-2">
-                                <UploadCloud size={16} className="text-primary-300 sm:h-[18px] sm:w-[18px]" />
-                                <span className="text-[11px] sm:text-xs">Referência</span>
-                                <input
-                                  type="file"
-                                  accept="image/png,image/jpeg,image/webp"
-                                  multiple
-                                  className="sr-only"
-                                  onChange={(event) => handleStyleUpload(slide, event)}
-                                />
-                              </label>
-                            )}
-                          {referencesDisabled && (
-                            <div className="col-span-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-100 sm:px-3 sm:py-2 sm:text-xs">
-                              Remova o asset final para adicionar referências.
-                            </div>
+                          {slide.styleGuide.references.length < MAX_STYLE_REFERENCES && (
+                            <label className="flex h-20 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40 sm:h-24 sm:gap-2">
+                              <UploadCloud size={16} className="text-primary-300 sm:h-[18px] sm:w-[18px]" />
+                              <span className="text-[11px] sm:text-xs">Adicionar</span>
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                multiple
+                                className="sr-only"
+                                onChange={(event) => handleStyleUpload(slide, event)}
+                              />
+                            </label>
                           )}
                         </div>
                         <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
@@ -660,6 +671,121 @@ export function ScriptReviewStep({
                             </button>
                           </div>
                         </div>
+                      </div>
+                    )}
+                    {isManualSource && (
+                      <div className="mb-3 rounded-lg border border-white/10 bg-dark-900/60 p-3 sm:mb-4 sm:rounded-xl sm:p-4">
+                        <div className="flex items-center justify-between text-xs font-semibold text-white sm:text-sm">
+                          <div className="flex items-center gap-2">
+                            <UploadCloud size={16} className="text-primary-300 sm:h-5 sm:w-5" />
+                            Upload manual
+                          </div>
+                          <span className="text-[10px] text-white/50 sm:text-xs">
+                            {customAsset ? 'Asset carregado' : 'Nenhum arquivo'}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[11px] leading-relaxed text-white/60 sm:text-xs">
+                          Use este modo para enviar o visual definitivo sem geração automática.
+                        </p>
+                        {customAsset ? (
+                          <div className="mt-3 flex flex-col gap-2 rounded-lg border border-white/10 bg-dark-950/40 p-3 sm:flex-row">
+                            <div className="relative w-full overflow-hidden rounded-lg border border-white/10 bg-dark-800/50 sm:w-32 lg:w-40">
+                              {customAsset.type === 'video' ? (
+                                <video
+                                  key={customAsset.previewUrl}
+                                  src={customAsset.previewUrl}
+                                  className="h-24 w-full object-cover sm:h-28 md:h-32"
+                                  autoPlay
+                                  loop
+                                  muted
+                                  playsInline
+                                />
+                              ) : (
+                                <img
+                                  src={customAsset.previewUrl}
+                                  alt={customAsset.name}
+                                  className="h-24 w-full object-cover sm:h-28 md:h-32"
+                                />
+                              )}
+                            </div>
+                            <div className="flex flex-1 flex-col justify-between gap-2 text-xs text-white/80 sm:text-sm">
+                              <div>
+                                <p className="truncate font-semibold">{customAsset.name}</p>
+                                <p className="text-[10px] text-white/50 sm:text-xs">
+                                  {customAsset.type === 'video'
+                                    ? `Vídeo • ${formatDuration(customAsset.durationMs)}`
+                                    : 'Imagem'}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn-secondary inline-flex items-center gap-1.5 border-danger-500/40 px-3 py-1.5 text-xs text-danger-300 hover:bg-danger-500/10 sm:gap-2 sm:px-4 sm:py-2"
+                                onClick={() => handleRemoveCustomAsset(slide)}
+                              >
+                                <Trash2 size={12} className="sm:h-3.5 sm:w-3.5" /> Remover
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="mt-3 flex h-24 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 bg-dark-800/30 text-xs text-white/60 transition hover:border-white/40">
+                            <UploadCloud size={18} className="text-primary-300" />
+                            <span className="text-[11px] sm:text-xs">Enviar imagem ou vídeo</span>
+                            <span className="text-[9px] uppercase tracking-[0.2em] text-white/40 sm:text-[10px] sm:tracking-[0.3em]">
+                              PNG · JPG · WEBP · MP4 · WEBM · MOV
+                            </span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,video/quicktime"
+                              className="sr-only"
+                              onChange={(event) => handleAssetUpload(slide, event)}
+                            />
+                          </label>
+                        )}
+                        {assetError && (
+                          <div className="mt-2 rounded-lg border border-danger-500/30 bg-danger-500/10 px-2 py-1.5 text-[11px] text-danger-200 sm:px-3 sm:py-2 sm:text-xs">
+                            {assetError}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {isMathVideoSource && (
+                      <div className="mb-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 sm:mb-4 sm:rounded-xl sm:p-4">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-indigo-100 sm:text-sm">
+                          <Film size={16} className="text-indigo-300 sm:h-5 sm:w-5" />
+                          Prompt para vídeo matemático
+                        </div>
+                        <p className="mt-1 text-[11px] leading-relaxed text-indigo-100/80 sm:text-xs">
+                          Descreva a animação 3Blue1Brown/Manim que deseja gerar para este slide.
+                        </p>
+                        <div className="mt-3 flex items-start gap-2 sm:gap-3">
+                          <textarea
+                            className="input min-h-[70px] flex-1 resize-none border-indigo-500/40 text-xs text-white sm:min-h-[90px] sm:text-sm"
+                            placeholder="Ex.: Traçar o gráfico de uma função seno com transformação de amplitude."
+                            value={mathPromptValue}
+                            onChange={(event) =>
+                              onSlideChange(slide.id, {
+                                mathAnimationPrompt: event.target.value,
+                              })
+                            }
+                          />
+                          <VoiceInputButton
+                            size="sm"
+                            className="mt-0.5 shrink-0 sm:mt-1"
+                            ariaLabel="Ditado para prompt matemático"
+                            onTranscription={(text) =>
+                              onSlideChange(slide.id, {
+                                mathAnimationPrompt: mergeTranscript(
+                                  mathPromptValue,
+                                  text,
+                                ),
+                              })
+                            }
+                          />
+                        </div>
+                        <p className="mt-2 text-[11px] text-indigo-100/70 sm:text-xs">
+                          A largura e altura corretas serão enviadas automaticamente para a API Manim.
+                        </p>
                       </div>
                     )}
 

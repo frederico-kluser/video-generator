@@ -122,9 +122,25 @@ export function RecordingStep({
 
   const resolveSlideVisual = (slide: Slide) => {
     const asset = slide.customAsset;
-    if (asset?.type === 'video' && asset.previewUrl) {
-      return { type: 'video' as const, url: asset.previewUrl };
+    const visualSource = slide.visualSource ?? 'image-generation';
+
+    if (visualSource === 'manual-upload') {
+      if (asset?.previewUrl) {
+        return {
+          type: asset.type === 'video' ? ('video' as const) : ('image' as const),
+          url: asset.previewUrl,
+        };
+      }
+      return null;
     }
+
+    if (visualSource === 'math-video') {
+      if (asset?.type === 'video' && asset.previewUrl) {
+        return { type: 'video' as const, url: asset.previewUrl };
+      }
+      return null;
+    }
+
     if (asset?.type === 'image' && asset.previewUrl) {
       return { type: 'image' as const, url: asset.previewUrl };
     }

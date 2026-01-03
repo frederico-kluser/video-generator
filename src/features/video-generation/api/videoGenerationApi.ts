@@ -112,12 +112,28 @@ const buildVisualPrompt = (
   return `Educational illustration for "${slideTitle}" highlighting the core concept.`;
 };
 
+const buildMathAnimationPrompt = (
+  slideTitle: string,
+  blocks: ContentBlock[],
+  scriptText: string,
+): string => {
+  const placeholder = blocks.find((block) => block.type === 'imagePlaceholder');
+
+  if (placeholder && placeholder.type === 'imagePlaceholder') {
+    return `Animação 3Blue1Brown mostrando ${placeholder.description} (alt: ${placeholder.alt}).`;
+  }
+
+  const condensedScript = scriptText.split('\n').filter(Boolean).slice(0, 2).join(' ');
+  return `Animação 3Blue1Brown explicando "${slideTitle}" com transformações suaves, planos cartesianos e vetores para ilustrar: ${condensedScript || 'conceito central do slide'}.`;
+};
+
 export async function generateScriptFromMaterials(
   topic: string,
   materials: string,
   audience: string,
   promptId: PromptBlueprintId = DEFAULT_PROMPT_BLUEPRINT_ID,
   revisionInstructions?: string,
+  options?: { isMathProject?: boolean },
 ): Promise<RawSlide[]> {
   const targetAudience = normalizeAudience(audience);
   const blueprint = getPromptBlueprintById(promptId);
@@ -136,6 +152,7 @@ export async function generateScriptFromMaterials(
       )
     : blendedDuration;
   const preferUserLength = !(durationRange && blueprint.slidesRange);
+  const isMathProject = Boolean(options?.isMathProject);
 
   appLogger.info('🧠 Iniciando geração de roteiro pedagógico com OpenAI.', {
     topic,
@@ -163,6 +180,10 @@ export async function generateScriptFromMaterials(
         scriptText,
       ),
       visualPrompt: buildVisualPrompt(slide.title, slide.content),
+      mathAnimationPrompt: isMathProject
+        ? buildMathAnimationPrompt(slide.title, slide.content, scriptText)
+        : undefined,
+      visualSource: 'image-generation',
       imageUrl: undefined,
       userNotes: undefined,
       audioBlob: undefined,

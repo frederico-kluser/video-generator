@@ -76,7 +76,11 @@ export async function generateManimSlideAnimation(params: {
   aspectRatio: AspectRatio;
 }): Promise<SlideCustomAsset> {
   const { slide, projectData, aspectRatio } = params;
-  const description = buildDescriptionPrompt(slide, projectData);
+  const userDescription = slide.mathAnimationPrompt?.trim();
+  const description =
+    userDescription && userDescription.length > 0
+      ? userDescription
+      : buildDescriptionPrompt(slide, projectData);
   const resolution =
     MANIM_RESOLUTION_BY_ASPECT_RATIO[aspectRatio] ??
     MANIM_RESOLUTION_BY_ASPECT_RATIO['16:9'];
