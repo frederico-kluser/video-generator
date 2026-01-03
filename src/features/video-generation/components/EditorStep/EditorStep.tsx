@@ -49,9 +49,8 @@ export function EditorStep({
 
   const currentSlide = slides[currentIndex];
   const hasCustomVideo = currentSlide?.customAsset?.type === 'video';
-  const canUseMathVideo = Boolean(projectData.isMathProject);
-  const isMathVideoSlide =
-    canUseMathVideo && currentSlide?.visualSource === 'math-video';
+  const isMathVideoSlide = currentSlide?.visualSource === 'math-video';
+  const mathPromptValue = currentSlide?.mathAnimationPrompt ?? '';
 
   const renderVisualPreview = () => {
     const asset = currentSlide?.customAsset;
@@ -206,11 +205,7 @@ export function EditorStep({
   };
 
   const handleGenerateAnimation = async () => {
-    if (
-      !currentSlide ||
-      !canUseMathVideo ||
-      currentSlide.visualSource !== 'math-video'
-    ) {
+    if (!currentSlide || currentSlide.visualSource !== 'math-video') {
       return;
     }
 
@@ -471,10 +466,25 @@ export function EditorStep({
                   Animação 3Blue1Brown
                 </label>
                 <p className="text-[11px] leading-relaxed text-indigo-100/70 sm:text-xs">
-                  Gere um clipe Manim no estilo 3Blue1Brown usando a API local em{' '}
+                  Gere ou ajuste o clipe Manim usando a API local em{' '}
                   <span className="font-semibold text-indigo-100">{MANIM_API_BASE_URL}</span>.
                   O vídeo substitui o visual do slide quando finalizado.
                 </p>
+                <div className="mt-2 space-y-2 sm:mt-3 sm:space-y-3">
+                  <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-100/70 sm:text-xs">
+                    Prompt do vídeo
+                  </label>
+                  <textarea
+                    className="input min-h-[80px] resize-none border-indigo-500/40 text-xs text-white sm:min-h-[100px] sm:text-sm"
+                    placeholder="Descreva a animação desejada..."
+                    value={mathPromptValue}
+                    onChange={(event) =>
+                      onUpdateSlide(currentSlide.id, {
+                        mathAnimationPrompt: event.target.value,
+                      })
+                    }
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => void handleGenerateAnimation()}
