@@ -144,35 +144,35 @@ export function RecordingStep({
         : 'aspect-square max-h-[55vh]';
 
   return (
-    <div className="flex min-h-screen flex-col pt-14">
+    <div className="flex min-h-screen flex-col pt-12 sm:pt-14">
       {/* Header with progress */}
-      <div className="glass-card mx-4 mb-4 rounded-xl px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-500/20">
-              <Mic size={20} className="text-danger-400" />
+      <div className="glass-card mx-2 mb-3 rounded-lg px-3 py-2 sm:mx-4 sm:mb-4 sm:rounded-xl sm:px-4 sm:py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger-500/20 sm:h-10 sm:w-10">
+              <Mic size={16} className="text-danger-400 sm:h-5 sm:w-5" />
             </div>
-            <div>
-              <p className="font-semibold text-white">Estúdio de Narração</p>
-              <p className="text-sm text-white/50">
-                {recordedCount} de {slides.length} slides gravados
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white sm:text-base">Estúdio de Narração</p>
+              <p className="text-xs text-white/50 sm:text-sm">
+                {recordedCount}/{slides.length} gravados
               </p>
             </div>
           </div>
-          <span className="text-sm text-white/50">
-            Slide {currentIndex + 1} / {slides.length}
+          <span className="shrink-0 text-xs text-white/50 sm:text-sm">
+            {currentIndex + 1}/{slides.length}
           </span>
         </div>
-        <div className="mt-3 progress-bar">
+        <div className="mt-2 progress-bar sm:mt-3">
           <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 pb-4 lg:flex-row lg:items-start lg:justify-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-2 pb-3 sm:gap-4 sm:px-4 sm:pb-4 md:gap-6 lg:flex-row lg:items-start lg:justify-center">
         {/* Slide preview */}
         <div
-          className={`relative flex-shrink-0 overflow-hidden rounded-2xl border border-dark-700 bg-dark-900 shadow-2xl ${arClass}`}
+          className={`relative flex-shrink-0 overflow-hidden rounded-xl border border-dark-700 bg-dark-900 shadow-2xl sm:rounded-2xl ${arClass}`}
         >
           {(() => {
             const visual = resolveSlideVisual(currentSlide);
@@ -231,83 +231,83 @@ export function RecordingStep({
         </div>
 
         {/* Script and controls */}
-        <div className="flex w-full max-w-lg flex-col gap-4 lg:max-h-[70vh]">
+        <div className="flex w-full max-w-lg flex-col gap-3 sm:gap-4 lg:max-h-[70vh]">
           {/* Script card */}
-          <div className="glass-card flex-1 space-y-4 overflow-hidden p-4">
+          <div className="glass-card flex-1 space-y-3 overflow-hidden p-3 sm:space-y-4 sm:p-4">
             <div>
-              <div className="mb-2 flex items-center gap-2">
-                <Volume2 size={16} className="text-primary-400" />
-                <span className="text-sm font-medium text-white/70">
+              <div className="mb-1.5 flex items-center gap-1.5 sm:mb-2 sm:gap-2">
+                <Volume2 size={14} className="text-primary-400 sm:h-4 sm:w-4" />
+                <span className="text-xs font-medium text-white/70 sm:text-sm">
                   Briefing do slide
                 </span>
               </div>
-              <div className="max-h-[20vh] overflow-y-auto rounded-lg bg-dark-900/60 p-3 lg:max-h-[28vh]">
-                <p className="text-base leading-relaxed text-white/80">
+              <div className="max-h-[15vh] overflow-y-auto rounded-lg bg-dark-900/60 p-2.5 sm:max-h-[20vh] sm:p-3 lg:max-h-[28vh]">
+                <p className="text-sm leading-relaxed text-white/80 sm:text-base">
                   {currentSlide.scriptText}
                 </p>
               </div>
             </div>
 
-            <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-200">
+            <div className="rounded-lg border border-primary-500/20 bg-primary-500/5 p-2.5 sm:rounded-xl sm:p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-primary-200 sm:text-[11px]">
                 Texto literal para narrar
               </p>
-              <div className="mt-2 max-h-[18vh] overflow-y-auto text-lg font-semibold leading-relaxed text-white">
+              <div className="mt-1.5 max-h-[15vh] overflow-y-auto text-base font-semibold leading-relaxed text-white sm:mt-2 sm:max-h-[18vh] sm:text-lg">
                 {currentSlide.narrationText ||
-                  'Texto de narração não disponível. Ajuste no editor.'}
+                  'Texto de narração não disponível.'}
               </div>
             </div>
           </div>
 
           {/* Recording controls */}
-          <div className="glass-card p-5">
-            <div className="flex items-center justify-center gap-4">
+          <div className="glass-card p-3 sm:p-4 md:p-5">
+            <div className="flex items-center justify-center gap-3 sm:gap-4">
               {!currentSlide.audioBlob ? (
                 !isRecording ? (
                   <button
                     type="button"
                     onClick={startRecording}
-                    className="group relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-danger-500 to-danger-600 text-white shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-danger-500/30"
+                    className="group relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-danger-500 to-danger-600 text-white shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-danger-500/30 sm:h-20 sm:w-20"
                   >
                     <div className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity group-hover:opacity-100" />
-                    <Mic size={32} />
+                    <Mic size={24} className="sm:h-8 sm:w-8" />
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={stopRecording}
-                    className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-danger-600 shadow-lg transition-all duration-300 hover:scale-105"
+                    className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-danger-600 shadow-lg transition-all duration-300 hover:scale-105 sm:h-20 sm:w-20"
                   >
-                    <div className="h-8 w-8 rounded-md bg-danger-600" />
+                    <div className="h-6 w-6 rounded-md bg-danger-600 sm:h-8 sm:w-8" />
                   </button>
                 )
               ) : (
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
                   <button
                     type="button"
                     onClick={isPlaying ? stopPlaying : playRecording}
-                    className="btn-icon h-14 w-14 bg-primary-500/20 text-primary-400 hover:bg-primary-500/30"
+                    className="btn-icon h-12 w-12 bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 sm:h-14 sm:w-14"
                   >
-                    {isPlaying ? <Pause size={22} /> : <Play size={22} />}
+                    {isPlaying ? <Pause size={18} className="sm:h-[22px] sm:w-[22px]" /> : <Play size={18} className="sm:h-[22px] sm:w-[22px]" />}
                   </button>
                   <button
                     type="button"
                     onClick={deleteRecording}
-                    className="btn-icon h-14 w-14 hover:border-danger-500/50 hover:bg-danger-500/10 hover:text-danger-400"
+                    className="btn-icon h-12 w-12 hover:border-danger-500/50 hover:bg-danger-500/10 hover:text-danger-400 sm:h-14 sm:w-14"
                   >
-                    <Trash2 size={20} />
+                    <Trash2 size={16} className="sm:h-5 sm:w-5" />
                   </button>
                 </div>
               )}
             </div>
 
             {/* Hint text */}
-            <p className="mt-4 text-center text-sm text-white/40">
+            <p className="mt-3 text-center text-xs text-white/40 sm:mt-4 sm:text-sm">
               {isRecording
-                ? 'Clique para parar a gravação'
+                ? 'Clique para parar'
                 : currentSlide.audioBlob
-                  ? 'Ouça ou regrave o áudio'
-                  : 'Clique para iniciar a gravação'}
+                  ? 'Ouça ou regrave'
+                  : 'Clique para gravar'}
             </p>
 
             {/* Next button */}
@@ -315,32 +315,32 @@ export function RecordingStep({
               type="button"
               onClick={handleNext}
               disabled={!currentSlide.audioBlob}
-              className="btn-primary mt-4 w-full"
+              className="btn-primary mt-3 w-full sm:mt-4"
             >
               {currentIndex === slides.length - 1
-                ? 'Finalizar projeto'
-                : 'Próximo slide'}
-              <ArrowRight size={18} />
+                ? 'Finalizar'
+                : 'Próximo'}
+              <ArrowRight size={16} className="sm:h-[18px] sm:w-[18px]" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Slide thumbnails */}
-      <div className="glass-card mx-4 mb-4 rounded-xl p-3">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="glass-card mx-2 mb-3 rounded-lg p-2 sm:mx-4 sm:mb-4 sm:rounded-xl sm:p-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:gap-2">
           {slides.map((slide, index) => (
             <button
               key={slide.id}
               type="button"
               onClick={() => setCurrentIndex(index)}
-              className={`relative flex-shrink-0 overflow-hidden rounded-lg transition-all duration-200 ${
+              className={`relative flex-shrink-0 overflow-hidden rounded transition-all duration-200 sm:rounded-lg ${
                 index === currentIndex
-                  ? 'ring-2 ring-primary-500 ring-offset-2 ring-offset-dark-900'
+                  ? 'ring-2 ring-primary-500 ring-offset-1 ring-offset-dark-900 sm:ring-offset-2'
                   : 'opacity-60 hover:opacity-100'
               }`}
             >
-              <div className="h-12 w-16 bg-dark-800">
+              <div className="h-10 w-14 bg-dark-800 sm:h-12 sm:w-16">
                 {(() => {
                   const visual = resolveSlideVisual(slide);
                   if (!visual) {
