@@ -197,7 +197,7 @@ const slideEditOperationJsonSchema = {
   type: 'object',
   properties: {
     action: { type: 'string', enum: ['insert', 'update', 'delete'] },
-    targetIndex: { type: 'number', minimum: 0 },
+    targetIndex: { type: 'integer', minimum: 0 },
     slideId: { type: 'string' },
     reason: { type: 'string' },
     slide: {
