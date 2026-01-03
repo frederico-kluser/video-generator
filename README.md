@@ -149,10 +149,10 @@ src/
 [EditorStep](src/features/video-generation/components/EditorStep/EditorStep.tsx) permite feedback textual/voz (`VoiceInputButton`) por slide. Cada feedback chama `refineSlideContent`, marca o slide como `isRegeneratingImage` e dispara `generateSlideImage` com o novo prompt.
 
 ### Animações 3Blue1Brown (Manim)
-O Editor também possui o cartão “Animação 3Blue1Brown”. Ao clicar em **Gerar animação**, o app envia o briefing do slide, notas e prompt visual para a API FastAPI/Manim definida em `VITE_MANIM_API_BASE_URL` (default `https://ondokai.com`). Esse domínio público da Ondokai expõe `/generate-video` com resposta JSON (`success`, `scene_name`, `video_base64`).
+O Editor também possui o cartão “Animação 3Blue1Brown”. Ao clicar em **Gerar animação**, o app envia o briefing do slide, notas e prompt visual para a API FastAPI/Manim definida em `VITE_MANIM_API_BASE_URL` (default `http://localhost:8000`). Esse host local expõe `/generate-video` com resposta JSON (`success`, `scene_name`, `video_base64`).
 
 Resumo do fluxo: 
-1. `generateManimSlideAnimation` monta um prompt especializado com o preâmbulo do estúdio (paleta BLUE_E/TEAL_E/GOLD_E, duração 6–12s, câmera suave, `self.wait(1)`), envia para `https://ondokai.com/generate-video` (ou a URL definida via env) e aguarda até 120s.
+1. `generateManimSlideAnimation` monta um prompt especializado com o preâmbulo do estúdio (paleta BLUE_E/TEAL_E/GOLD_E, duração 6–12s, câmera suave, `self.wait(1)`), envia para `http://localhost:8000/generate-video` (ou a URL definida via env) e aguarda até 120s.
 2. O MP4 retornado é transformado em `File` + `blob:` URL, tem a duração lida via `readVideoDurationMs` e entra como `SlideCustomAsset` do tipo `video`.
 3. O asset substitui a imagem do slide em todas as etapas (Editor, Recording, Preview/WebAV bundles). O fallback por `MediaRecorder` fica automaticamente bloqueado, já que há vídeo customizado.
 4. A concorrência máxima de chamadas para Manim respeita o limite recomendado (6 renders simultâneos) por meio de `VIDEO_CONFIG.MATH_VIDEO_CONCURRENCY_LIMIT`.
