@@ -2,6 +2,8 @@
 
 Para concatenação de áudio no browser, **Crunker** é a escolha definitiva com apenas **2KB gzipped**, TypeScript nativo, e API simples. Para normalização LUFS, mantenha **ebur128-wasm** para medição e aplique ganho via Web Audio API — esta combinação oferece o melhor equilíbrio entre precisão EBU R128, bundle size, e integração com seu stack existente.
 
+> **Hands-on**: acesse `/audio/join` (alias `/audio-join`) para gravar dois trechos, juntar via Crunker e fazer o preview instantâneo do WAV exportado.
+
 O projeto EduScript AI já possui a maior parte da infraestrutura necessária (Web Audio API, Tone.js, wavesurfer.js, ebur128-wasm, FFmpeg.wasm). A adição de Crunker resolve a concatenação de forma elegante, e a normalização pode ser implementada com código nativo usando os dados do ebur128-wasm.
 
 ---

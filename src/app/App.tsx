@@ -2,6 +2,10 @@ import { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
 import { getEnv } from '@/config/env';
+import { AudioJoinLab } from '@/features/audio-join/components/AudioJoinLab/AudioJoinLab';
+import { AudioRecorderLabPage } from '@/features/audio-lab';
+import { AudioSilenceLabPage } from '@/features/audio-silence/components/AudioSilenceLabPage/AudioSilenceLabPage';
+import { AudioSplitTestPage } from '@/features/audio-split/components/AudioSplitTestPage/AudioSplitTestPage';
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
 import { VideoBatchDebugPage } from '@/features/video-generation/components/VideoBatchDebugPage/VideoBatchDebugPage';
 import { RenderTestPage } from '@/features/render-test/components/RenderTestPage/RenderTestPage';
@@ -25,6 +29,14 @@ export function App() {
 
   if (normalizedPath === '/render-test') {
     page = <RenderTestPage />;
+  } else if (normalizedPath === '/audio/join' || normalizedPath === '/audio-join') {
+    page = <AudioJoinLab />;
+  } else if (normalizedPath === '/audio/recorder-lab') {
+    page = <AudioRecorderLabPage />;
+  } else if (normalizedPath === '/audio-silence') {
+    page = <AudioSilenceLabPage />;
+  } else if (normalizedPath === '/audio-split') {
+    page = <AudioSplitTestPage />;
   } else if (normalizedPath === '/debug-video-tests') {
     page = isDebugMode ? <VideoBatchDebugPage /> : <VideoGenerationFlow />;
   }

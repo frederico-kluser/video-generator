@@ -37,8 +37,12 @@ React 19, TypeScript 5.8, Vite 6, Tailwind 3.4, WebAV (`@webav/av-*`), LangChain
 | --------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `/`            | [VideoGenerationFlow](src/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow.tsx) | Stepper completo de briefing a exportação                                 |
 | `/render-test` | [RenderTestPage](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx)                     | Valida bundles exportados, inspeciona assets e renderiza com WebAV        |
+| `/audio/join`  | [AudioJoinLab](src/features/audio-join/components/AudioJoinLab/AudioJoinLab.tsx)                           | Playground para unir dois takes gravados localmente em um WAV via Crunker |
+| `/audio/recorder-lab` | [AudioRecorderLabPage](src/features/audio-lab/components/AudioRecorderLabPage/AudioRecorderLabPage.tsx) | Valide pipelines com RNNoise, Noise Gate, Extendable Recorder e auto-stop |
+| `/audio-silence` | [AudioSilenceLabPage](src/features/audio-silence/components/AudioSilenceLabPage/AudioSilenceLabPage.tsx) | Detecta silêncio de fala (Silero VAD) com relatório descritivo            |
+| `/audio-split` | [AudioSplitTestPage](src/features/audio-split/components/AudioSplitTestPage/AudioSplitTestPage.tsx)         | Playground para gravar áudio e testar cortes descritos em docs/audio/split.md |
 
-O roteador vive em [src/app/App.tsx](src/app/App.tsx) e seleciona a feature conforme `window.location.pathname`. A CTA [AudioLabsCta](src/shared/components/AudioLabsCta/AudioLabsCta.tsx) virou um atalho rápido para o `/render-test` (e ferramentas internas quando o modo debug está ativo).
+O roteador vive em [src/app/App.tsx](src/app/App.tsx) e seleciona a feature conforme `window.location.pathname`. A CTA [AudioLabsCta](src/shared/components/AudioLabsCta/AudioLabsCta.tsx) agora lista todos os laboratórios de áudio (mostrados apenas com `debug=true`) e atalhos como `/render-test`.
 
 ## Primeiros passos
 

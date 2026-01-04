@@ -2,6 +2,8 @@
 
 O ecossistema JavaScript oferece **15+ bibliotecas viáveis** para segmentação de áudio client-side, mas apenas 5-6 são realmente adequadas para um stack moderno React 19 + Vite 6 + TypeScript 5.8. A combinação ideal para o projeto EduScript AI é **Crunker para slicing simples, @ricky0123/vad-web para detecção de voz, e ffmpeg.wasm para operações complexas** — aproveitando as bibliotecas que você já utiliza (wavesurfer.js, RNNoise, FFmpeg.wasm, @ricky0123/vad-react).
 
+> ✅ Para validar rapidamente o fluxo descrito aqui, use a rota `/audio-split`, que permite gravar um áudio, ajustar o slider limitado à duração e gerar os dois previews após o split.
+
 ## Panorama das soluções disponíveis em 2025
 
 O mercado de áudio no browser evoluiu significativamente. As bibliotecas dividem-se em quatro categorias: **visualização com regiões** (wavesurfer.js, peaks.js), **processamento geral** (ffmpeg.wasm, Tone.js, Crunker), **detecção de atividade de voz** (@ricky0123/vad-web, RNNoise), e **utilidades de AudioBuffer** (audio-buffer-utils, waveform-data). Para split de áudio especificamente, a abordagem mais eficiente combina bibliotecas especializadas em vez de uma solução monolítica.

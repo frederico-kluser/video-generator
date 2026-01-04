@@ -2,7 +2,13 @@ import { useMemo } from 'react';
 
 import { ArrowRight } from 'lucide-react';
 
-type AudioLabId = 'render' | 'threeBlueOneBrown';
+type AudioLabId =
+  | 'audioJoin'
+  | 'audioRecorder'
+  | 'audioSilence'
+  | 'audioSplit'
+  | 'render'
+  | 'threeBlueOneBrown';
 
 type AudioLabsCtaProps = {
   current?: AudioLabId;
@@ -19,6 +25,34 @@ type LabEntry = {
 };
 
 const BASE_LABS: LabEntry[] = [
+  {
+    id: 'audioJoin',
+    title: 'Join de Áudio (Crunker)',
+    description: 'Grave dois takes e una tudo em um WAV local.',
+    href: '/audio/join',
+    badge: 'Join',
+  },
+  {
+    id: 'audioRecorder',
+    title: 'Recorder Lab (Pilhas)',
+    description: 'Compare pipelines com RNNoise, Noise Gate e Extendable Recorder.',
+    href: '/audio/recorder-lab',
+    badge: 'Recorder',
+  },
+  {
+    id: 'audioSilence',
+    title: 'Detector de Silêncio (Silero)',
+    description: 'Grave e anote os trechos sem fala usando @ricky0123/vad-web.',
+    href: '/audio-silence',
+    badge: 'Silêncio',
+  },
+  {
+    id: 'audioSplit',
+    title: 'Audio Split Playground',
+    description: 'Grave e faça splits com slider limitado ao tempo total.',
+    href: '/audio-split',
+    badge: 'Split',
+  },
   {
     id: 'render',
     title: 'Renderização WebAV (Debug)',

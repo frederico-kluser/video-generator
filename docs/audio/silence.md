@@ -2,6 +2,10 @@
 
 **Silero VAD via @ricky0123/vad-web é a única solução production-ready** que distingue efetivamente silêncio de voz (ausência de fala) de silêncio acústico (ausência de som). Com **precisão de ~95%**, latência inferior a 1ms por frame e suporte nativo a 48kHz via downsampling automático, integra perfeitamente com React 19 + Vite. As alternativas baseadas em energia (Hark.js, voice-activity-detection) não conseguem diferenciar voz de ruído de fundo, gerando falsos positivos constantes. Bibliotecas de feature extraction como Meyda.js permitem implementações customizadas, mas requerem calibração extensiva e alcançam apenas **70-85% de precisão**.
 
+## Laboratório interativo no app
+
+A rota `/audio-silence` do frontend roda o Silero VAD em tempo real: grave, clique em **Encontrar momentos de silêncio** e receba um parágrafo descrevendo os intervalos onde não existia fala humana. A página aproveita as configurações recomendadas abaixo (modelo v5, redemption de 600ms, thresholds 0.35/0.20) e formata o resultado num relatório pronto para workshops internos.
+
 ## Diferença crítica: silêncio de voz vs silêncio acústico
 
 A distinção fundamental para seu projeto EduScript AI é que **detecção de silêncio de voz** requer análise de características espectrais da fala humana, não apenas medição de amplitude. Bibliotecas baseadas em threshold de volume (Hark.js, voice-activity-detection) falham completamente neste cenário — som de teclado, ar-condicionado ou música de fundo disparam falsos positivos.
