@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { ArrowRight } from 'lucide-react';
 
-type AudioLabId = 'equalizer' | 'render' | 'vad' | 'threeBlueOneBrown';
+type AudioLabId = 'render' | 'threeBlueOneBrown';
 
 type AudioLabsCtaProps = {
   current?: AudioLabId;
@@ -19,20 +19,6 @@ type LabEntry = {
 };
 
 const BASE_LABS: LabEntry[] = [
-  {
-    id: 'equalizer',
-    title: 'Equalizador Sequencial (Takes Layering)',
-    description: 'Monte takes em série e aplique shelves/peaking pré-render.',
-    href: '/audio-eq-lab',
-    badge: 'Equalização',
-  },
-  {
-    id: 'vad',
-    title: 'Detector de Voz (Silero VAD)',
-    description: 'Apare silêncios usando @ricky0123/vad-web + ONNX Runtime.',
-    href: '/vad-lab',
-    badge: 'VAD',
-  },
   {
     id: 'render',
     title: 'Renderização WebAV (Debug)',

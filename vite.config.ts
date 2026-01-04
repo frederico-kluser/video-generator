@@ -1,7 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -12,30 +11,6 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tsconfigPaths(),
-      viteStaticCopy({
-        targets: [
-          {
-            src: 'node_modules/@ricky0123/vad-web/dist/vad.worklet.bundle.min.js',
-            dest: 'vad',
-          },
-          {
-            src: 'node_modules/@ricky0123/vad-web/dist/silero_vad_v5.onnx',
-            dest: 'vad',
-          },
-          {
-            src: 'node_modules/@ricky0123/vad-web/dist/silero_vad_legacy.onnx',
-            dest: 'vad',
-          },
-          {
-            src: 'node_modules/onnxruntime-web/dist/*.wasm',
-            dest: 'vad',
-          },
-          {
-            src: 'node_modules/onnxruntime-web/dist/*.mjs',
-            dest: 'vad',
-          },
-        ],
-      }),
     ],
     server: {
       host: true,
@@ -85,7 +60,6 @@ export default defineConfig(({ mode }) => {
         '@webav/av-cliper',
         '@webav/av-canvas',
         '@webav/av-recorder',
-        'onnxruntime-web',
       ],
     },
     define: {
