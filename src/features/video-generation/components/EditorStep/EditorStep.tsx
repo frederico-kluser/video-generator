@@ -6,7 +6,6 @@ import {
   Edit3,
   Film,
   ImageIcon,
-  Loader2,
   MessageSquare,
   Mic,
   Send,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { MANIM_API_BASE_URL } from '@/config/constants/manim';
+import { Spinner } from '@/shared/components/ui/Spinner';
 import { type AspectRatio } from '@/config/constants/video';
 import { generateManimSlideAnimation } from '@/features/video-generation/api/manimAnimationApi';
 import {
@@ -314,7 +314,7 @@ export function EditorStep({
                   <div className="relative">
                     <div className="absolute inset-0 animate-ping rounded-full bg-primary-500/30" />
                     <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-primary-500/20">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary-400" />
+                      <Spinner size="lg" className="text-primary-400" aria-hidden />
                     </div>
                   </div>
                   <span className="text-sm font-medium text-white/70">
@@ -445,7 +445,7 @@ export function EditorStep({
               >
                 {isProcessingFeedback ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
+                    <Spinner size="sm" className="text-white" aria-hidden />
                     <span className="hidden sm:inline">Processando...</span>
                     <span className="sm:hidden">...</span>
                   </>
@@ -493,7 +493,7 @@ export function EditorStep({
                 >
                   {isGeneratingAnimation ? (
                     <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
+                      <Spinner size="sm" className="text-white" aria-hidden />
                       <span className="hidden sm:inline">Gerando...</span>
                       <span className="sm:hidden">...</span>
                     </>

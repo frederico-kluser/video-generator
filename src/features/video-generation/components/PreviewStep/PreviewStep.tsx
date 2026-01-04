@@ -7,13 +7,14 @@ import {
   Download,
   Film,
   ImageIcon,
-  Loader2,
   Pause,
   Play,
   RotateCcw,
 } from 'lucide-react';
 
 import { WebAVRenderer } from './WebAVRenderer';
+
+import { Spinner } from '@/shared/components/ui/Spinner';
 
 import { type AspectRatio, VIDEO_CONFIG } from '@/config/constants/video';
 import type { RenderBundleManifest } from '@/features/render-test/model/renderBundle';
@@ -802,7 +803,7 @@ export function PreviewStep({
             </>
           ) : isFallbackRendering ? (
             <>
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Spinner size="md" className="text-white mr-1" aria-hidden />
               Exportando...
             </>
           ) : (
@@ -822,7 +823,7 @@ export function PreviewStep({
           >
             {isBundlingAssets ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" /> Preparando bundle
+                <Spinner size="md" className="text-white mr-2" aria-hidden /> Preparando bundle
               </>
             ) : (
               <>

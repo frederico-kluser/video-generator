@@ -3,6 +3,7 @@ import Crunker from 'crunker';
 
 import { Button } from '@/shared/components/ui/Button';
 import { LabCard } from '@/shared/components/ui/LabCard';
+import { RecordButton } from '@/shared/components/ui/RecordButton';
 import { appLogger } from '@/shared/logging/logger';
 
 type RecordingSlot = 'clipA' | 'clipB';
@@ -329,14 +330,14 @@ export function AudioJoinLab() {
               <p className="mt-3 text-sm text-white/70">{slotMetadata[slot].helper}</p>
 
               <div className="mt-6 flex flex-wrap gap-3">
-                <Button
+                <RecordButton
                   type="button"
                   className="flex-1"
-                  variant={isRecording ? 'danger' : 'primary'}
                   onClick={() => (isRecording ? stopRecording() : startRecording(slot))}
+                  disabled={isRecording && activeSlotRef.current !== slot}
                 >
-                  {isRecording ? 'Parar gravação' : 'Gravar'}
-                </Button>
+                  {isRecording && activeSlotRef.current === slot ? 'Parar gravação' : 'Gravar'}
+                </RecordButton>
 
                 {isRecorded && (
                   <Button

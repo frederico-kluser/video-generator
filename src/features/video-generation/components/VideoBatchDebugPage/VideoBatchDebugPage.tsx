@@ -2,12 +2,13 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
-  Loader2,
   Minus,
   Play,
   Plus,
   Video as VideoIcon,
 } from 'lucide-react';
+
+import { Spinner } from '@/shared/components/ui/Spinner';
 
 import type { AspectRatio } from '@/config/constants/video';
 import {
@@ -362,7 +363,7 @@ export function VideoBatchDebugPage() {
           >
             {isExecuting ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Disparando...
+                <Spinner size="sm" className="text-white mr-2" aria-hidden /> Disparando...
               </>
             ) : (
               <>

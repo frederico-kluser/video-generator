@@ -4,7 +4,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, Film, Loader2 } from 'lucide-react';
+import { Download, Film } from 'lucide-react';
+
+import { Spinner } from '@/shared/components/ui/Spinner';
 import { useWebAVRenderer } from '@/shared/hooks/useWebAVRenderer';
 import type {
   Microseconds,
@@ -390,7 +392,7 @@ export function WebAVRenderer({
       >
         {isRendering ? (
           <>
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Spinner size="md" className="text-white" aria-hidden />
             Renderizando...
           </>
         ) : (

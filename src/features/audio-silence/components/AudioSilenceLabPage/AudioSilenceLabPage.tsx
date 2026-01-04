@@ -4,6 +4,7 @@ import type { MicVAD } from '@ricky0123/vad-web';
 
 import { Button } from '@/shared/components/ui/Button';
 import { LabCard } from '@/shared/components/ui/LabCard';
+import { RecordButton } from '@/shared/components/ui/RecordButton';
 import { Spinner } from '@/shared/components/ui/Spinner';
 
 const MIN_SILENCE_MS = 700;
@@ -346,14 +347,13 @@ export function AudioSilenceLabPage() {
           )
         }
         actions={
-          <Button
+          <RecordButton
             type="button"
-            variant={recordingState === 'recording' ? 'danger' : 'primary'}
             onClick={handleRecordButton}
             disabled={!supportsMedia || vadStatus === 'error'}
           >
             {recordingState === 'recording' ? 'Parar gravação' : 'Gravar áudio'}
-          </Button>
+          </RecordButton>
         }
         contentClassName="space-y-6"
       >

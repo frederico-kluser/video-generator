@@ -1,7 +1,7 @@
-import { Loader2 } from 'lucide-react';
 import { forwardRef } from 'react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
+import { Spinner } from '@/shared/components/ui/Spinner';
 import { classNames } from '@/shared/utils/classNames';
 
 type ButtonVariant = 'primary' | 'secondary' | 'accent' | 'danger' | 'ghost' | 'outline';
@@ -65,7 +65,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={isDisabled}
       {...props}
     >
-      {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+      {loading && <Spinner size="sm" aria-hidden />}
       {!isIconButton && leftIcon}
       {children}
       {!isIconButton && rightIcon}

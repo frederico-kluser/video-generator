@@ -1,8 +1,9 @@
-import { Loader2, Mic, StopCircle } from 'lucide-react';
+import { Mic, StopCircle } from 'lucide-react';
 import { useState } from 'react';
 
 import { transcribeAudioBlob } from '@/services/openaiService';
 import { useVoiceRecorder } from '@/shared/hooks/useVoiceRecorder';
+import { Spinner } from '@/shared/components/ui/Spinner';
 import { appLogger } from '@/shared/logging/logger';
 
 export type VoiceInputButtonProps = {
@@ -104,7 +105,7 @@ export function VoiceInputButton({
         } ${isTranscribing ? 'cursor-wait opacity-75' : ''}`}
       >
         {isTranscribing ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Spinner size="sm" aria-hidden />
         ) : isRecording ? (
           <StopCircle className="h-4 w-4" />
         ) : (

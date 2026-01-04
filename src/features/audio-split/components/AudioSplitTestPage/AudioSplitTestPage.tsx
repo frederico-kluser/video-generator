@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/shared/components/ui/Button';
 import { LabCard } from '@/shared/components/ui/LabCard';
+import { RecordButton } from '@/shared/components/ui/RecordButton';
 import { validateAudioBufferHasSignal } from '@/shared/services/audioConversion.service';
 import { audioBufferToWAVBlob } from '@/shared/utils/webav.utils';
 
@@ -334,14 +335,14 @@ export function AudioSplitTestPage() {
         contentClassName="space-y-4"
       >
         <div className="flex flex-wrap items-center gap-3">
-          <Button
+          <RecordButton
             type="button"
             onClick={handleStartRecording}
             disabled={!canRecord || isRecording || isPreparingRecorder}
             loading={isPreparingRecorder && !isRecording}
           >
             {isRecording ? 'Gravando…' : 'Iniciar gravação'}
-          </Button>
+          </RecordButton>
           <Button
             type="button"
             variant="secondary"
