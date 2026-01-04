@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Crunker from 'crunker';
 
+import { Button } from '@/shared/components/ui/Button';
+import { LabCard } from '@/shared/components/ui/LabCard';
 import { appLogger } from '@/shared/logging/logger';
 
 type RecordingSlot = 'clipA' | 'clipB';
@@ -279,20 +281,27 @@ export function AudioJoinLab() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-12">
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl shadow-primary-900/30 backdrop-blur">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary-200">Audio Join Lab</p>
-        <h1 className="mt-3 text-3xl font-bold text-white">Teste rápido de concatenação client-side</h1>
-        <p className="mt-4 text-base text-white/70">
-          Esta página aplica o pipeline recomendado em <code className="rounded bg-white/10 px-2 py-1 text-sm">docs/audio/join.md</code>:
-          MediaRecorder &rarr; normalização opcional &rarr; <span className="font-semibold text-primary-200">Crunker</span> para juntar e exportar WAV.
-          Grave dois trechos curtos, clique em Join e faça o preview imediatamente.
-        </p>
+      <LabCard
+        title={
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary-200">Audio Join Lab</p>
+            <span className="mt-3 block text-3xl font-bold text-white">Teste rápido de concatenação client-side</span>
+          </div>
+        }
+        description={
+          <span>
+            Esta página aplica o pipeline recomendado em <code className="rounded bg-white/10 px-2 py-1 text-sm">docs/audio/join.md</code>:
+            MediaRecorder &rarr; normalização opcional &rarr; <span className="font-semibold text-primary-200">Crunker</span> para juntar e exportar WAV. Grave dois trechos curtos, clique em Join e faça o preview imediatamente.
+          </span>
+        }
+        className="shadow-2xl shadow-primary-900/30 backdrop-blur"
+      >
         {!isMediaRecorderAvailable && (
-          <p className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+          <p className="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
             Seu navegador não expõe MediaRecorder. Use Chrome, Edge ou Safari 16.6+ para liberar a captura de áudio.
           </p>
         )}
-      </div>
+      </LabCard>
 
       <div className="grid gap-6 md:grid-cols-2">
         {slotsOrder.map((slot) => {
@@ -320,26 +329,23 @@ export function AudioJoinLab() {
               <p className="mt-3 text-sm text-white/70">{slotMetadata[slot].helper}</p>
 
               <div className="mt-6 flex flex-wrap gap-3">
-                <button
+                <Button
                   type="button"
+                  className="flex-1"
+                  variant={isRecording ? 'danger' : 'primary'}
                   onClick={() => (isRecording ? stopRecording() : startRecording(slot))}
-                  className={`flex flex-1 items-center justify-center rounded-2xl px-4 py-3 text-base font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-                    isRecording
-                      ? 'bg-rose-600/80 hover:bg-rose-500/90'
-                      : 'bg-primary-600/80 hover:bg-primary-500/90'
-                  }`}
                 >
                   {isRecording ? 'Parar gravação' : 'Gravar'}
-                </button>
+                </Button>
 
                 {isRecorded && (
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => resetSlot(slot)}
-                    className="rounded-2xl border border-white/20 px-4 py-3 text-sm font-semibold text-white/80 hover:border-white/40 hover:text-white"
                   >
                     Regravar
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -354,38 +360,38 @@ export function AudioJoinLab() {
         })}
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <LabCard
+        title={
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-white/60">Join</p>
-            <h3 className="text-2xl font-semibold text-white">Una os dois trechos em um único WAV</h3>
+            <span className="text-2xl font-semibold text-white">Una os dois trechos em um único WAV</span>
           </div>
-          <button
+        }
+        actions={
+          <Button
             type="button"
+            variant="accent"
             onClick={joinRecordings}
-            disabled={!canJoin || isJoining}
-            className={`rounded-2xl px-6 py-3 text-base font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-              !canJoin || isJoining
-                ? 'cursor-not-allowed bg-white/10 text-white/40'
-                : 'bg-accent-500/90 hover:bg-accent-400'
-            }`}
+            disabled={!canJoin}
+            loading={isJoining}
           >
-            {isJoining ? 'Juntando…' : 'Join'}
-          </button>
-        </div>
-
-        <p className="mt-4 text-sm text-white/70">
+            Join
+          </Button>
+        }
+        contentClassName="space-y-4"
+      >
+        <p className="text-sm text-white/70">
           Usamos <span className="font-semibold text-primary-200">Crunker</span> (2KB gzip) para concatenar os AudioBuffers e exportar um WAV pronto
           para download/testes, conforme descrito no documento de referência. Esta etapa também valida o pipeline antes de integrar com o
           WebAV Renderer.
         </p>
 
         {errorMessage && (
-          <p className="mt-4 rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{errorMessage}</p>
+          <p className="rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{errorMessage}</p>
         )}
 
         {joinedAudio && (
-          <div className="mt-6 space-y-4 rounded-3xl border border-primary-400/40 bg-primary-900/30 p-5">
+          <div className="space-y-4 rounded-3xl border border-primary-400/40 bg-primary-900/30 p-5">
             <div className="flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-primary-300/40 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-primary-100">
                 WAV combinado
@@ -404,7 +410,7 @@ export function AudioJoinLab() {
             </div>
           </div>
         )}
-      </div>
+      </LabCard>
     </div>
   );
 }

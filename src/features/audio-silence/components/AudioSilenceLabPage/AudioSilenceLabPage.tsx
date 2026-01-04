@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { MicVAD } from '@ricky0123/vad-web';
 
+import { Button } from '@/shared/components/ui/Button';
+import { LabCard } from '@/shared/components/ui/LabCard';
+import { Spinner } from '@/shared/components/ui/Spinner';
+
 const MIN_SILENCE_MS = 700;
 
 type SilenceWindow = {
@@ -301,6 +305,15 @@ export function AudioSilenceLabPage() {
   const canAnalyze =
     recordingState === 'stopped' && !!recordingStartRef.current && !!recordingEndRef.current;
 
+  const detectorStatusLabel =
+    vadStatus === 'loading'
+      ? 'Carregando modelo Silero...'
+      : vadStatus === 'ready'
+        ? 'Pronto para gravar'
+        : vadStatus === 'idle'
+          ? 'Iniciaremos o modelo ao gravar'
+          : 'Falha ao carregar o Silero VAD';
+
   useEffect(() => {
     return () => {
       if (audioUrl) {
@@ -323,36 +336,33 @@ export function AudioSilenceLabPage() {
         </p>
       </header>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-white/70">Status do detector</p>
-            <p className="text-lg font-medium text-white">
-              {vadStatus === 'loading' && 'Carregando modelo Silero...'}
-              {vadStatus === 'ready' && 'Pronto para gravar'}
-              {vadStatus === 'idle' && 'Iniciaremos o modelo ao gravar'}
-              {vadStatus === 'error' && 'Falha ao carregar o Silero VAD'}
-            </p>
-          </div>
-          <button
+      <LabCard
+        title="Status do detector"
+        description={
+          vadStatus === 'loading' ? (
+            <Spinner label={detectorStatusLabel} className="text-white" />
+          ) : (
+            <span className="text-lg font-medium text-white">{detectorStatusLabel}</span>
+          )
+        }
+        actions={
+          <Button
             type="button"
+            variant={recordingState === 'recording' ? 'danger' : 'primary'}
             onClick={handleRecordButton}
-            className={`w-full rounded-xl px-6 py-3 text-base font-semibold text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 sm:w-auto ${
-              recordingState === 'recording'
-                ? 'bg-red-600 hover:bg-red-500'
-                : 'bg-primary-600 hover:bg-primary-500'
-            }`}
             disabled={!supportsMedia || vadStatus === 'error'}
           >
             {recordingState === 'recording' ? 'Parar gravação' : 'Gravar áudio'}
-          </button>
-        </div>
-        <p className="mt-4 text-sm text-white/60">
+          </Button>
+        }
+        contentClassName="space-y-6"
+      >
+        <p className="text-sm text-white/60">
           {recordingState === 'recording'
             ? 'Estamos capturando áudio em 48 kHz, com supressão de ruído ligada e análise de fala em tempo real.'
             : 'Clique em gravar, fale algo, deixe pausas naturais e depois encerre para rodar a análise.'}
         </p>
-        <div className="mt-6">
+        <div>
           <p className="text-sm font-medium text-white/80">
             Confiança instantânea de silêncio de fala: {silenceConfidencePercent}%
           </p>
@@ -364,35 +374,33 @@ export function AudioSilenceLabPage() {
           </div>
         </div>
         {errorMessage && (
-          <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             {errorMessage}
           </p>
         )}
-      </section>
+      </LabCard>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold">Encontrar silêncio de fala</h2>
-            <p className="text-sm text-white/70">
-              O algoritmo usa probabilidades contínuas (0-1) para marcar gaps reais entre blocos de fala.
-            </p>
-          </div>
-          <button
+      <LabCard
+        title="Encontrar silêncio de fala"
+        description="O algoritmo usa probabilidades contínuas (0-1) para marcar gaps reais entre blocos de fala."
+        actions={
+          <Button
             type="button"
-            className="w-full rounded-xl bg-accent-500 px-6 py-3 text-base font-semibold text-white transition hover:bg-accent-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-200 sm:w-auto"
+            variant="accent"
             onClick={analyzeSilence}
             disabled={!canAnalyze}
           >
             Encontrar momentos de silêncio
-          </button>
-        </div>
-        <p className="mt-4 text-base text-white/80">
+          </Button>
+        }
+        contentClassName="space-y-4"
+      >
+        <p className="text-base text-white/80">
           {analysisParagraph || 'Nenhuma análise executada ainda.'}
         </p>
 
         {silenceWindows.length > 0 && (
-          <ul className="mt-4 space-y-3">
+          <ul className="space-y-3">
             {silenceWindows.map((window, index) => {
               const duration = window.endMs - window.startMs;
               return (
@@ -409,22 +417,17 @@ export function AudioSilenceLabPage() {
             })}
           </ul>
         )}
-      </section>
+      </LabCard>
 
       {audioUrl && (
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-          <h2 className="text-xl font-semibold">Pré-escuta da captura</h2>
-          <p
-            id="audio-preview-caption"
-            className="text-sm text-white/70"
-          >
-            Use este player para conferir se a gravação está ok antes de rodar novas análises.
-          </p>
+        <LabCard
+          title="Pré-escuta da captura"
+          description="Use este player para conferir se a gravação está ok antes de rodar novas análises."
+        >
           <audio
-            aria-describedby="audio-preview-caption"
             aria-label="Pré-escuta da gravação recente"
             controls
-            className="mt-4 w-full"
+            className="w-full"
             src={audioUrl}
           >
             <track
@@ -435,7 +438,7 @@ export function AudioSilenceLabPage() {
               srcLang="pt-BR"
             />
           </audio>
-        </section>
+        </LabCard>
       )}
     </div>
   );

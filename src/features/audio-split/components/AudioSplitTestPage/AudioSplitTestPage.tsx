@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { Button } from '@/shared/components/ui/Button';
+import { LabCard } from '@/shared/components/ui/LabCard';
 import { validateAudioBufferHasSignal } from '@/shared/services/audioConversion.service';
 import { audioBufferToWAVBlob } from '@/shared/utils/webav.utils';
 
@@ -325,50 +328,49 @@ export function AudioSplitTestPage() {
         </div>
       )}
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
-        <h2 className="text-xl font-medium text-white">1. Gravação</h2>
-        <p className="mt-1 text-sm text-white/70">Capture um trecho curto para habilitar o slider.</p>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
+      <LabCard
+        title="1. Gravação"
+        description="Capture um trecho curto para habilitar o slider."
+        contentClassName="space-y-4"
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
             type="button"
             onClick={handleStartRecording}
             disabled={!canRecord || isRecording || isPreparingRecorder}
-            className="rounded-full bg-primary-500 px-6 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-primary-500/40"
+            loading={isPreparingRecorder && !isRecording}
           >
             {isRecording ? 'Gravando…' : 'Iniciar gravação'}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
             onClick={handleStopRecording}
             disabled={!isRecording}
-            className="rounded-full border border-white/30 px-6 py-2 text-sm font-semibold text-white/90 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/40"
           >
             Parar
-          </button>
+          </Button>
           {isPreparingRecorder && (
             <span className="text-sm text-white/70">Solicitando acesso ao microfone…</span>
           )}
         </div>
 
         {audioPreviewUrl && (
-          <div className="mt-4 space-y-2">
+          <div className="space-y-2">
             <p className="text-sm text-white/70">
               Áudio gravado ({formatSeconds(audioDuration)})
             </p>
             <audio controls className="w-full" src={audioPreviewUrl} />
           </div>
         )}
-      </section>
+      </LabCard>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
-        <h2 className="text-xl font-medium text-white">2. Defina o corte</h2>
-        <p className="mt-1 text-sm text-white/70">
-          O slider só habilita depois que o áudio for processado. Os limites seguem o tempo total da
-          gravação.
-        </p>
-
-        <div className="mt-5 space-y-4">
+      <LabCard
+        title="2. Defina o corte"
+        description="O slider só habilita depois que o áudio for processado. Os limites seguem o tempo total da gravação."
+        contentClassName="space-y-4"
+      >
+        <div className="space-y-4">
           <input
             type="range"
             min={0}
@@ -389,35 +391,36 @@ export function AudioSplitTestPage() {
           </div>
         </div>
 
-        <button
+        <Button
           type="button"
+          variant="accent"
           onClick={handleSplit}
-          disabled={!audioBuffer || splitPoint <= 0 || splitPoint >= audioDuration || isProcessingSplit}
-          className="mt-4 rounded-full bg-accent-500 px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-accent-500/30"
+          disabled={!audioBuffer || splitPoint <= 0 || splitPoint >= audioDuration}
+          loading={isProcessingSplit}
+          className="mt-2"
         >
-          {isProcessingSplit ? 'Processando…' : 'Split agora'}
-        </button>
-      </section>
+          Split agora
+        </Button>
+      </LabCard>
 
       {segments.length > 0 && (
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-xl font-medium text-white">3. Prévia dos áudios</h2>
-          <p className="mt-1 text-sm text-white/70">Ouça cada parte após o corte.</p>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {segments.map((segment) => (
-              <div key={segment.id} className="rounded-xl border border-white/10 bg-black/30 p-4">
-                <p className="text-sm font-semibold text-white">
-                  {segment.label} · {formatSeconds(segment.duration)}
-                </p>
-                <p className="text-xs text-white/60">
-                  {formatSeconds(segment.start)} — {formatSeconds(segment.end)}
-                </p>
-                <audio controls className="mt-3 w-full" src={segment.url} />
-              </div>
-            ))}
-          </div>
-        </section>
+        <LabCard
+          title="3. Prévia dos áudios"
+          description="Ouça cada parte após o corte."
+          contentClassName="grid gap-4 md:grid-cols-2"
+        >
+          {segments.map((segment) => (
+            <div key={segment.id} className="rounded-xl border border-white/10 bg-black/30 p-4">
+              <p className="text-sm font-semibold text-white">
+                {segment.label} · {formatSeconds(segment.duration)}
+              </p>
+              <p className="text-xs text-white/60">
+                {formatSeconds(segment.start)} — {formatSeconds(segment.end)}
+              </p>
+              <audio controls className="mt-3 w-full" src={segment.url} />
+            </div>
+          ))}
+        </LabCard>
       )}
 
       {errorMessage && (

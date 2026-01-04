@@ -32,7 +32,7 @@ import {
 import type { VideoGenerationPayload } from '@/features/video-generation/model/types';
 import { OpenAIKeyModal } from '@/shared/components/OpenAIKeyModal/OpenAIKeyModal';
 import { useOpenAIKey } from '@/shared/hooks/useOpenAIKey';
-import { VoiceInputButton } from '@/shared/components/VoiceInput/VoiceInputButton';
+import { VoiceTextInput, VoiceTextarea } from '@/shared/components/VoiceInput/VoiceTextField';
 
 const AUDIENCE_OPTIONS = [
   { value: 'Elementary School (K-5)', label: 'Ensino Fundamental', icon: '🎒' },
@@ -219,23 +219,16 @@ export function InputStep({ onStart }: InputStepProps) {
                 <span className="hidden sm:inline">Qual é o tópico principal?</span>
                 <span className="sm:hidden">Tópico principal</span>
               </label>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <input
-                  id="topic"
-                  name="topic"
-                  type="text"
-                  className="input flex-1"
-                  placeholder="Ex.: Teorema de Pitágoras..."
-                  value={topic}
-                  onChange={(event) => setTopic(event.target.value)}
-                  required
-                />
-                <VoiceInputButton
-                  size="sm"
-                  ariaLabel="Ditado para o campo de tópico"
-                  onTranscription={(text) => setTopic(text)}
-                />
-              </div>
+              <VoiceTextInput
+                id="topic"
+                name="topic"
+                type="text"
+                placeholder="Ex.: Teorema de Pitágoras..."
+                value={topic}
+                onValueChange={setTopic}
+                required
+                buttonAriaLabel="Ditado para o campo de tópico"
+              />
             </div>
 
             <div className="rounded-xl border border-primary-500/20 bg-dark-900/60 p-3 sm:rounded-2xl sm:p-4">
@@ -347,22 +340,17 @@ export function InputStep({ onStart }: InputStepProps) {
                 <span className="hidden sm:inline">Materiais ou notas de referência</span>
                 <span className="sm:hidden">Materiais de referência</span>
               </label>
-              <div className="flex items-start gap-2 sm:gap-3">
-                <textarea
-                  id="materials"
-                  name="materials"
-                  className="input min-h-[100px] flex-1 resize-none sm:min-h-[120px] md:min-h-[140px]"
-                  placeholder="Cole materiais ou especifique slides (ex.: '6 slides em 5 min')."
-                  value={materials}
-                  onChange={(event) => setMaterials(event.target.value)}
-                  required
-                />
-                <VoiceInputButton
-                  ariaLabel="Ditado para materiais de referência"
-                  className="mt-0.5 shrink-0 sm:mt-1"
-                  onTranscription={(text) => setMaterials(text)}
-                />
-              </div>
+              <VoiceTextarea
+                id="materials"
+                name="materials"
+                className="min-h-[100px] sm:min-h-[120px] md:min-h-[140px]"
+                placeholder="Cole materiais ou especifique slides (ex.: '6 slides em 5 min')."
+                value={materials}
+                onValueChange={setMaterials}
+                required
+                buttonAriaLabel="Ditado para materiais de referência"
+                buttonClassName="mt-0.5 sm:mt-1"
+              />
             </div>
 
             {/* Format Selection */}
