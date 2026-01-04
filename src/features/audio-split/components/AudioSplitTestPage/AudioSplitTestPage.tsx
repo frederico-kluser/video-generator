@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { validateAudioBufferHasSignal } from '@/shared/services/audioConversion.service';
+import { audioBufferToWAVBlob } from '@/shared/utils/webav.utils';
 
 type SplitSegment = {
   id: string;
@@ -39,55 +41,45 @@ const sliceAudioBuffer = (
   return sliced;
 };
 
-const audioBufferToWav = (buffer: AudioBuffer): Blob => {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-  const bitDepth = 16;
-  const bytesPerSample = bitDepth / 8;
-  const blockAlign = numChannels * bytesPerSample;
-  const dataLength = buffer.length * blockAlign;
+const cloneAudioBuffer = (source: AudioBuffer): AudioBuffer => {
+  const clone = new AudioBuffer({
+    length: source.length,
+    numberOfChannels: source.numberOfChannels,
+    sampleRate: source.sampleRate,
+  });
 
-  const wav = new ArrayBuffer(44 + dataLength);
-  const view = new DataView(wav);
-
-  const writeStr = (offset: number, str: string) => {
-    for (let i = 0; i < str.length; i += 1) {
-      view.setUint8(offset + i, str.charCodeAt(i));
-    }
-  };
-
-  writeStr(0, 'RIFF');
-  view.setUint32(4, 36 + dataLength, true);
-  writeStr(8, 'WAVE');
-  writeStr(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * blockAlign, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, bitDepth, true);
-  writeStr(36, 'data');
-  view.setUint32(40, dataLength, true);
-
-  let offset = 44;
-  for (let i = 0; i < buffer.length; i += 1) {
-    for (let channel = 0; channel < numChannels; channel += 1) {
-      const rawSample = buffer.getChannelData(channel)[i] ?? 0;
-      const sample = Math.max(-1, Math.min(1, rawSample));
-      const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-      view.setInt16(offset, intSample, true);
-      offset += 2;
-    }
+  for (let channel = 0; channel < source.numberOfChannels; channel += 1) {
+    const channelData = source.getChannelData(channel);
+    clone.copyToChannel(channelData, channel);
   }
 
-  return new Blob([wav], { type: 'audio/wav' });
+  return clone;
+};
+
+const MEDIA_RECORDER_MIME_TYPES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+  'audio/ogg',
+  'audio/mp4;codecs=mp4a.40.2',
+  'audio/mp4',
+  'audio/wav',
+] as const;
+
+const resolveSupportedMimeType = (): string | undefined => {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return undefined;
+  }
+  return MEDIA_RECORDER_MIME_TYPES.find((candidate) => MediaRecorder.isTypeSupported(candidate));
 };
 
 export function AudioSplitTestPage() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const previewUrlRef = useRef<string | null>(null);
+  const segmentsRef = useRef<SplitSegment[]>([]);
+  const decodeContextRef = useRef<AudioContext | null>(null);
 
   const [isRecording, setIsRecording] = useState(false);
   const [isPreparingRecorder, setIsPreparingRecorder] = useState(false);
@@ -107,18 +99,26 @@ export function AudioSplitTestPage() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (audioPreviewUrl) {
-        URL.revokeObjectURL(audioPreviewUrl);
-      }
-    };
+    previewUrlRef.current = audioPreviewUrl;
   }, [audioPreviewUrl]);
 
   useEffect(() => {
     return () => {
-      segments.forEach((segment) => URL.revokeObjectURL(segment.url));
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
     };
+  }, []);
+
+  useEffect(() => {
+    segmentsRef.current = segments;
   }, [segments]);
+
+  useEffect(() => {
+    return () => {
+      segmentsRef.current.forEach((segment) => URL.revokeObjectURL(segment.url));
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -127,6 +127,10 @@ export function AudioSplitTestPage() {
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (decodeContextRef.current) {
+        decodeContextRef.current.close().catch(() => undefined);
+        decodeContextRef.current = null;
       }
     };
   }, []);
@@ -155,9 +159,8 @@ export function AudioSplitTestPage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const options = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? { mimeType: 'audio/webm;codecs=opus' }
-        : undefined;
+      const mimeType = resolveSupportedMimeType();
+      const options = mimeType ? { mimeType } : undefined;
 
       const recorder = new MediaRecorder(stream, options);
       chunksRef.current = [];
@@ -190,12 +193,21 @@ export function AudioSplitTestPage() {
           });
 
           const arrayBuffer = await blob.arrayBuffer();
-          const audioContext = new AudioContext();
+          if (!decodeContextRef.current) {
+            decodeContextRef.current = new AudioContext();
+          }
+          const audioContext = decodeContextRef.current;
           const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-          setAudioBuffer(decoded);
-          setAudioDuration(decoded.duration);
-          setSplitPoint(Number((decoded.duration / 2).toFixed(2)));
-          await audioContext.close();
+          const processedBuffer = cloneAudioBuffer(decoded);
+
+          if (!validateAudioBufferHasSignal(processedBuffer)) {
+            setErrorMessage('O áudio capturado ficou em silêncio. Tente gravar novamente.');
+            return;
+          }
+
+          setAudioBuffer(processedBuffer);
+          setAudioDuration(processedBuffer.duration);
+          setSplitPoint(Number((processedBuffer.duration / 2).toFixed(2)));
         } catch (error) {
           console.error(error);
           setErrorMessage('Não conseguimos processar o áudio gravado.');
@@ -239,7 +251,7 @@ export function AudioSplitTestPage() {
     }
   };
 
-  const handleSplit = () => {
+  const handleSplit = async () => {
     if (!audioBuffer) {
       return;
     }
@@ -260,10 +272,15 @@ export function AudioSplitTestPage() {
         audioBuffer.duration,
       );
 
+      const [firstBlob, secondBlob] = await Promise.all([
+        audioBufferToWAVBlob(firstSegmentBuffer),
+        audioBufferToWAVBlob(secondSegmentBuffer),
+      ]);
+
       const firstSegment: SplitSegment = {
         id: 'segment-a',
         label: 'Primeira parte',
-        url: URL.createObjectURL(audioBufferToWav(firstSegmentBuffer)),
+        url: URL.createObjectURL(firstBlob),
         start: 0,
         end: splitPoint,
         duration: splitPoint,
@@ -272,7 +289,7 @@ export function AudioSplitTestPage() {
       const secondSegment: SplitSegment = {
         id: 'segment-b',
         label: 'Segunda parte',
-        url: URL.createObjectURL(audioBufferToWav(secondSegmentBuffer)),
+        url: URL.createObjectURL(secondBlob),
         start: splitPoint,
         end: audioBuffer.duration,
         duration: audioBuffer.duration - splitPoint,
