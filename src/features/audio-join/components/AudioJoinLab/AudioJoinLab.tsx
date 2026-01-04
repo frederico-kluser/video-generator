@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Crunker from 'crunker';
 
 import { Button } from '@/shared/components/ui/Button';
+import { LabAlert } from '@/shared/components/ui/LabAlert';
 import { LabCard } from '@/shared/components/ui/LabCard';
+import { LabPageLayout } from '@/shared/components/ui/LabPageLayout';
 import { RecordButton } from '@/shared/components/ui/RecordButton';
 import { appLogger } from '@/shared/logging/logger';
 
@@ -281,29 +283,23 @@ export function AudioJoinLab() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-12">
-      <LabCard
-        title={
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-primary-200">Audio Join Lab</p>
-            <span className="mt-3 block text-3xl font-bold text-white">Teste rápido de concatenação client-side</span>
-          </div>
-        }
-        description={
-          <span>
-            Esta página aplica o pipeline recomendado em <code className="rounded bg-white/10 px-2 py-1 text-sm">docs/audio/join.md</code>:
-            MediaRecorder &rarr; normalização opcional &rarr; <span className="font-semibold text-primary-200">Crunker</span> para juntar e exportar WAV. Grave dois trechos curtos, clique em Join e faça o preview imediatamente.
-          </span>
-        }
-        className="shadow-2xl shadow-primary-900/30 backdrop-blur"
-      >
-        {!isMediaRecorderAvailable && (
-          <p className="rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+    <LabPageLayout
+      title="Audio Join Lab"
+      description={
+        <span>
+          Esta página aplica o pipeline recomendado em <code className="rounded bg-white/10 px-2 py-1 text-sm">docs/audio/join.md</code>:
+          MediaRecorder &rarr; normalização opcional &rarr; <span className="font-semibold text-primary-200">Crunker</span> para juntar e exportar WAV. Grave dois trechos curtos, clique em Join e faça o preview imediatamente.
+        </span>
+      }
+      maxWidthClassName="max-w-5xl"
+      warning={
+        !isMediaRecorderAvailable ? (
+          <LabAlert>
             Seu navegador não expõe MediaRecorder. Use Chrome, Edge ou Safari 16.6+ para liberar a captura de áudio.
-          </p>
-        )}
-      </LabCard>
-
+          </LabAlert>
+        ) : undefined
+      }
+    >
       <div className="grid gap-6 md:grid-cols-2">
         {slotsOrder.map((slot) => {
           const slotState = recordings[slot];
@@ -387,9 +383,7 @@ export function AudioJoinLab() {
           WebAV Renderer.
         </p>
 
-        {errorMessage && (
-          <p className="rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{errorMessage}</p>
-        )}
+        {errorMessage && <LabAlert variant="danger">{errorMessage}</LabAlert>}
 
         {joinedAudio && (
           <div className="space-y-4 rounded-3xl border border-primary-400/40 bg-primary-900/30 p-5">
@@ -412,6 +406,6 @@ export function AudioJoinLab() {
           </div>
         )}
       </LabCard>
-    </div>
+    </LabPageLayout>
   );
 }

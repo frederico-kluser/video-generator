@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/shared/components/ui/Button';
+import { LabAlert } from '@/shared/components/ui/LabAlert';
 import { LabCard } from '@/shared/components/ui/LabCard';
+import { LabPageLayout } from '@/shared/components/ui/LabPageLayout';
 import { RecordButton } from '@/shared/components/ui/RecordButton';
 import { validateAudioBufferHasSignal } from '@/shared/services/audioConversion.service';
 import { audioBufferToWAVBlob } from '@/shared/utils/webav.utils';
@@ -312,23 +314,18 @@ export function AudioSplitTestPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-12">
-      <header className="space-y-2">
-        <p className="text-sm uppercase tracking-[0.3em] text-primary-300">Labs</p>
-        <h1 className="text-3xl font-semibold text-white">Audio Split Playground</h1>
-        <p className="text-base text-white/70">
-          Grave um áudio rápido, escolha um ponto de corte e visualize instantaneamente as duas
-          partes resultantes para validar o fluxo descrito em docs/audio/split.md.
-        </p>
-      </header>
-
-      {!canRecord && (
-        <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-4 text-orange-100">
-          Seu navegador não suporta gravação de áudio via MediaRecorder. Abra esta página em um
-          browser moderno (Chrome, Edge ou Safari 16.6+).
-        </div>
-      )}
-
+    <LabPageLayout
+      title="Audio Split Playground"
+      description="Grave um áudio rápido, escolha um ponto de corte e visualize instantaneamente as duas partes resultantes para validar o fluxo descrito em docs/audio/split.md."
+      warning={
+        !canRecord ? (
+          <LabAlert>
+            Seu navegador não suporta gravação de áudio via MediaRecorder. Abra esta página em um
+            browser moderno (Chrome, Edge ou Safari 16.6+).
+          </LabAlert>
+        ) : undefined
+      }
+    >
       <LabCard
         title="1. Gravação"
         description="Capture um trecho curto para habilitar o slider."
@@ -425,10 +422,8 @@ export function AudioSplitTestPage() {
       )}
 
       {errorMessage && (
-        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
-          {errorMessage}
-        </div>
+        <LabAlert variant="danger">{errorMessage}</LabAlert>
       )}
-    </div>
+    </LabPageLayout>
   );
 }

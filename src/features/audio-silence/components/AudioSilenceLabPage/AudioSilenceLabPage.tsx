@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MicVAD } from '@ricky0123/vad-web';
 
 import { Button } from '@/shared/components/ui/Button';
+import { LabAlert } from '@/shared/components/ui/LabAlert';
 import { LabCard } from '@/shared/components/ui/LabCard';
+import { LabPageLayout } from '@/shared/components/ui/LabPageLayout';
 import { RecordButton } from '@/shared/components/ui/RecordButton';
 import { Spinner } from '@/shared/components/ui/Spinner';
 
@@ -326,17 +328,12 @@ export function AudioSilenceLabPage() {
   }, [audioUrl]);
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-12 text-white">
-      <header className="space-y-3">
-        <p className="text-sm uppercase tracking-[0.2em] text-accent-300">Audio Labs</p>
-        <h1 className="text-3xl font-semibold">Laboratório de silêncio de fala</h1>
-        <p className="text-base text-white/70">
-          Esta página usa o Silero VAD (via @ricky0123/vad-web) descrito na documentação para
-          diferenciar silêncio de fala de silêncio acústico. Grave um trecho, clique em
-          &ldquo;Encontrar momentos de silêncio&rdquo; e veja onde realmente não havia locução humana.
-        </p>
-      </header>
-
+    <LabPageLayout
+      title="Laboratório de silêncio de fala"
+      eyebrow="Audio Labs"
+      description="Esta página usa o Silero VAD (via @ricky0123/vad-web) descrito na documentação para diferenciar silêncio de fala de silêncio acústico. Grave um trecho, clique em “Encontrar momentos de silêncio” e veja onde realmente não havia locução humana."
+      className="min-h-screen text-white"
+    >
       <LabCard
         title="Status do detector"
         description={
@@ -373,11 +370,7 @@ export function AudioSilenceLabPage() {
             />
           </div>
         </div>
-        {errorMessage && (
-          <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {errorMessage}
-          </p>
-        )}
+        {errorMessage && <LabAlert variant="danger">{errorMessage}</LabAlert>}
       </LabCard>
 
       <LabCard
@@ -440,6 +433,6 @@ export function AudioSilenceLabPage() {
           </audio>
         </LabCard>
       )}
-    </div>
+    </LabPageLayout>
   );
 }
