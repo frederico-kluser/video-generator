@@ -475,7 +475,15 @@ async function maybeBuildProcessingGraph(
   tap(masterGain);
 
   const destination = audioContext.createMediaStreamDestination();
-  masterGain.connect(destination);
+
+  // Duplicate mono signal to both stereo channels to avoid left-only audio
+  // This is necessary because mono signals connected directly to stereo destinations
+  // may only play through the left channel in some browsers
+  const merger = audioContext.createChannelMerger(2);
+  masterGain.connect(merger, 0, 0); // mono → left channel
+  masterGain.connect(merger, 0, 1); // mono → right channel
+  merger.connect(destination);
+  nodes.push(merger);
 
   const meterAnalyser = audioContext.createAnalyser();
   meterAnalyser.fftSize = 1024;
