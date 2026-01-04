@@ -6,11 +6,24 @@ import {
 } from '@/config/constants/imagePrompts';
 import type { Script } from '@/schemas/eduScriptSchemas';
 
+/**
+ * Taxonomia simplificada usada na UI para refletir o tom narrativo desejado e
+ * propagar essa escolha para os prompts de roteiro.
+ */
 export type ScriptStyle = 'formal' | 'casual' | 'engaging';
+
+/**
+ * Enumeração dos objetivos de refinamento textual aplicados em revisões rápidas.
+ * Cada opção ativa instruções diferentes no prompt de edição.
+ */
 export type RefinementGoal = 'clarity' | 'engagement' | 'brevity' | 'formality';
 
 /**
- * System instructions that turn the model into a pedagogical director when generating full scripts.
+ * Prompt de sistema que posiciona o modelo como diretor pedagógico responsável por sintetizar roteiros completos.
+ *
+ * O texto descreve princípios de carga cognitiva, Gagné, Mayer, dados de engajamento e critérios de acessibilidade
+ * para garantir que cada resposta siga rigorosamente a cartilha científica adotada pelo produto. Esse bloco nunca
+ * muda entre execuções e serve como a âncora principal para manter consistência pedagógica, legal e de qualidade.
  */
 export const SCRIPT_GENERATION_SYSTEM_PROMPT = `Você é um diretor pedagógico especializado em vídeos educacionais guiados por ciência cognitiva.
 Siga rigorosamente o "Guia completo para criação de vídeos educacionais de alta qualidade (2025)" e aplique estes princípios:
@@ -25,6 +38,12 @@ Siga rigorosamente o "Guia completo para criação de vídeos educacionais de al
 
 Entregue roteiros prontos para gravação, com linguagem conversacional, precisão técnica e indicações claras de ganchos, quizzes, CTAs, pausas e prompts visuais.`;
 
+/**
+ * Conjunto completo de parâmetros que contextualizam um pedido de roteiro.
+ * Cada campo alimenta trechos específicos do prompt do usuário para que o modelo saiba
+ * qual é o tema, para quem está produzindo, qual o ritmo desejado e quais limites ou
+ * instruções adicionais precisam ser respeitados.
+ */
 export interface ScriptGenerationPromptContext {
   materials: string;
   topic: string;
@@ -37,7 +56,11 @@ export interface ScriptGenerationPromptContext {
 }
 
 /**
- * Builds the user prompt that contextualizes script generation with project metadata, scope and materials.
+ * Monta o prompt enviado como mensagem de usuário para a API de roteiros.
+ *
+ * O texto descreve o briefing completo (tópico, público, duração, estilo e materiais)
+ * e ainda injeta checklists pedagógicos para cada slide. Centralizar essa função evita
+ * divergências entre telas e garante rastreabilidade das instruções usadas na auditoria.
  */
 export function buildScriptGenerationUserPrompt(
   context: ScriptGenerationPromptContext,
@@ -90,6 +113,10 @@ const AUDIENCE_STYLE: Record<Script['targetAudience'], string> = {
   professional: 'design corporativo, minimalista, alta qualidade',
 };
 
+/**
+ * Descreve todos os parâmetros necessários para gerar o prompt de imagens
+ * (título do slide, descrição do visual, guias de estilo e referências enviadas).
+ */
 export interface SlideImagePromptContext {
   slideTitle: string;
   description: string;
@@ -101,7 +128,11 @@ export interface SlideImagePromptContext {
 }
 
 /**
- * Produces the detailed prompt sent to the image model, covering layout, accessibility and user references.
+ * Compõe o prompt de imagem completo usado pelo endpoint GPT-Image.
+ *
+ * Além da descrição criativa, o texto injeta instruções rígidas de composição,
+ * acessibilidade e consistência cromática. Também concatena anchors enviados pelo
+ * usuário e orientações para quando existem imagens de referência no upload.
  */
 export function buildSlideImagePrompt(
   context: SlideImagePromptContext,
@@ -159,7 +190,10 @@ const REFINEMENT_GOAL_DESCRIPTIONS: Record<RefinementGoal, string> = {
 };
 
 /**
- * Generates the system instructions for editing textual content, optionally preserving key points.
+ * Gera o prompt de sistema utilizado em refinamentos textuais.
+ *
+ * A função permite ativar o modo "preserveKeyPoints", inserindo instruções explícitas
+ * para que o modelo não descarte argumentos críticos enquanto reescreve o conteúdo.
  */
 export function buildRefineContentSystemPrompt(options: {
   preserveKeyPoints?: boolean;
@@ -172,6 +206,11 @@ Aplique o guia de vídeos educacionais de alta qualidade para reduzir carga extr
 ${options.preserveKeyPoints ? 'IMPORTANTE: Preserve todos os pontos-chave do original.' : ''}`;
 }
 
+/**
+ * Pacote mínimo de dados para contextualizar uma revisão textual.
+ * Inclui o conteúdo original, o público que receberá o material e
+ * os objetivos selecionados pelo usuário (clareza, engajamento, etc.).
+ */
 export interface RefineContentPromptContext {
   content: string;
   targetAudience: Script['targetAudience'];
@@ -179,7 +218,9 @@ export interface RefineContentPromptContext {
 }
 
 /**
- * Produces the user prompt for the refinement workflow, enumerating the selected goals and context.
+ * Constrói a mensagem de usuário enviada ao fluxo de refinamento.
+ * Detalha o texto original, o perfil de audiência e lista os objetivos em formato bullet
+ * para incentivar o modelo a justificar as melhorias devolvidas.
  */
 export function buildRefineContentUserPrompt(
   context: RefineContentPromptContext,
@@ -202,11 +243,16 @@ Retorne o texto refinado com lista de melhorias aplicadas.`;
 }
 
 /**
- * System instructions that specialize the model for slide-level edits with human feedback.
+ * Prompt de sistema dedicado ao fluxo de ajustes finos por slide.
+ * Explica ao modelo que ele deve agir como roteirista sênior, acatar o feedback humano
+ * e manter critérios de composição visual e narrativa durante microedições.
  */
 export const SLIDE_FEEDBACK_SYSTEM_PROMPT =
   'Você é um roteirista educacional guiado pela Teoria da Carga Cognitiva, pelos princípios de Mayer e pelo framework de Gagné. Ajuste narração e prompt visual segundo o feedback, mantendo ganchos fortes, CTAs em três pontos, ritmo adequado e garantindo que o visual siga regra dos terços, safe zones, contraste ≥4.5:1 e ausência de texto.';
 
+/**
+ * Estrutura usada para enviar ao modelo a fotografia atual do slide e o feedback do usuário.
+ */
 export interface SlideFeedbackPromptContext {
   slide: {
     scriptText: string;
@@ -218,7 +264,9 @@ export interface SlideFeedbackPromptContext {
 }
 
 /**
- * Creates the user prompt that sends the current slide, the feedback provided and the intended audience.
+ * Gera a mensagem de usuário do fluxo de feedback.
+ * O texto concatena script, narração, prompt visual e instruções de revisão para que o modelo
+ * tenha contexto suficiente para responder com um patch completo por slide.
  */
 export function buildSlideFeedbackUserPrompt(
   context: SlideFeedbackPromptContext,
@@ -227,11 +275,16 @@ export function buildSlideFeedbackUserPrompt(
 }
 
 /**
- * System instructions that keep the assistant focused on surgical slide edits.
+ * Prompt de sistema do fluxo de edição global.
+ * Ele reforça que o modelo só deve tocar nos trechos solicitados, preservando
+ * o restante do roteiro e seguindo o guia pedagógico 2025.
  */
 export const SLIDE_EDIT_SYSTEM_PROMPT =
   'Você é um lead writer educacional. Faça edições cirúrgicas em roteiros existentes seguindo o guia de ciência cognitiva 2025. Preserve tudo que não for citado e detalhe apenas o necessário.';
 
+/**
+ * Parâmetros consolidados que descrevem o contexto de edição de múltiplos slides.
+ */
 export interface SlideEditPromptContext {
   topic: string;
   targetAudience: Script['targetAudience'];
@@ -241,7 +294,9 @@ export interface SlideEditPromptContext {
 }
 
 /**
- * Builds the user prompt that aggregates project context, current slides and the user edit brief.
+ * Monta o prompt de usuário do fluxo de edição global.
+ * O texto agrega tema, público, materiais resumidos, lista dos slides atuais e o pedido
+ * do usuário, terminando com regras rígidas sobre o formato de resposta esperado.
  */
 export function buildSlideEditUserPrompt(
   context: SlideEditPromptContext,
@@ -267,3 +322,21 @@ INSTRUÇÕES DE EDIÇÃO:
 5. Priorize edições mínimas; só reconstrua tudo se o usuário pedir explicitamente.
 6. Inclua uma "summary" curta explicando o resultado.`;
 }
+
+/**
+ * Preambulo utilizado por todas as requisições para a API de animações Manim.
+ * O texto orienta o modelo a produzir cenas no estilo 3Blue1Brown, descreve ritmo,
+ * limites de duração, linguagem visual, tipografia, paleta oficial e regras para labels.
+ */
+export const MANIM_PROMPT_PREAMBLE = `
+Você é o pipeline oficial do estúdio 3Blue1Brown rodando sobre Manim Community Edition 0.19.0.
+Crie cenas matemáticas elegantes, com câmera dinâmica, trilhas de escrita contínua e uso criterioso de cor para evidenciar relações.
+
+REGRAS FIXAS:
+1. Estruture uma única Scene curta (6–12s) com ritmo claro: introdução com escrita/desenho, transformações intermediárias e destaque final.
+2. Gire a câmera suavemente, use move_to/rotate apenas quando agregar narrativa e adicione self.wait(1) ao final para congelar o frame.
+3. Prefira planos 2D com NumberPlane, VGroups e animações Write/Create/Transform.
+4. Destaque os elementos chave com a paleta 3Blue1Brown (BLUE_E, TEAL_E, GOLD_E, WHITE) + contraste em fundo escuro.
+5. Inclua labels legíveis para variáveis/eixos usando MathTex/Text com fontes grandes e fundo transparente.
+6. Evite texto narrativo longo; as labels devem ser curtas e matemáticas.
+`.trim();

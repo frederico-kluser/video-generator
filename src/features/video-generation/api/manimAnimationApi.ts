@@ -1,9 +1,9 @@
 import {
   MANIM_API_BASE_URL,
-  MANIM_PROMPT_PREAMBLE,
   MANIM_RESOLUTION_BY_ASPECT_RATIO,
 } from '@/config/constants/manim';
 import type { AspectRatio } from '@/config/constants/video';
+import { MANIM_PROMPT_PREAMBLE } from '@/services/promptLibrary';
 import type {
   ProjectData,
   Slide,
