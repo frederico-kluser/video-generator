@@ -25,7 +25,7 @@ Grava combina briefing guiado, geração assistida por IA, narração humana e r
 ### Destaques do produto
 - **Fluxo fim a fim**: briefing → roteiro → revisão → visuais → edição → gravação → preview/export.
 - **WebAV integrado**: exporta vídeos 20x mais rápido que FFmpeg.wasm com apenas ~50KB de payload.
-- **Laboratórios de áudio**: `/audio-eq-lab` equaliza e concatena takes.
+- **Laboratórios de áudio**: `/audio-eq-lab` equaliza e concatena takes e `/vad-lab` demonstra cortes automáticos de silêncio com o Silero VAD.
 - **Render test**: `/render-test` valida bundles `.zip` ou `manifest.json` com o mesmo renderer do preview.
 - **Observabilidade**: `appLogger` adiciona contexto estruturado com emojis em cada etapa.
 - **Animações 3Blue1Brown**: o Editor gera clipes Manim CE (6–12s) via API local compatível com o pipeline oficial da 3Blue1Brown, anexando o MP4 diretamente como asset do slide.
@@ -39,6 +39,7 @@ React 19, TypeScript 5.8, Vite 6, Tailwind 3.4, WebAV (`@webav/av-*`), LangChain
 | --------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `/`             | [VideoGenerationFlow](src/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow.tsx) | Stepper completo de briefing a exportação                                 |
 | `/audio-eq-lab` | [AudioEqualizerLab](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx)           | Equaliza três takes sequenciais com Web Audio API                         |
+| `/vad-lab`      | [VadLabPage](src/features/vad-lab/components/VadLabPage/VadLabPage.tsx)                                     | Testa @ricky0123/vad-web para aparar silêncios diretamente no navegador   |
 | `/render-test`  | [RenderTestPage](src/features/render-test/components/RenderTestPage/RenderTestPage.tsx)                     | Valida bundles exportados, inspeciona assets e renderiza com WebAV        |
 
 O roteador vive em [src/app/App.tsx](src/app/App.tsx) e seleciona a feature conforme `window.location.pathname`. A CTA [AudioLabsCta](src/shared/components/AudioLabsCta/AudioLabsCta.tsx) facilita a navegação entre os laboratórios quando o modo debug está ativo.
@@ -178,6 +179,9 @@ Resumo do fluxo:
 
 ### Audio Equalizer Lab (`/audio-eq-lab`)
 Componente: [AudioEqualizerLab](src/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab.tsx). Grava três takes, converte tudo para 48 kHz mono, concatena e aplica filtros `lowshelf`, `peaking` e `highshelf` usando `OfflineAudioContext`. Helpers como `renderOfflineWithTimeout` e `ensureBufferHasSignal` evitam mixagens silenciosas.
+
+### VAD Lab (`/vad-lab`)
+Componente: [VadLabPage](src/features/vad-lab/components/VadLabPage/VadLabPage.tsx). Reproduz o guia do `@ricky0123/vad-web`: grava áudio no browser, aplica o Silero VAD (rodando via ONNX Runtime Web) e remonta a timeline limitando os intervalos de silêncio ao valor escolhido (default 300 ms). Copiamos os arquivos `.onnx`, `vad.worklet.bundle.min.js` e todos os artefatos do `onnxruntime-web` para `/vad`, garantindo SharedArrayBuffer com os headers COOP/COEP já configurados no Vite. Consulte o guia completo em [docs/VAD_LIBRARIES_GUIDE.md](docs/VAD_LIBRARIES_GUIDE.md) para trade-offs entre Bark, Silero e demais bibliotecas.
 
 ## Renderização e testes de bundle
 

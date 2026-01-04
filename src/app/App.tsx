@@ -3,6 +3,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 
 import { getEnv } from '@/config/env';
 import { AudioEqualizerLab } from '@/features/audio-eq-lab/components/AudioEqualizerLab/AudioEqualizerLab';
+import { VadLabPage } from '@/features/vad-lab/components/VadLabPage/VadLabPage';
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
 import { VideoBatchDebugPage } from '@/features/video-generation/components/VideoBatchDebugPage/VideoBatchDebugPage';
 import { RenderTestPage } from '@/features/render-test/components/RenderTestPage/RenderTestPage';
@@ -28,6 +29,8 @@ export function App() {
     page = <RenderTestPage />;
   } else if (normalizedPath === '/audio-eq-lab') {
     page = <AudioEqualizerLab />;
+  } else if (normalizedPath === '/vad-lab') {
+    page = <VadLabPage />;
   } else if (normalizedPath === '/debug-video-tests') {
     page = isDebugMode ? <VideoBatchDebugPage /> : <VideoGenerationFlow />;
   }
