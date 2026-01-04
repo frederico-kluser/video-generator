@@ -215,7 +215,10 @@ export function AudioJoinLab() {
     setErrorMessage(null);
     updateJoinedAudio(null);
 
-    const audioContext = new AudioContext();
+    // Use consistent sample rate across AudioContext and Crunker to avoid pitch shifts
+    // Issue #15 in Crunker: different sample rates cause pitch shifts
+    const targetSampleRate = 48000;
+    const audioContext = new AudioContext({ sampleRate: targetSampleRate });
 
     try {
       const buffers = await Promise.all(
@@ -229,7 +232,7 @@ export function AudioJoinLab() {
         }),
       );
 
-      const crunker = new Crunker({ sampleRate: 48000 });
+      const crunker = new Crunker({ sampleRate: targetSampleRate });
       const concatenated = crunker.concatAudio(buffers);
       const { blob, url } = crunker.export(concatenated, 'audio/wav');
 
