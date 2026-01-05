@@ -21,12 +21,35 @@
 ## Visão geral rápida
 Grava combina briefing guiado, geração assistida por IA, narração humana e renderização acelerada em um único fluxo React 19 + Vite 6. A UI segue o tema “Aurora Lab” e aplica tokens globais via CSS variables. Toda a lógica crítica foi separada em features independentes para facilitar manutenção e experimentação.
 
+### O que exatamente é o Grava?
+- **Produto**: estúdio web para transformar anotações em videoaulas prontas em minutos, com script pedagógico, prompts visuais, assets customizados e export final em MP4.
+- **Usuário-alvo**: professores, creators educacionais, squads de enablement e equipes de marketing que precisam de explicações técnicas com rigor pedagógico.
+- **Problema resolvido**: reduz de horas/dias para minutos o tempo de pré-produção (roteiro + storyboard), mantém consistência científica e libera animações matemáticas avançadas quando necessário.
+- **Abordagem**: uma única tela conduz todo o pipeline, monitorado por um state machine (`useVideoGeneration`) e com instrumentação detalhada via `appLogger`.
+
+### Como o Grava gera um vídeo (resumo executivo)
+1. **Briefing** — usuário envia tópico, materiais e público no [InputStep](src/features/video-generation/components/InputStep/InputStep.tsx).
+2. **Prompt genérico** — `buildScriptGenerationUserPrompt` monta um prompt único para o GPT-5.1-Codex-Max; a IA responde JSON validado pelo `ScriptSchema` e indica `isMathProject` quando o conteúdo exige animações matemáticas.
+3. **Roteiro estruturado** — `generateScriptFromMaterials` converte o JSON em `Slide[]`, injeta prompts visuais e decide se cada slide pode receber animação 3Blue1Brown.
+4. **Revisão humana** — [ScriptReviewStep](src/features/video-generation/components/ScriptReviewStep/ScriptReviewStep.tsx) permite ajustes, inserções e uploads de referências/ativos.
+5. **Edição guiada** — [EditorStep](src/features/video-generation/components/EditorStep/EditorStep.tsx) aceita feedback textual/voz e regenerações de imagem via GPT-image-1.5.
+6. **Animações matemáticas** — se `projectData.isMathProject` for true, usuários podem gerar clipes Manim (FastAPI) diretamente por slide.
+7. **Gravação de áudio** — [RecordingStep](src/features/video-generation/components/RecordingStep/RecordingStep.tsx) captura narração por slide com `MediaRecorder` + VAD opcional.
+8. **Render preview/export** — [PreviewStep](src/features/video-generation/components/PreviewStep/PreviewStep.tsx) sincroniza tudo, permite download do bundle `.zip` para depuração e exporta MP4 via WebAV (GPU) ou fallback MediaRecorder.
+
 ### Destaques do produto
 - **Fluxo fim a fim**: briefing → roteiro → revisão → visuais → edição → gravação → preview/export.
 - **WebAV integrado**: exporta vídeos 20x mais rápido que FFmpeg.wasm com apenas ~50KB de payload.
 - **Render test**: `/render-test` valida bundles `.zip` ou `manifest.json` com o mesmo renderer do preview.
 - **Observabilidade**: `appLogger` adiciona contexto estruturado com emojis em cada etapa.
 - **Animações 3Blue1Brown**: o Editor gera clipes Manim CE (6–12s) via API local compatível com o pipeline oficial da 3Blue1Brown, anexando o MP4 diretamente como asset do slide.
+
+### Pilares técnicos principais
+- **Arquitetura orientada a features**: cada etapa do funil (render-test, video-generation, laboratórios de áudio) vive em `src/features/*`, isolando dependências e permitindo deploy parcial.
+- **IA centrada em schema**: prompts são sempre validados por Zod (`ScriptSchema`, `SlideSchema`, `RefinedContentSchema`), evitando JSON inválido e permitindo que o front trate o dado como tipado.
+- **Pipeline de mídia híbrido**: imagens geradas via GPT-image-1.5, animações opcionais via Manim, áudio capturado localmente, render final acelerado com WebAV e fallback MediaRecorder.
+- **Estado previsível**: `useVideoGeneration` é a única fonte de verdade do fluxo, com reducers/ações declaradas e logs em cada transição.
+- **DX cuidada**: Vite 6 com HMR, ESLint 9 flat config, TypeScript estrito, scripts Yarn separados e labs específicos para testar cada subsistema.
 
 ### Stack e integrações
 React 19, TypeScript 5.8, Vite 6, Tailwind 3.4, WebAV (`@webav/av-*`), LangChain + OpenAI SDK, Express + `fluent-ffmpeg`, FastAPI + Manim CE (API externa 3Blue1Brown), Zod, JSZip, Lucide React.
