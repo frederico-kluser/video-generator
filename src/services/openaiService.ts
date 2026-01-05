@@ -160,6 +160,7 @@ const scriptJsonSchema = {
       },
     },
     keywords: { type: 'array', items: { type: 'string' } },
+    isMathProject: { type: 'boolean' },
   },
   required: [
     'title',

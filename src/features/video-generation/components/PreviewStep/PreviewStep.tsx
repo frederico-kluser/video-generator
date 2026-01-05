@@ -408,7 +408,6 @@ export function PreviewStep({
           topic: projectData.topic,
           materials: projectData.materials,
           targetAudience: projectData.targetAudience,
-          promptId: projectData.promptId,
         },
         slides: [],
       };

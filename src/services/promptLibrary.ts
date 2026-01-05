@@ -91,6 +91,7 @@ ${context.preferUserLength ? `1. Determine a quantidade ideal de slides analisan
 5. Inclua recomendações de acessibilidade (legendagem, contraste ≥4.5:1, Title Safe 90%/Action Safe 93%, descrições de áudio, orientações para TDAH/dislexia/autismo) e notas de compliance (divulgações FTC/ASA/Seção 508 quando houver patrocínio).
 6. Forneça palavras-chave SEO (mínimo 6), sugestão de thumbnail/hook textual de até 5 palavras e resumo final que conecte retenção e transferência.
 7. Sempre que citar números ou pesquisas, referencie a fonte (ex.: Guo et al., 2014) ou marque como "[verificar]"; nunca invente métricas.
+8. Defina o campo booleano "isMathProject" como true apenas quando o conteúdo for predominantemente matemático (álgebra, cálculo, geometria, estatística, trigonometria ou demonstrações numéricas); caso contrário, retorne false.
 
 MATERIAIS DE REFERÊNCIA:
 ${context.materials}

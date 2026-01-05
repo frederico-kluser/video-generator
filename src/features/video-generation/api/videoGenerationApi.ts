@@ -1,10 +1,5 @@
 import { IMAGE_SIZE_BY_ASPECT_RATIO } from '@/config/constants/imageGeneration';
 import type { AspectRatio } from '@/config/constants/video';
-import {
-  DEFAULT_PROMPT_BLUEPRINT_ID,
-  getPromptBlueprintById,
-  type PromptBlueprintId,
-} from '@/content/prompts';
 import type {
   Slide,
   SlideEditOperation,
@@ -131,44 +126,28 @@ export async function generateScriptFromMaterials(
   topic: string,
   materials: string,
   audience: string,
-  promptId: PromptBlueprintId = DEFAULT_PROMPT_BLUEPRINT_ID,
   revisionInstructions?: string,
-  options?: { isMathProject?: boolean },
-): Promise<RawSlide[]> {
+): Promise<{ slides: RawSlide[]; isMathProject: boolean }> {
   const targetAudience = normalizeAudience(audience);
-  const blueprint = getPromptBlueprintById(promptId);
-  const estimatedDuration = estimateDurationFromMaterials(materials);
-  const durationRange = blueprint.durationMinutes ?? null;
-  const blueprintDuration = durationRange
-    ? Math.round((durationRange.min + durationRange.max) / 2)
-    : estimatedDuration;
-  const blendedDuration = durationRange
-    ? Math.round((estimatedDuration + blueprintDuration) / 2)
-    : estimatedDuration;
-  const desiredDuration = durationRange
-    ? Math.min(
-        durationRange.max,
-        Math.max(durationRange.min, blendedDuration),
-      )
-    : blendedDuration;
-  const preferUserLength = !(durationRange && blueprint.slidesRange);
-  const isMathProject = Boolean(options?.isMathProject);
+  const desiredDuration = estimateDurationFromMaterials(materials);
+  const preferUserLength = true;
 
   appLogger.info('🧠 Iniciando geração de roteiro pedagógico com OpenAI.', {
     topic,
     targetAudience,
     desiredDuration,
-    promptId: blueprint.id,
   });
 
   const script = await generateStructuredScript(materials, {
     topic,
     targetAudience,
     desiredDuration,
-    style: blueprint.defaultStyle,
+    style: 'engaging',
     revisionInstructions,
     preferUserLength,
   });
+
+  const scriptIsMathProject = Boolean(script.isMathProject);
 
   const slides: RawSlide[] = script.slides.map((slide) => {
     const scriptText = buildScriptText(slide.content, slide.speakerNotes);
@@ -180,7 +159,7 @@ export async function generateScriptFromMaterials(
         scriptText,
       ),
       visualPrompt: buildVisualPrompt(slide.title, slide.content),
-      mathAnimationPrompt: isMathProject
+      mathAnimationPrompt: scriptIsMathProject
         ? buildMathAnimationPrompt(slide.title, slide.content, scriptText)
         : undefined,
       visualSource: 'image-generation',
@@ -196,7 +175,7 @@ export async function generateScriptFromMaterials(
     slides: slides.length,
   });
 
-  return slides;
+  return { slides, isMathProject: scriptIsMathProject };
 }
 
 export async function generateSlideImage(

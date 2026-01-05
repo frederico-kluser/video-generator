@@ -90,6 +90,12 @@ export const ScriptSchema = z
       .max(20)
       .describe('Array de slides ordenados'),
     keywords: z.array(z.string()).describe('Palavras-chave para SEO e busca'),
+    isMathProject: z
+      .boolean()
+      .optional()
+      .describe(
+        'Indica se o roteiro é predominantemente matemático para habilitar recursos especiais',
+      ),
   })
   .strict();
 

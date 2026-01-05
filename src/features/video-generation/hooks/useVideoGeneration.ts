@@ -390,7 +390,7 @@ export function useVideoGeneration() {
   const startGeneration = useCallback(
     async (payload: VideoGenerationPayload) => {
       try {
-        setProjectData(payload);
+        setProjectData({ ...payload, isMathProject: false });
         setStep(VIDEO_GENERATION_STEP.GENERATING_SCRIPT);
         setProgress({
           total: 1,
@@ -398,14 +398,12 @@ export function useVideoGeneration() {
           currentAction: 'Escrevendo roteiro pedagógico...',
         });
 
-        const rawSlides = await generateScriptFromMaterials(
-          payload.topic,
-          payload.materials,
-          payload.targetAudience ?? VIDEO_CONFIG.DEFAULT_AUDIENCE,
-          payload.promptId,
-          undefined,
-          { isMathProject: payload.isMathProject },
-        );
+        const { slides: rawSlides, isMathProject } =
+          await generateScriptFromMaterials(
+            payload.topic,
+            payload.materials,
+            payload.targetAudience ?? VIDEO_CONFIG.DEFAULT_AUDIENCE,
+          );
 
         const preparedSlides = normalizeSlideOrder(
           rawSlides.map((slide, index) => ({
@@ -421,6 +419,10 @@ export function useVideoGeneration() {
         );
 
         setSlides(preparedSlides);
+        setProjectData((prev) => ({
+          ...prev,
+          isMathProject,
+        }));
         setProgress({
           total: preparedSlides.length,
           completed: preparedSlides.length,
@@ -442,11 +444,7 @@ export function useVideoGeneration() {
 
   const regenerateScript = useCallback(
     async (instructions: string) => {
-      if (
-        !projectData.topic ||
-        !projectData.materials ||
-        !projectData.promptId
-      ) {
+      if (!projectData.topic || !projectData.materials) {
         const message = 'Projeto incompleto para refinamento do roteiro.';
         appLogger.error(message, { projectData });
         throw new Error(message);
@@ -499,14 +497,13 @@ export function useVideoGeneration() {
           return;
         }
 
-        const rawSlides = await generateScriptFromMaterials(
-          projectData.topic,
-          projectData.materials,
-          targetAudience,
-          projectData.promptId,
-          instructions,
-          { isMathProject: projectData.isMathProject },
-        );
+        const { slides: rawSlides, isMathProject } =
+          await generateScriptFromMaterials(
+            projectData.topic,
+            projectData.materials,
+            targetAudience,
+            instructions,
+          );
 
         const preparedSlides = normalizeSlideOrder(
           rawSlides.map((slide, index) => ({
@@ -522,6 +519,10 @@ export function useVideoGeneration() {
         );
 
         setSlides(preparedSlides);
+        setProjectData((prev) => ({
+          ...prev,
+          isMathProject,
+        }));
         setProgress({
           total: preparedSlides.length,
           completed: preparedSlides.length,

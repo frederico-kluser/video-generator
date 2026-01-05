@@ -8,7 +8,6 @@ import {
   VIDEO_GENERATION_STEP,
   type VideoGenerationStep,
 } from '@/config/constants/video';
-import { getPromptBlueprintById } from '@/content/prompts';
 import { EditorStep } from '@/features/video-generation/components/EditorStep/EditorStep';
 import { InputStep } from '@/features/video-generation/components/InputStep/InputStep';
 import { LoadingStep } from '@/features/video-generation/components/LoadingStep/LoadingStep';
@@ -46,9 +45,6 @@ export function VideoGenerationFlow() {
   const isUrlDebugMode = useUrlOnlyDebugMode();
   const aspectRatio =
     projectData.aspectRatio ?? VIDEO_CONFIG.DEFAULT_ASPECT_RATIO;
-  const blueprint = projectData.promptId
-    ? getPromptBlueprintById(projectData.promptId)
-    : null;
   const currentStepIndex = STEP_ORDER.indexOf(step);
 
   const handleOpenVideoTester = useCallback(() => {

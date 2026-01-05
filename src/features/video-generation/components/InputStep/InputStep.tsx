@@ -1,4 +1,4 @@
-import { useActionState, useEffect, useMemo, useState } from 'react';
+import { useActionState, useState } from 'react';
 import {
   BookOpen,
   ChevronDown,
@@ -18,21 +18,10 @@ import {
   VIDEO_ASPECT_RATIOS,
   VIDEO_CONFIG,
 } from '@/config/constants/video';
-import {
-  DEFAULT_PROMPT_BLUEPRINT_ID,
-  PROMPT_CATEGORIES,
-  PROMPT_CATEGORY_METADATA,
-  getBlueprintsByCategory,
-  getPromptBlueprintById,
-  isPromptBlueprintId,
-  type PromptBlueprint,
-  type PromptBlueprintId,
-  type PromptCategory,
-} from '@/content/prompts';
 import type { VideoGenerationPayload } from '@/features/video-generation/model/types';
 import { OpenAIKeyModal } from '@/shared/components/OpenAIKeyModal/OpenAIKeyModal';
-import { useOpenAIKey } from '@/shared/hooks/useOpenAIKey';
 import { VoiceTextInput, VoiceTextarea } from '@/shared/components/VoiceInput/VoiceTextField';
+import { useOpenAIKey } from '@/shared/hooks/useOpenAIKey';
 
 const AUDIENCE_OPTIONS = [
   { value: 'Elementary School (K-5)', label: 'Ensino Fundamental', icon: '🎒' },
@@ -85,36 +74,12 @@ export function InputStep({ onStart }: InputStepProps) {
 
   const [topic, setTopic] = useState('');
   const [materials, setMaterials] = useState('');
-  const [audience, setAudience] = useState(VIDEO_CONFIG.DEFAULT_AUDIENCE);
+  const [audience, setAudience] = useState<string>(
+    VIDEO_CONFIG.DEFAULT_AUDIENCE,
+  );
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>(
     VIDEO_CONFIG.DEFAULT_ASPECT_RATIO,
   );
-  const [isMathProject, setIsMathProject] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<PromptCategory>(
-    getPromptBlueprintById(DEFAULT_PROMPT_BLUEPRINT_ID).category,
-  );
-  const [selectedPromptId, setSelectedPromptId] = useState<PromptBlueprintId>(
-    DEFAULT_PROMPT_BLUEPRINT_ID,
-  );
-
-  const visibleBlueprints = useMemo(() => {
-    return getBlueprintsByCategory(selectedCategory);
-  }, [selectedCategory]);
-
-  const selectedBlueprint = useMemo(() => {
-    return getPromptBlueprintById(selectedPromptId);
-  }, [selectedPromptId]);
-
-  useEffect(() => {
-    if (
-      !visibleBlueprints.some((blueprint) => blueprint.id === selectedPromptId)
-    ) {
-      const fallback = visibleBlueprints[0];
-      if (fallback) {
-        setSelectedPromptId(fallback.id);
-      }
-    }
-  }, [selectedPromptId, visibleBlueprints]);
 
   const [actionError, startAction, isPending] = useActionState(
     async (_: string | null, formData: FormData) => {
@@ -129,13 +94,6 @@ export function InputStep({ onStart }: InputStepProps) {
         typeof aspectRatioEntry === 'string' && isAspectRatio(aspectRatioEntry)
           ? aspectRatioEntry
           : VIDEO_CONFIG.DEFAULT_ASPECT_RATIO;
-      const promptIdEntry = formData.get('promptId');
-      const safePromptId =
-        typeof promptIdEntry === 'string' && isPromptBlueprintId(promptIdEntry)
-          ? promptIdEntry
-          : DEFAULT_PROMPT_BLUEPRINT_ID;
-      const isMathProjectValue =
-        getStringValue(formData.get('isMathProject'), 'false') === 'true';
 
       if (!topicValue || !materialsValue) {
         return 'Informe um tópico e materiais de referência para continuar.';
@@ -146,8 +104,6 @@ export function InputStep({ onStart }: InputStepProps) {
         materials: materialsValue,
         targetAudience: targetAudienceValue,
         aspectRatio: safeAspectRatio,
-        promptId: safePromptId,
-        isMathProject: isMathProjectValue,
       };
 
       try {
@@ -200,333 +156,176 @@ export function InputStep({ onStart }: InputStepProps) {
             </div>
           </div>
 
-        {/* Main Card */}
-        <div className="glass-card p-4 sm:p-5 md:p-6 lg:p-8">
-          {actionError && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg border border-danger-500/30 bg-danger-500/10 p-3 text-danger-400 animate-slide-down sm:mb-6 sm:gap-3 sm:rounded-xl sm:p-4">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-danger-500/20 text-xs sm:h-8 sm:w-8 sm:text-sm">
-                !
-              </div>
-              <p className="text-xs sm:text-sm">{actionError}</p>
-            </div>
-          )}
-
-          <form action={startAction} className="space-y-4 sm:space-y-5 md:space-y-6">
-            {/* Topic Input */}
-            <div className="space-y-1.5 sm:space-y-2">
-              <label className="label" htmlFor="topic">
-                <BookOpen size={14} className="text-primary-400 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Qual é o tópico principal?</span>
-                <span className="sm:hidden">Tópico principal</span>
-              </label>
-              <VoiceTextInput
-                id="topic"
-                name="topic"
-                type="text"
-                placeholder="Ex.: Teorema de Pitágoras..."
-                value={topic}
-                onValueChange={setTopic}
-                required
-                buttonAriaLabel="Ditado para o campo de tópico"
-              />
-            </div>
-
-            <div className="rounded-xl border border-primary-500/20 bg-dark-900/60 p-3 sm:rounded-2xl sm:p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-white">Vídeo sobre matemática?</p>
-                  <p className="text-xs text-white/60">
-                    Ative quando o roteiro focar em conceitos matemáticos para liberar referências e vídeos Manim.
-                  </p>
+          {/* Main Card */}
+          <div className="glass-card p-4 sm:p-5 md:p-6 lg:p-8">
+            {actionError && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border border-danger-500/30 bg-danger-500/10 p-3 text-danger-400 animate-slide-down sm:mb-6 sm:gap-3 sm:rounded-xl sm:p-4">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-danger-500/20 text-xs sm:h-8 sm:w-8 sm:text-sm">
+                  !
                 </div>
-                <button
-                  type="button"
-                  aria-pressed={isMathProject}
-                  onClick={() => setIsMathProject((prev) => !prev)}
-                  className={`relative h-8 w-14 rounded-full transition ${
-                    isMathProject ? 'bg-primary-500' : 'bg-dark-600'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 h-6 w-6 rounded-full bg-white transition ${
-                      isMathProject ? 'right-1' : 'left-1'
-                    }`}
-                  />
-                </button>
+                <p className="text-xs sm:text-sm">{actionError}</p>
               </div>
-              <p className={`mt-2 text-[11px] sm:text-xs ${isMathProject ? 'text-primary-200' : 'text-white/60'}`}>
-                {isMathProject
-                  ? 'Prompts matemáticos e a opção de gerar vídeos 3Blue1Brown ficarão disponíveis por slide.'
-                  : 'Mantém apenas geração de imagens. Ative para liberar vídeos matemáticos.'}
-              </p>
-            </div>
+            )}
 
-            {/* Audience Select */}
-            <div className="space-y-1.5 sm:space-y-2">
-              <label className="label" htmlFor="audience">
-                <Users size={14} className="text-primary-400 sm:h-4 sm:w-4" />
-                Público-alvo
-              </label>
-              <div className="relative">
-                <select
-                  id="audience"
-                  name="audience"
-                  className="input appearance-none pr-8 sm:pr-10"
-                  value={audience}
-                  onChange={(event) => setAudience(event.target.value)}
-                >
-                  {AUDIENCE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.icon} {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={16}
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40 sm:right-4 sm:h-[18px] sm:w-[18px]"
+            <form action={startAction} className="space-y-4 sm:space-y-5 md:space-y-6">
+              {/* Topic Input */}
+              <div className="space-y-1.5 sm:space-y-2">
+                <label className="label" htmlFor="topic">
+                  <BookOpen size={14} className="text-primary-400 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Qual é o tópico principal?</span>
+                  <span className="sm:hidden">Tópico principal</span>
+                </label>
+                <VoiceTextInput
+                  id="topic"
+                  name="topic"
+                  type="text"
+                  placeholder="Ex.: Teorema de Pitágoras..."
+                  value={topic}
+                  onValueChange={setTopic}
+                  required
+                  buttonAriaLabel="Ditado para o campo de tópico"
                 />
               </div>
-            </div>
 
-            {/* Prompt Blueprint Selection */}
-            <div className="space-y-2 sm:space-y-3">
-              <label className="label">
-                <Sparkles size={14} className="text-primary-400 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Finalidade e blueprint</span>
-                <span className="sm:hidden">Blueprint</span>
-              </label>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                {PROMPT_CATEGORIES.map((category) => {
-                  const metadata = PROMPT_CATEGORY_METADATA[category];
-                  const isActive = category === selectedCategory;
-                  return (
-                    <button
-                      key={category}
-                      type="button"
-                      className={`rounded-full border px-2.5 py-1.5 text-xs font-semibold transition-all duration-200 sm:px-4 sm:py-2 sm:text-sm ${
-                        isActive
-                          ? 'border-primary-500 bg-primary-500/15 text-primary-200'
-                          : 'border-dark-600 bg-dark-800/50 text-white/70 hover:border-dark-500 hover:text-white'
-                      }`}
-                      onClick={() => setSelectedCategory(category)}
-                    >
-                      <span className="mr-1 sm:mr-2">{metadata.icon}</span>
-                      {metadata.label}
-                    </button>
-                  );
-                })}
+              {/* Audience Select */}
+              <div className="space-y-1.5 sm:space-y-2">
+                <label className="label" htmlFor="audience">
+                  <Users size={14} className="text-primary-400 sm:h-4 sm:w-4" />
+                  Público-alvo
+                </label>
+                <div className="relative">
+                  <select
+                    id="audience"
+                    name="audience"
+                    className="input appearance-none pr-8 sm:pr-10"
+                    value={audience}
+                    onChange={(event) => setAudience(event.target.value)}
+                  >
+                    {AUDIENCE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.icon} {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={16}
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40 sm:right-4 sm:h-[18px] sm:w-[18px]"
+                  />
+                </div>
               </div>
+
+              {/* Materials Textarea */}
+              <div className="space-y-1.5 sm:space-y-2">
+                <label className="label" htmlFor="materials">
+                  <Wand2 size={14} className="text-primary-400 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">Materiais ou notas de referência</span>
+                  <span className="sm:hidden">Materiais de referência</span>
+                </label>
+                <VoiceTextarea
+                  id="materials"
+                  name="materials"
+                  className="min-h-[100px] sm:min-h-[120px] md:min-h-[140px]"
+                  placeholder="Cole materiais ou especifique slides (ex.: '6 slides em 5 min')."
+                  value={materials}
+                  onValueChange={setMaterials}
+                  required
+                  buttonAriaLabel="Ditado para materiais de referência"
+                  buttonClassName="mt-0.5 sm:mt-1"
+                />
+              </div>
+
+              {/* Format Selection */}
               <div className="space-y-2 sm:space-y-3">
-                {visibleBlueprints.map((blueprint) => {
-                  const isSelected = blueprint.id === selectedPromptId;
-                  return (
-                    <PromptBlueprintCard
-                      key={blueprint.id}
-                      blueprint={blueprint}
-                      isSelected={isSelected}
-                      onSelect={() => setSelectedPromptId(blueprint.id)}
-                    />
-                  );
-                })}
-              </div>
-              <input type="hidden" name="promptId" value={selectedPromptId} />
-              <input type="hidden" name="isMathProject" value={isMathProject ? 'true' : 'false'} />
-            </div>
-
-            {/* Materials Textarea */}
-            <div className="space-y-1.5 sm:space-y-2">
-              <label className="label" htmlFor="materials">
-                <Wand2 size={14} className="text-primary-400 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Materiais ou notas de referência</span>
-                <span className="sm:hidden">Materiais de referência</span>
-              </label>
-              <VoiceTextarea
-                id="materials"
-                name="materials"
-                className="min-h-[100px] sm:min-h-[120px] md:min-h-[140px]"
-                placeholder="Cole materiais ou especifique slides (ex.: '6 slides em 5 min')."
-                value={materials}
-                onValueChange={setMaterials}
-                required
-                buttonAriaLabel="Ditado para materiais de referência"
-                buttonClassName="mt-0.5 sm:mt-1"
-              />
-            </div>
-
-            {/* Format Selection */}
-            <div className="space-y-2 sm:space-y-3">
-              <label className="label">
-                <LayoutTemplate size={14} className="text-primary-400 sm:h-4 sm:w-4" />
-                Formato do vídeo
-              </label>
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                {FORMAT_OPTIONS.map((option) => {
-                  const Icon = option.icon;
-                  const isSelected = aspectRatio === option.id;
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      className={`group relative flex flex-col items-center gap-1 rounded-lg border p-2 transition-all duration-300 sm:gap-2 sm:rounded-xl sm:p-3 md:p-4 ${
-                        isSelected
-                          ? 'border-primary-500 bg-primary-500/15'
-                          : 'border-dark-600 bg-dark-800/50 hover:border-dark-500 hover:bg-dark-700/50'
-                      }`}
-                      onClick={() => setAspectRatio(option.id)}
-                    >
-                      {isSelected && (
-                        <div className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-[8px] text-white sm:-right-1 sm:-top-1 sm:h-5 sm:w-5 sm:text-[10px]">
-                          ✓
-                        </div>
-                      )}
-                      <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors sm:h-10 sm:w-10 ${
+                <label className="label">
+                  <LayoutTemplate size={14} className="text-primary-400 sm:h-4 sm:w-4" />
+                  Formato do vídeo
+                </label>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  {FORMAT_OPTIONS.map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = aspectRatio === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={`group relative flex flex-col items-center gap-1 rounded-lg border p-2 transition-all duration-300 sm:gap-2 sm:rounded-xl sm:p-3 md:p-4 ${
                           isSelected
-                            ? 'bg-primary-500/20 text-primary-400'
-                            : 'bg-dark-700 text-white/50 group-hover:text-white/70'
+                            ? 'border-primary-500 bg-primary-500/15'
+                            : 'border-dark-600 bg-dark-800/50 hover:border-dark-500 hover:bg-dark-700/50'
                         }`}
+                        onClick={() => setAspectRatio(option.id)}
                       >
-                        <Icon size={16} className="sm:h-5 sm:w-5" />
-                      </div>
-                      <div className="text-center">
+                        {isSelected && (
+                          <div className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary-500 text-[8px] text-white sm:-right-1 sm:-top-1 sm:h-5 sm:w-5 sm:text-[10px]">
+                            ✓
+                          </div>
+                        )}
                         <div
-                          className={`text-xs font-semibold sm:text-sm ${isSelected ? 'text-primary-300' : 'text-white/80'}`}
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors sm:h-10 sm:w-10 ${
+                            isSelected
+                              ? 'bg-primary-500/20 text-primary-400'
+                              : 'bg-dark-700 text-white/50 group-hover:text-white/70'
+                          }`}
                         >
-                          {option.label}
+                          <Icon size={16} className="sm:h-5 sm:w-5" />
                         </div>
-                        <div className="hidden text-xs text-white/40 sm:block">
-                          {option.sublabel}
+                        <div className="text-center">
+                          <div
+                            className={`text-xs font-semibold sm:text-sm ${
+                              isSelected ? 'text-primary-300' : 'text-white/80'
+                            }`}
+                          >
+                            {option.label}
+                          </div>
+                          <div className="hidden text-xs text-white/40 sm:block">
+                            {option.sublabel}
+                          </div>
                         </div>
-                      </div>
-                      <span
-                        className={`rounded px-1.5 py-0.5 font-mono text-[10px] sm:rounded-md sm:px-2 sm:text-xs ${
-                          isSelected
-                            ? 'bg-primary-500/20 text-primary-300'
-                            : 'bg-dark-700 text-white/50'
-                        }`}
-                      >
-                        {option.id}
-                      </span>
-                    </button>
-                  );
-                })}
+                        <span
+                          className={`rounded px-1.5 py-0.5 font-mono text-[10px] sm:rounded-md sm:px-2 sm:text-xs ${
+                            isSelected
+                              ? 'bg-primary-500/20 text-primary-300'
+                              : 'bg-dark-700 text-white/50'
+                          }`}
+                        >
+                          {option.id}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <input type="hidden" name="aspectRatio" value={aspectRatio} />
               </div>
-              <input type="hidden" name="aspectRatio" value={aspectRatio} />
-            </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isPending}
-              className="btn-primary w-full py-3 text-sm sm:py-3.5 sm:text-base md:py-4 md:text-lg"
-            >
-              {isPending ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white sm:h-5 sm:w-5" />
-                  <span className="hidden sm:inline">Gerando roteiro...</span>
-                  <span className="sm:hidden">Gerando...</span>
-                </>
-              ) : (
-                <>
-                  <Video size={18} className="sm:h-5 sm:w-5" />
-                  <span className="hidden sm:inline">Gerar roteiro e slides</span>
-                  <span className="sm:hidden">Gerar roteiro</span>
-                </>
-              )}
-            </button>
-
-          </form>
-        </div>
-
-        {/* Footer hint */}
-        <p className="mt-4 text-center text-xs text-white/40 sm:mt-5 sm:text-sm md:mt-6">
-          A IA criará um roteiro otimizado e gerará imagens para cada slide
-        </p>
-        {selectedBlueprint && (
-          <div className="mt-3 rounded-xl border border-white/5 bg-white/5 p-3 text-xs text-white/70 sm:mt-4 sm:rounded-2xl sm:p-4 sm:text-sm">
-            <div className="mb-1.5 font-semibold text-white sm:mb-2">
-              {selectedBlueprint.icon} {selectedBlueprint.title}
-            </div>
-            <p className="text-white/70">{selectedBlueprint.summary}</p>
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isPending}
+                className="btn-primary w-full py-3 text-sm sm:py-3.5 sm:text-base md:py-4 md:text-lg"
+              >
+                {isPending ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white sm:h-5 sm:w-5" />
+                    <span className="hidden sm:inline">Gerando roteiro...</span>
+                    <span className="sm:hidden">Gerando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Video size={18} className="sm:h-5 sm:w-5" />
+                    <span className="hidden sm:inline">Gerar roteiro e slides</span>
+                    <span className="sm:hidden">Gerar roteiro</span>
+                  </>
+                )}
+              </button>
+            </form>
           </div>
-        )}
-      </div>
-    </div>
-    </>
-  );
-}
 
-type PromptBlueprintCardProps = {
-  blueprint: PromptBlueprint;
-  isSelected: boolean;
-  onSelect: () => void;
-};
-
-function PromptBlueprintCard({
-  blueprint,
-  isSelected,
-  onSelect,
-}: PromptBlueprintCardProps) {
-  const formatRange = (
-    range?: { min: number; max: number } | null,
-  ): string | null => {
-    if (!range) {
-      return null;
-    }
-    return range.min === range.max ? `${range.min}` : `${range.min}–${range.max}`;
-  };
-  const slidesLabel = formatRange(blueprint.slidesRange);
-  const durationLabel = formatRange(blueprint.durationMinutes);
-
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`w-full rounded-xl border p-3 text-left transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 sm:rounded-2xl sm:p-4 ${
-        isSelected
-          ? 'border-primary-500 bg-primary-500/10'
-          : 'border-dark-600 bg-dark-800/40 hover:border-dark-500 hover:bg-dark-700/40'
-      }`}
-      aria-pressed={isSelected}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xl sm:text-2xl" aria-hidden>
-          {blueprint.icon}
-        </span>
-        {isSelected && (
-          <span className="rounded-full bg-primary-500/20 px-2 py-0.5 text-[10px] font-semibold text-primary-200 sm:px-3 sm:py-1 sm:text-xs">
-            Selecionado
-          </span>
-        )}
-      </div>
-      <div className="mt-2 text-sm font-semibold text-white sm:mt-3 sm:text-base md:text-lg">
-        {blueprint.title}
-      </div>
-      <p className="mt-0.5 text-xs text-white/70 sm:mt-1 sm:text-sm">{blueprint.summary}</p>
-      {(slidesLabel || durationLabel) && (
-        <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-white/60 sm:mt-3 sm:gap-3 sm:text-xs">
-          {slidesLabel && (
-            <span className="rounded-full bg-white/5 px-1.5 py-0.5 font-mono sm:px-2 sm:py-1">
-              Slides: {slidesLabel}
-            </span>
-          )}
-          {durationLabel && (
-            <span className="rounded-full bg-white/5 px-1.5 py-0.5 font-mono sm:px-2 sm:py-1">
-              {durationLabel} min
-            </span>
-          )}
+          {/* Footer hint */}
+          <p className="mt-4 text-center text-xs text-white/40 sm:mt-5 sm:text-sm md:mt-6">
+            A IA criará um roteiro otimizado e gerará imagens para cada slide
+          </p>
         </div>
-      )}
-      <div className="mt-2 hidden flex-wrap gap-1.5 text-[10px] text-white/60 sm:mt-3 sm:flex sm:gap-2 sm:text-xs">
-        {blueprint.tags.map((tag) => (
-          <span
-            key={tag}
-            className="rounded-full bg-dark-700/70 px-1.5 py-0.5 font-medium sm:px-2"
-          >
-            {tag}
-          </span>
-        ))}
       </div>
-    </button>
+    </>
   );
 }

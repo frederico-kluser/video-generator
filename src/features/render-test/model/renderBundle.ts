@@ -21,7 +21,6 @@ export type RenderBundleManifest = {
     topic?: string;
     materials?: string;
     targetAudience?: string;
-    promptId?: string;
   };
   slides: RenderBundleSlide[];
 };

@@ -2,7 +2,6 @@ import type {
   AspectRatio,
   VideoGenerationStep,
 } from '@/config/constants/video';
-import type { PromptBlueprintId } from '@/content/prompts';
 
 export type SlideStyleReference = {
   id: string;
@@ -73,7 +72,6 @@ export type ProjectData = {
   materials: string;
   aspectRatio: AspectRatio;
   targetAudience: string;
-  promptId: PromptBlueprintId;
   isMathProject: boolean;
 };
 
@@ -95,6 +93,4 @@ export type VideoGenerationPayload = {
   materials: string;
   aspectRatio: AspectRatio;
   targetAudience: string;
-  promptId: PromptBlueprintId;
-  isMathProject: boolean;
 };

@@ -137,7 +137,7 @@ src/
 [useVideoGeneration](src/features/video-generation/hooks/useVideoGeneration.ts) mantém `VideoGenerationState`, controla o stepper (`VIDEO_GENERATION_STEP`) e executa ações atômicas: geração de roteiro, edição em massa, inserção/exclusão/ordenação de slides, criação de assets e abertura do preview.
 
 ### Briefing & prompts
-[InputStep](src/features/video-generation/components/InputStep/InputStep.tsx) coleta tema, materiais, público e blueprint de prompt. Os blueprints vivem em [src/content/prompts](src/content/prompts) com metadados tipados e helpers (`getPromptBlueprintById`, `loadPromptMarkdown`).
+[InputStep](src/features/video-generation/components/InputStep/InputStep.tsx) coleta tema, materiais, público e formato. O prompt agora é único (genérico) e marca no próprio JSON (`isMathProject`) quando o conteúdo exige modo matemático, sem seleção manual ou heurísticas locais.
 
 ### Geração de roteiro + validação
 `generateScriptFromMaterials` (OpenAI Responses API via [src/services/openaiService.ts](src/services/openaiService.ts)) usa schemas JSON + Zod para garantir slides válidos. `applyScriptInstructionsToSlides` aplica diffs inteligentes quando o usuário fornece instruções adicionais na revisão.
@@ -191,8 +191,8 @@ A integração descrita em [docs/WEBAV_INTEGRATION.md](docs/WEBAV_INTEGRATION.md
 - [docs/WEBAV_INTEGRATION.md](docs/WEBAV_INTEGRATION.md) — checklist completo de WebAV + WebCodecs.
 - [docs/RENDER_VIDEO.md](docs/RENDER_VIDEO.md) — guia aprofundado de clips, sprites, combinator e edição no navegador.
 - [docs/TOOLS_VIDEO_EDITION.md](docs/TOOLS_VIDEO_EDITION.md) — benchmarking de SDKs e trade-offs.
-- [docs/PROMPT_AUDIT.md](docs/PROMPT_AUDIT.md) — histórico e auditoria dos blueprints de prompt.
-- [docs/NEXT_PROMPT_PLAN.md](docs/NEXT_PROMPT_PLAN.md) — melhorias planejadas para prompts.
+- [docs/PROMPT_AUDIT.md](docs/PROMPT_AUDIT.md) — histórico (legado) dos blueprints de prompt.
+- [docs/NEXT_PROMPT_PLAN.md](docs/NEXT_PROMPT_PLAN.md) — plano para evoluir o novo prompt genérico.
 - [docs/ai-agent-prompts](docs/ai-agent-prompts) / [docs/prompts](docs/prompts) — repositório bruto de estudos e pesquisas para IA.
 - [docs/MTL_XML.md](docs/MTL_XML.md) — referência de parsing/renderização de materiais 3D (para futuras integrações).
 
