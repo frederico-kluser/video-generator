@@ -8,6 +8,7 @@ type AudioLabId =
   | 'audioSilence'
   | 'audioSplit'
   | 'render'
+  | 'videoDubbing'
   | 'threeBlueOneBrown';
 
 type AudioLabsCtaProps = {
@@ -52,6 +53,13 @@ const BASE_LABS: LabEntry[] = [
     description: 'Grave e faça splits com slider limitado ao tempo total.',
     href: '/audio-split',
     badge: 'Split',
+  },
+  {
+    id: 'videoDubbing',
+    title: 'Video Dubbing (LLM) Debug',
+    description: 'Anexe um vídeo, remova o áudio e gere nova voz com gpt-4o-mini-tts.',
+    href: '/debug/video-dubbing?debug=1',
+    badge: 'Dubbing',
   },
   {
     id: 'render',

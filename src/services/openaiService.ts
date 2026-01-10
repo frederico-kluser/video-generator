@@ -661,6 +661,15 @@ const SlideEditPlanSchema = z.object({
   operations: SlideEditOperationSchema.array(),
 });
 
+const DubbingTranslationSchema = z.object({
+  directTranslation: z.string(),
+  reflectionNotes: z.array(z.string()).optional(),
+  culturallyAdapted: z.string(),
+  summary: z.string().optional(),
+});
+
+type DubbingTranslation = z.infer<typeof DubbingTranslationSchema>;
+
 export async function refineSlideContentWithFeedback(
   slide: {
     scriptText: string;
@@ -799,6 +808,141 @@ ${slide.visualPrompt || '[vazio]'}`,
     return parsed;
   } catch (error) {
     handleOpenAIError(error, 'editSlidesWithInstructions');
+  }
+}
+
+export interface TranslateTranscriptForDubbingOptions {
+  transcript: string;
+  targetLanguage: string;
+  sourceLanguage?: string;
+  styleHints?: string;
+  durationMs?: number;
+}
+
+export interface DubbingTranslationResult {
+  literal: string;
+  adapted: string;
+  notes: string[];
+  summary?: string;
+}
+
+export async function translateTranscriptForDubbing(
+  options: TranslateTranscriptForDubbingOptions,
+): Promise<DubbingTranslationResult> {
+  const transcript = options.transcript.trim();
+  if (!transcript) {
+    throw new OpenAIServiceError('Transcrição vazia para tradução.', 'EMPTY_INPUT');
+  }
+
+  const systemPrompt = `Você é um pipeline completo de dublagem seguindo a arquitetura analisada no estudo "Open source video dubbing with LLM integration: 2025 landscape analysis". Execute três passes: (1) Tradução literal do texto, (2) Reflexão identificando erros, ritmo e termos culturais a ajustar, (3) Adaptação cultural com falas naturais que preservem sentido original e respeitem o tempo alvo.`;
+
+  const hints = [
+    options.styleHints,
+    options.durationMs
+      ? `O áudio original dura aproximadamente ${(options.durationMs / 1000).toFixed(2)}s. Mantenha frases com duração equivalente.`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const userPrompt = `Texto fonte (${options.sourceLanguage ?? 'auto'} ➜ ${options.targetLanguage}):\n${transcript}\n\nContexto adicional:\n${hints || 'Sem dicas adicionais.'}\n\nRetorne JSON com os campos directTranslation, reflectionNotes (array) e culturallyAdapted (versão final pronta para TTS).`;
+
+  try {
+    const response = await getOpenAIClient().responses.create({
+      model: 'gpt-4.1-mini',
+      instructions: systemPrompt,
+      input: [
+        {
+          role: 'user',
+          content: userPrompt,
+        },
+      ],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'dubbing_translation',
+          strict: true,
+          schema: {
+            type: 'object',
+            properties: {
+              directTranslation: { type: 'string' },
+              reflectionNotes: {
+                type: 'array',
+                items: { type: 'string' },
+              },
+              culturallyAdapted: { type: 'string' },
+              summary: { type: 'string' },
+            },
+            required: ['directTranslation', 'culturallyAdapted'],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+
+    const outputText = response.output_text?.trim();
+    if (!outputText) {
+      throw new OpenAIServiceError('Resposta vazia ao traduzir para dublagem.', 'EMPTY_RESPONSE');
+    }
+
+    const parsed = DubbingTranslationSchema.parse(JSON.parse(outputText));
+    const notes = parsed.reflectionNotes?.filter(Boolean) ?? [];
+
+    appLogger.info('🌐 Tradução multipass concluída para dublagem.', {
+      targetLanguage: options.targetLanguage,
+    });
+
+    return {
+      literal: parsed.directTranslation.trim(),
+      adapted: parsed.culturallyAdapted.trim(),
+      notes,
+      summary: parsed.summary?.trim(),
+    };
+  } catch (error) {
+    handleOpenAIError(error, 'translateTranscriptForDubbing');
+  }
+}
+
+export type MiniTtsFormat = 'wav' | 'mp3';
+
+export interface MiniTtsOptions {
+  voice?: string;
+  format?: MiniTtsFormat;
+}
+
+export async function synthesizeSpeechWithMiniTTS(
+  text: string,
+  options: MiniTtsOptions = {},
+): Promise<Blob> {
+  const normalized = text.trim();
+  if (!normalized) {
+    throw new OpenAIServiceError('Texto vazio para síntese de voz.', 'EMPTY_INPUT');
+  }
+
+  const voice = options.voice ?? 'alloy';
+  const format = options.format ?? 'wav';
+
+  try {
+    const response = await getOpenAIClient().audio.speech.create({
+      model: 'gpt-4o-mini-tts',
+      voice,
+      input: normalized,
+      format,
+    } as OpenAI.Audio.SpeechCreateParams);
+
+    const arrayBuffer = await response.arrayBuffer();
+    const mimeType = format === 'mp3' ? 'audio/mpeg' : 'audio/wav';
+    const blob = new Blob([arrayBuffer], { type: mimeType });
+
+    appLogger.info('🗣️ Voz sintetizada com gpt-4o-mini-tts.', {
+      voice,
+      format,
+      size: blob.size,
+    });
+
+    return blob;
+  } catch (error) {
+    handleOpenAIError(error, 'synthesizeSpeechWithMiniTTS');
   }
 }
 

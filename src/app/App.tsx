@@ -8,6 +8,7 @@ import { AudioSilenceLabPage } from '@/features/audio-silence/components/AudioSi
 import { AudioSplitTestPage } from '@/features/audio-split/components/AudioSplitTestPage/AudioSplitTestPage';
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
 import { VideoBatchDebugPage } from '@/features/video-generation/components/VideoBatchDebugPage/VideoBatchDebugPage';
+import { VideoDubbingWorkbenchPage } from '@/features/video-dubbing';
 import { RenderTestPage } from '@/features/render-test/components/RenderTestPage/RenderTestPage';
 import { SectionErrorFallback } from '@/shared/components/error-boundary/SectionErrorFallback';
 import { useUrlOnlyDebugMode } from '@/shared/hooks/useDebugMode';
@@ -39,6 +40,8 @@ export function App() {
     page = <AudioSplitTestPage />;
   } else if (normalizedPath === '/debug-video-tests') {
     page = isDebugMode ? <VideoBatchDebugPage /> : <VideoGenerationFlow />;
+  } else if (normalizedPath === '/debug/video-dubbing') {
+    page = isDebugMode ? <VideoDubbingWorkbenchPage /> : <VideoGenerationFlow />;
   }
 
   return (
