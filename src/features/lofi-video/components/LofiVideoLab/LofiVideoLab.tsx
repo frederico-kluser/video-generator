@@ -43,8 +43,10 @@ export function LofiVideoLab() {
   useEffect(() => {
     const firstTrack = audioTracks[0];
     if (audioRef.current && firstTrack && currentTrackIndex === 0 && !isPlaying) {
+      console.log('Setting initial audio source:', firstTrack.name);
       audioRef.current.src = firstTrack.url;
       audioRef.current.volume = 1.0; // Ensure volume is at maximum
+      audioRef.current.load(); // Force load
     }
   }, [audioTracks, currentTrackIndex, isPlaying]);
 
@@ -144,17 +146,35 @@ export function LofiVideoLab() {
     [videoUrl],
   );
 
-  const handlePlay = useCallback(() => {
+  const handlePlay = useCallback(async () => {
     if (!videoRef.current || !audioRef.current || audioTracks.length === 0) {
+      console.error('Missing refs or tracks');
       return;
     }
 
-    audioRef.current.volume = 1.0;
-    videoRef.current.play();
-    audioRef.current.play();
-    setIsPlaying(true);
-    setIsTransitioning(true);
-    setTimeout(() => setIsTransitioning(false), 1000);
+    try {
+      console.log('Starting playback...');
+      console.log('Audio src:', audioRef.current.src);
+      console.log('Audio readyState:', audioRef.current.readyState);
+
+      audioRef.current.volume = 1.0;
+
+      // Play video
+      await videoRef.current.play();
+      console.log('Video playing');
+
+      // Play audio
+      await audioRef.current.play();
+      console.log('Audio playing');
+
+      setIsPlaying(true);
+      setIsTransitioning(true);
+      setTimeout(() => setIsTransitioning(false), 1000);
+      setError(null);
+    } catch (err) {
+      console.error('Erro ao reproduzir:', err);
+      setError('Erro ao reproduzir mídia. Tente novamente.');
+    }
   }, [audioTracks.length]);
 
   const handlePause = useCallback(() => {
@@ -206,7 +226,10 @@ export function LofiVideoLab() {
       if (audioRef.current) {
         audioRef.current.src = nextTrack.url;
         audioRef.current.volume = 1.0;
-        audioRef.current.play();
+        audioRef.current.play().catch((err) => {
+          console.error('Erro ao trocar música:', err);
+          setError('Erro ao trocar de música');
+        });
       }
     } else {
       // End of playlist
@@ -287,7 +310,10 @@ export function LofiVideoLab() {
       setCurrentTime(targetTrackTime);
 
       if (isPlaying) {
-        audioRef.current.play();
+        audioRef.current.play().catch((err) => {
+          console.error('Erro ao retomar reprodução:', err);
+          setError('Erro ao navegar no áudio');
+        });
       }
     },
     [audioTracks, currentTrackIndex, isPlaying, totalDuration],
