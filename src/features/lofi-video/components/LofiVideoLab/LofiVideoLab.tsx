@@ -39,6 +39,15 @@ export function LofiVideoLab() {
     };
   }, [videoUrl]);
 
+  // Set initial audio source when tracks are available
+  useEffect(() => {
+    const firstTrack = audioTracks[0];
+    if (audioRef.current && firstTrack && currentTrackIndex === 0 && !isPlaying) {
+      audioRef.current.src = firstTrack.url;
+      audioRef.current.volume = 1.0; // Ensure volume is at maximum
+    }
+  }, [audioTracks, currentTrackIndex, isPlaying]);
+
   const handleAudioFilesChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const files = event.target.files;
@@ -140,6 +149,7 @@ export function LofiVideoLab() {
       return;
     }
 
+    audioRef.current.volume = 1.0;
     videoRef.current.play();
     audioRef.current.play();
     setIsPlaying(true);
@@ -195,6 +205,7 @@ export function LofiVideoLab() {
 
       if (audioRef.current) {
         audioRef.current.src = nextTrack.url;
+        audioRef.current.volume = 1.0;
         audioRef.current.play();
       }
     } else {
@@ -219,9 +230,67 @@ export function LofiVideoLab() {
     }
   }, []);
 
+  // Calculate total duration and accumulated time
   const totalDuration = audioTracks.reduce(
     (sum, track) => sum + track.duration,
     0,
+  );
+
+  // Calculate accumulated time for current playback position
+  const accumulatedTime = audioTracks
+    .slice(0, currentTrackIndex)
+    .reduce((sum, track) => sum + track.duration, 0) + currentTime;
+
+  // Handle seek on progress bar
+  const handleSeek = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!audioRef.current || audioTracks.length === 0) {
+        return;
+      }
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const percentage = clickX / rect.width;
+      const targetTime = percentage * totalDuration;
+
+      // Find which track and position
+      let accumulatedDuration = 0;
+      let targetTrackIndex = 0;
+      let targetTrackTime = 0;
+
+      for (let i = 0; i < audioTracks.length; i++) {
+        const track = audioTracks[i];
+        if (!track) continue;
+
+        if (accumulatedDuration + track.duration >= targetTime) {
+          targetTrackIndex = i;
+          targetTrackTime = targetTime - accumulatedDuration;
+          break;
+        }
+        accumulatedDuration += track.duration;
+      }
+
+      const targetTrack = audioTracks[targetTrackIndex];
+      if (!targetTrack) return;
+
+      // Update track if needed
+      if (targetTrackIndex !== currentTrackIndex) {
+        setCurrentTrackIndex(targetTrackIndex);
+        setIsTransitioning(true);
+        setTimeout(() => setIsTransitioning(false), 1000);
+        audioRef.current.src = targetTrack.url;
+        audioRef.current.volume = 1.0;
+      }
+
+      // Set time and play if needed
+      audioRef.current.currentTime = targetTrackTime;
+      setCurrentTime(targetTrackTime);
+
+      if (isPlaying) {
+        audioRef.current.play();
+      }
+    },
+    [audioTracks, currentTrackIndex, isPlaying, totalDuration],
   );
 
   const formatTime = (seconds: number) => {
@@ -402,12 +471,14 @@ export function LofiVideoLab() {
               onEnded={handleVideoEnded}
             />
 
-            {/* Hidden audio element */}
+            {/* Audio element */}
             <audio
               ref={audioRef}
               src={audioTracks[currentTrackIndex]?.url}
               onEnded={handleAudioEnded}
               onTimeUpdate={handleTimeUpdate}
+              preload="metadata"
+              className="hidden"
             />
 
             {/* Track label overlay */}
@@ -430,13 +501,28 @@ export function LofiVideoLab() {
           </div>
 
           <div className="mt-4 space-y-2">
+            {/* Progress bar */}
+            <div
+              className="group relative h-2 cursor-pointer rounded-full bg-white/10 hover:h-3 transition-all"
+              onClick={handleSeek}
+            >
+              <div
+                className="h-full rounded-full bg-primary-500 transition-all"
+                style={{
+                  width: `${totalDuration > 0 ? (accumulatedTime / totalDuration) * 100 : 0}%`,
+                }}
+              />
+              {/* Hover indicator */}
+              <div className="absolute -top-1 left-0 right-0 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+
+            {/* Time display */}
             <div className="flex items-center justify-between text-xs text-white/60">
               <span>
                 Música {currentTrackIndex + 1} de {audioTracks.length}
               </span>
               <span>
-                {formatTime(currentTime)} /{' '}
-                {formatTime(audioTracks[currentTrackIndex]?.duration ?? 0)}
+                {formatTime(accumulatedTime)} / {formatTime(totalDuration)}
               </span>
             </div>
           </div>
