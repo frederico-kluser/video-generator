@@ -6,6 +6,7 @@ import { AudioJoinLab } from '@/features/audio-join/components/AudioJoinLab/Audi
 import { AudioRecorderLabPage } from '@/features/audio-lab';
 import { AudioSilenceLabPage } from '@/features/audio-silence/components/AudioSilenceLabPage/AudioSilenceLabPage';
 import { AudioSplitTestPage } from '@/features/audio-split/components/AudioSplitTestPage/AudioSplitTestPage';
+import { LofiVideoLab } from '@/features/lofi-video';
 import { VideoGenerationFlow } from '@/features/video-generation/components/VideoGenerationFlow/VideoGenerationFlow';
 import { VideoBatchDebugPage } from '@/features/video-generation/components/VideoBatchDebugPage/VideoBatchDebugPage';
 import { RenderTestPage } from '@/features/render-test/components/RenderTestPage/RenderTestPage';
@@ -37,6 +38,8 @@ export function App() {
     page = <AudioSilenceLabPage />;
   } else if (normalizedPath === '/audio-split') {
     page = <AudioSplitTestPage />;
+  } else if (normalizedPath === '/lofi') {
+    page = <LofiVideoLab />;
   } else if (normalizedPath === '/debug-video-tests') {
     page = isDebugMode ? <VideoBatchDebugPage /> : <VideoGenerationFlow />;
   }

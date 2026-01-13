@@ -8,7 +8,8 @@ type AudioLabId =
   | 'audioSilence'
   | 'audioSplit'
   | 'render'
-  | 'threeBlueOneBrown';
+  | 'threeBlueOneBrown'
+  | 'lofi';
 
 type AudioLabsCtaProps = {
   current?: AudioLabId;
@@ -59,6 +60,13 @@ const BASE_LABS: LabEntry[] = [
     description: 'Teste o encoder WebAV/FFmpeg antes do envio para cloud.',
     href: '/render-test',
     badge: 'Render',
+  },
+  {
+    id: 'lofi',
+    title: 'LoFi Video Generator',
+    description: 'Monte vídeos lofi com múltiplas músicas e vídeo loop de fundo.',
+    href: '/lofi',
+    badge: 'LoFi',
   },
 ];
 
