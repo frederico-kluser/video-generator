@@ -14,6 +14,13 @@ interface AudioTrack {
   duration: number;
 }
 
+interface TrackTimestamp {
+  trackIndex: number;
+  trackName: string;
+  startTime: number;
+  endTime: number;
+}
+
 export function LofiVideoLab() {
   const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -24,6 +31,7 @@ export function LofiVideoLab() {
   const [currentTime, setCurrentTime] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [trackTimestamps, setTrackTimestamps] = useState<TrackTimestamp[]>([]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -39,16 +47,41 @@ export function LofiVideoLab() {
     };
   }, [videoUrl]);
 
-  // Set initial audio source when tracks are available
+  // Calculate timestamps when audio tracks change
   useEffect(() => {
-    const firstTrack = audioTracks[0];
-    if (audioRef.current && firstTrack && currentTrackIndex === 0 && !isPlaying) {
-      console.log('Setting initial audio source:', firstTrack.name);
-      audioRef.current.src = firstTrack.url;
-      audioRef.current.volume = 1.0; // Ensure volume is at maximum
-      audioRef.current.load(); // Force load
+    if (audioTracks.length === 0) {
+      setTrackTimestamps([]);
+      return;
     }
-  }, [audioTracks, currentTrackIndex, isPlaying]);
+
+    const timestamps: TrackTimestamp[] = [];
+    let accumulatedTime = 0;
+
+    audioTracks.forEach((track, index) => {
+      timestamps.push({
+        trackIndex: index,
+        trackName: track.name,
+        startTime: accumulatedTime,
+        endTime: accumulatedTime + track.duration,
+      });
+      accumulatedTime += track.duration;
+    });
+
+    setTrackTimestamps(timestamps);
+    console.log('Track timestamps calculated:', timestamps);
+  }, [audioTracks]);
+
+  // Set audio source when track changes
+  useEffect(() => {
+    const currentTrack = audioTracks[currentTrackIndex];
+    if (audioRef.current && currentTrack) {
+      console.log('Setting audio source:', currentTrack.name, 'URL:', currentTrack.url);
+      audioRef.current.src = currentTrack.url;
+      audioRef.current.volume = 1.0;
+      audioRef.current.load();
+      console.log('Audio loaded, readyState:', audioRef.current.readyState);
+    }
+  }, [audioTracks, currentTrackIndex]);
 
   const handleAudioFilesChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,6 +192,25 @@ export function LofiVideoLab() {
 
       audioRef.current.volume = 1.0;
 
+      // Wait for audio to be loaded if needed
+      if (audioRef.current.readyState < 2) {
+        console.log('Waiting for audio to load...');
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Audio load timeout')), 5000);
+
+          audioRef.current!.addEventListener('canplay', () => {
+            clearTimeout(timeout);
+            console.log('Audio ready to play');
+            resolve();
+          }, { once: true });
+
+          audioRef.current!.addEventListener('error', () => {
+            clearTimeout(timeout);
+            reject(new Error('Audio load error'));
+          }, { once: true });
+        });
+      }
+
       // Play video
       await videoRef.current.play();
       console.log('Video playing');
@@ -173,7 +225,7 @@ export function LofiVideoLab() {
       setError(null);
     } catch (err) {
       console.error('Erro ao reproduzir:', err);
-      setError('Erro ao reproduzir mídia. Tente novamente.');
+      setError(`Erro ao reproduzir mídia: ${err instanceof Error ? err.message : 'Desconhecido'}`);
     }
   }, [audioTracks.length]);
 
@@ -223,14 +275,15 @@ export function LofiVideoLab() {
       setIsTransitioning(true);
       setTimeout(() => setIsTransitioning(false), 1000);
 
-      if (audioRef.current) {
-        audioRef.current.src = nextTrack.url;
-        audioRef.current.volume = 1.0;
-        audioRef.current.play().catch((err) => {
-          console.error('Erro ao trocar música:', err);
-          setError('Erro ao trocar de música');
-        });
-      }
+      // Wait for useEffect to set the new source, then play
+      setTimeout(() => {
+        if (audioRef.current && isPlaying) {
+          audioRef.current.play().catch((err) => {
+            console.error('Erro ao trocar música:', err);
+            setError('Erro ao trocar de música');
+          });
+        }
+      }, 100);
     } else {
       // End of playlist
       handlePause();
@@ -301,19 +354,32 @@ export function LofiVideoLab() {
         setCurrentTrackIndex(targetTrackIndex);
         setIsTransitioning(true);
         setTimeout(() => setIsTransitioning(false), 1000);
-        audioRef.current.src = targetTrack.url;
-        audioRef.current.volume = 1.0;
-      }
 
-      // Set time and play if needed
-      audioRef.current.currentTime = targetTrackTime;
-      setCurrentTime(targetTrackTime);
+        // Wait for useEffect to set the new source
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.currentTime = targetTrackTime;
+            setCurrentTime(targetTrackTime);
 
-      if (isPlaying) {
-        audioRef.current.play().catch((err) => {
-          console.error('Erro ao retomar reprodução:', err);
-          setError('Erro ao navegar no áudio');
-        });
+            if (isPlaying) {
+              audioRef.current.play().catch((err) => {
+                console.error('Erro ao retomar reprodução:', err);
+                setError('Erro ao navegar no áudio');
+              });
+            }
+          }
+        }, 100);
+      } else {
+        // Same track, just seek
+        audioRef.current.currentTime = targetTrackTime;
+        setCurrentTime(targetTrackTime);
+
+        if (isPlaying) {
+          audioRef.current.play().catch((err) => {
+            console.error('Erro ao retomar reprodução:', err);
+            setError('Erro ao navegar no áudio');
+          });
+        }
       }
     },
     [audioTracks, currentTrackIndex, isPlaying, totalDuration],
@@ -324,6 +390,50 @@ export function LofiVideoLab() {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Generate FFmpeg command for rendering
+  const generateFFmpegCommand = useCallback(() => {
+    if (!videoFile || audioTracks.length === 0 || trackTimestamps.length === 0) {
+      return '';
+    }
+
+    const videoInput = `video.mp4`; // placeholder
+    const audioInputs = audioTracks.map((_, i) => `audio${i}.mp3`).join(' ');
+
+    // Build drawtext filters for each track
+    const drawtextFilters = trackTimestamps.map((timestamp) => {
+      const trackName = timestamp.trackName.replace(/'/g, "\\'");
+      const startTime = timestamp.startTime;
+      const endTime = timestamp.endTime;
+
+      return `drawtext=text='TOCANDO AGORA\\n${trackName}':` +
+        `fontfile=/System/Library/Fonts/Helvetica.ttc:fontsize=20:fontcolor=white:` +
+        `box=1:boxcolor=black@0.8:boxborderw=10:` +
+        `x=W-tw-20:y=H-th-20:` +
+        `enable='between(t,${startTime.toFixed(2)},${endTime.toFixed(2)})'`;
+    }).join(',');
+
+    // Concatenate audio files
+    const audioConcat = audioTracks.map((_, i) => `[${i}:a]`).join('');
+    const audioConcatFilter = `${audioConcat}concat=n=${audioTracks.length}:v=0:a=1[aout]`;
+
+    return `# Comando FFmpeg para renderizar o vídeo LoFi
+
+# 1. Concatenar áudios
+ffmpeg ${audioTracks.map((_, i) => `-i audio${i}.mp3`).join(' ')} \\
+  -filter_complex "${audioConcatFilter}" \\
+  -map "[aout]" concatenated_audio.mp3
+
+# 2. Adicionar vídeo loop e labels
+ffmpeg -stream_loop -1 -i ${videoInput} \\
+  -i concatenated_audio.mp3 \\
+  -filter_complex "[0:v]${drawtextFilters}[vout]" \\
+  -map "[vout]" -map 1:a \\
+  -c:v libx264 -preset medium -crf 23 \\
+  -c:a aac -b:a 192k \\
+  -shortest \\
+  output.mp4`;
+  }, [videoFile, audioTracks, trackTimestamps]);
 
   const canPreview = audioTracks.length > 0 && videoFile;
 
@@ -500,26 +610,37 @@ export function LofiVideoLab() {
             {/* Audio element */}
             <audio
               ref={audioRef}
-              src={audioTracks[currentTrackIndex]?.url}
               onEnded={handleAudioEnded}
               onTimeUpdate={handleTimeUpdate}
-              preload="metadata"
+              preload="auto"
               className="hidden"
             />
 
-            {/* Track label overlay */}
+            {/* Track label overlay - FFmpeg compatible design */}
             {isPlaying && audioTracks[currentTrackIndex] && (
               <div
-                className={`absolute bottom-4 right-4 rounded-lg border border-white/20 bg-black/70 px-4 py-2 backdrop-blur-sm transition-all duration-300 ${
-                  isTransitioning
-                    ? 'animate-fade-in scale-110'
-                    : 'scale-100'
-                }`}
+                className="absolute bottom-5 right-5 px-4 py-3 bg-black/80"
+                style={{
+                  fontFamily: 'Arial, sans-serif',
+                  transition: isTransitioning ? 'opacity 0.3s' : 'none',
+                  opacity: isTransitioning ? 0.5 : 1,
+                }}
+                data-ffmpeg-x="W-tw-20"
+                data-ffmpeg-y="H-th-20"
+                data-ffmpeg-fontsize="20"
+                data-ffmpeg-fontcolor="white"
+                data-ffmpeg-boxcolor="black@0.8"
               >
-                <p className="text-xs uppercase tracking-wider text-white/60">
-                  Tocando agora
+                <p
+                  className="text-xs uppercase tracking-wide text-gray-400"
+                  style={{ marginBottom: '2px', fontWeight: 'normal' }}
+                >
+                  TOCANDO AGORA
                 </p>
-                <p className="text-sm font-medium text-white">
+                <p
+                  className="text-base font-bold text-white"
+                  style={{ fontWeight: 'bold' }}
+                >
                   {audioTracks[currentTrackIndex].name}
                 </p>
               </div>
@@ -559,6 +680,51 @@ export function LofiVideoLab() {
         <LabAlert>
           Adicione pelo menos uma música e um vídeo para visualizar o preview
         </LabAlert>
+      )}
+
+      {/* FFmpeg command generator */}
+      {canPreview && (
+        <LabCard
+          title="Comando FFmpeg para Renderização"
+          actions={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const command = generateFFmpegCommand();
+                navigator.clipboard.writeText(command);
+                alert('Comando copiado para a área de transferência!');
+              }}
+            >
+              Copiar Comando
+            </Button>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-white/70">
+              O design do banner foi criado para ser reproduzível com FFmpeg usando apenas o filtro <code className="px-1 py-0.5 rounded bg-white/10">drawtext</code>.
+              Use o comando abaixo para gerar o vídeo final com os banners de nome das músicas.
+            </p>
+
+            <div className="rounded-lg bg-dark-900 p-4">
+              <pre className="text-xs text-white/90 overflow-x-auto whitespace-pre-wrap font-mono">
+                {generateFFmpegCommand()}
+              </pre>
+            </div>
+
+            <div className="space-y-2 text-xs text-white/60">
+              <p><strong>Parâmetros do Banner:</strong></p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Posição: Bottom-right (20px de margem)</li>
+                <li>Fundo: Preto com 80% de opacidade</li>
+                <li>Fonte: Arial 20px, cor branca</li>
+                <li>Padding: 10px (via boxborderw)</li>
+                <li>Visibilidade: Controlada por timestamps (enable)</li>
+              </ul>
+            </div>
+          </div>
+        </LabCard>
       )}
     </LabPageLayout>
   );
